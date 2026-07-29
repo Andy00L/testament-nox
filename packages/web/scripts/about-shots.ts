@@ -55,10 +55,18 @@ async function installWalletStubs(context: BrowserContext, autoConnectAddress: s
         removeListener: () => undefined,
       });
 
-      const wallets = [
-        { uuid: "88e97ff8-0001-4a5c-a4bd-000000000001", name: "MetaMask", rdns: "io.metamask", icon: metamaskIcon },
-        { uuid: "88e97ff8-0002-4a5c-a4bd-000000000002", name: "Rabby", rdns: "io.rabby", icon: rabbyIcon },
-      ];
+      // Two wallets are announced only for the chooser photograph. For the connected
+      // states a single provider is announced: with two both claiming accounts, wagmi's
+      // reconnect cannot pick one and the page stays disconnected.
+      const wallets =
+        accountAddress === null
+          ? [
+              { uuid: "88e97ff8-0001-4a5c-a4bd-000000000001", name: "MetaMask", rdns: "io.metamask", icon: metamaskIcon },
+              { uuid: "88e97ff8-0002-4a5c-a4bd-000000000002", name: "Rabby", rdns: "io.rabby", icon: rabbyIcon },
+            ]
+          : [
+              { uuid: "88e97ff8-0001-4a5c-a4bd-000000000001", name: "MetaMask", rdns: "io.metamask", icon: metamaskIcon },
+            ];
       for (const info of wallets) {
         const detail = {
           info,
@@ -103,7 +111,7 @@ async function main() {
     const page = await context.newPage();
     await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
     await settle(page);
-    await page.getByRole("button", { name: "Connecter" }).click();
+    await page.getByRole("button", { name: "Connect" }).click();
     await page.waitForTimeout(700);
     await capture(page, "step-connect.webp");
     await context.close();
@@ -120,9 +128,9 @@ async function main() {
     await page.goto(`${BASE_URL}/ecrire`, { waitUntil: "networkidle" });
     await settle(page);
     const inputs = page.locator("input");
-    await inputs.nth(0).fill("0x71De5E2141C89F7fbbFa4977Cc7bC663eBdda7f2");
+    await inputs.nth(0).fill("0x71De5E2141C89F7A6c5260d10D18CbC47fB1a7f2");
     await inputs.nth(1).fill("60");
-    await inputs.nth(2).fill("0xe5aFeC35193B23B2ba9DF275AB57845bDf1CF484");
+    await inputs.nth(2).fill("0xe5aFeC35193B23B3AFD1B2C74613598714D5F484");
     await inputs.nth(3).fill("40");
     await inputs.nth(4).fill("0x4c67A14075e451651B81D2E6f2038a7d1d007192");
     await page.waitForTimeout(1200);
@@ -140,7 +148,8 @@ async function main() {
     const page = await context.newPage();
     await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
     await settle(page);
-    await page.getByText("Donner un signe de vie").waitFor({ timeout: 20000 });
+    // By role, not by text: the hero lede also says "send a sign of life" in English.
+    await page.getByRole("button", { name: "Send a sign of life" }).waitFor({ timeout: 20000 });
     await page.waitForTimeout(400);
     await capture(page, "step-heartbeat.webp");
     await context.close();
@@ -155,12 +164,12 @@ async function main() {
     const page = await context.newPage();
 
     await page.goto(`${BASE_URL}/porte?id=${CLOSED_TESTAMENT_ID}`, { waitUntil: "networkidle" });
-    await page.getByText("La porte est fermée.").waitFor({ timeout: 20000 });
+    await page.getByText("The door is closed.").waitFor({ timeout: 20000 });
     await settle(page);
     await capture(page, "step-door-closed.webp");
 
     await page.goto(`${BASE_URL}/porte?id=${OPEN_TESTAMENT_ID}`, { waitUntil: "networkidle" });
-    await page.getByText("Le coffre a payé").waitFor({ timeout: 30000 });
+    await page.getByText("The vault has paid").waitFor({ timeout: 30000 });
     await settle(page, 900);
     await capture(page, "step-door-open.webp");
     await context.close();

@@ -42,12 +42,12 @@ await page.waitForTimeout(1800);
 await capture(page, "01-scene");
 
 await page.goto(`${BASE_URL}/ecrire`, { waitUntil: "networkidle" });
-await page.getByLabel("Héritier 1").fill("0x71De5E2141C89F7A6c5260d10D18CbC47fB1a7f2");
-await page.getByLabel("Héritier 2").fill("0xe5aFeC35193B23B3AFD1B2C74613598714D5F484");
-const shares = page.getByLabel("Part");
+await page.getByLabel("Heir 1").fill("0x71De5E2141C89F7A6c5260d10D18CbC47fB1a7f2");
+await page.getByLabel("Heir 2").fill("0xe5aFeC35193B23B3AFD1B2C74613598714D5F484");
+const shares = page.getByLabel("Share");
 await shares.nth(0).fill("60");
 await shares.nth(1).fill("40");
-await page.getByLabel("Adresse du Safe").fill("0x4c67A14075e451651B81D2E6f2038a7d1d007192");
+await page.getByLabel("Safe address").fill("0x4c67A14075e451651B81D2E6f2038a7d1d007192");
 await page.mouse.move(1200, 500);
 await page.waitForTimeout(1500);
 await capture(page, "02-write");
@@ -55,7 +55,7 @@ await capture(page, "02-write");
 // The door reading a real executed testament off Sepolia, no wallet connected. The id is
 // explicit now: without a link the door explains itself instead of showing anything.
 await page.goto(`${BASE_URL}/porte?id=1`, { waitUntil: "networkidle" });
-await page.getByText("La porte est ouverte.").waitFor({ timeout: 30_000 });
+await page.getByText("The door is open.").waitFor({ timeout: 30_000 });
 await page.waitForTimeout(1500);
 await capture(page, "03-door");
 

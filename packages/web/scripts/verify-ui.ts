@@ -186,29 +186,29 @@ console.log("\ncontrols respond");
 await page.goto(`${BASE_URL}/ecrire`, { waitUntil: "networkidle" });
 await page.waitForTimeout(800);
 
-const rowsBefore = await page.locator("li").filter({ has: page.getByText("Héritier") }).count();
-await page.getByRole("button", { name: "Ajouter un héritier" }).click();
+const rowsBefore = await page.locator("li").filter({ has: page.getByText("Heir") }).count();
+await page.getByRole("button", { name: "Add an heir" }).click();
 await page.waitForTimeout(300);
-const rowsAfterAdd = await page.locator("li").filter({ has: page.getByText("Héritier") }).count();
+const rowsAfterAdd = await page.locator("li").filter({ has: page.getByText("Heir") }).count();
 check("add heir adds a row", rowsAfterAdd === rowsBefore + 1, `${rowsBefore} to ${rowsAfterAdd}`);
 
-await page.getByRole("button", { name: "Retirer" }).last().click();
+await page.getByRole("button", { name: "Remove" }).last().click();
 await page.waitForTimeout(300);
-const rowsAfterRemove = await page.locator("li").filter({ has: page.getByText("Héritier") }).count();
+const rowsAfterRemove = await page.locator("li").filter({ has: page.getByText("Heir") }).count();
 check("remove heir removes a row", rowsAfterRemove === rowsBefore, `back to ${rowsAfterRemove}`);
 
-await page.getByLabel("Héritier 1").fill("0x71De5E2141C89F7A6c5260d10D18CbC47fB1a7f2");
-await page.getByLabel("Part").first().fill("60");
+await page.getByLabel("Heir 1").fill("0x71De5E2141C89F7A6c5260d10D18CbC47fB1a7f2");
+await page.getByLabel("Share").first().fill("60");
 await page.waitForTimeout(200);
-const counterText = (await page.getByText(/attribués sur 100/).textContent()) ?? "";
+const counterText = (await page.getByText(/of 100 allocated/).textContent()) ?? "";
 check("share counter reacts to input", counterText.includes("60"), counterText.trim());
 
-await page.getByLabel("Héritier 2").fill("0xnope");
+await page.getByLabel("Heir 2").fill("0xnope");
 await page.waitForTimeout(200);
-const hasAddressError = await page.getByText("Adresse invalide.").first().isVisible();
+const hasAddressError = await page.getByText("Invalid address.").first().isVisible();
 check("invalid address surfaces an error", hasAddressError, "inline error shown");
 
-const soundToggle = page.getByRole("button", { name: /carillons|Couper le son/ });
+const soundToggle = page.getByRole("button", { name: /chimes|Mute/ });
 const soundLabelBefore = (await soundToggle.textContent()) ?? "";
 await soundToggle.click();
 await page.waitForTimeout(300);
@@ -216,7 +216,7 @@ const soundLabelAfter = (await soundToggle.textContent()) ?? "";
 check("sound toggle changes state", soundLabelBefore !== soundLabelAfter, `${soundLabelBefore.trim()} to ${soundLabelAfter.trim()}`);
 
 // The seal must refuse to fire while the will is invalid, and say why rather than sit dead.
-const sealButton = page.getByRole("button", { name: /Presser le sceau/ });
+const sealButton = page.getByRole("button", { name: /Press the seal/ });
 check("seal is disabled on an invalid will", await sealButton.isDisabled(), "disabled with a stated reason");
 
 // ---- The scroll stretches with its content --------------------------------------------
@@ -229,7 +229,7 @@ const sheetBefore = await sheet.boundingBox();
 const borderImage = await sheet.evaluate((node) => getComputedStyle(node).borderImageSource);
 check("sheet carries the scroll image", borderImage.includes("scroll.webp"), "border-image set");
 for (let added = 0; added < 5; added += 1) {
-  await page.getByRole("button", { name: "Ajouter un héritier" }).click();
+  await page.getByRole("button", { name: "Add an heir" }).click();
   await page.waitForTimeout(80);
 }
 const sheetAfter = await sheet.boundingBox();
@@ -244,24 +244,24 @@ check(
 console.log("\nwallet chooser");
 await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
 await page.waitForTimeout(900);
-await page.getByRole("button", { name: "Connecter" }).click();
+await page.getByRole("button", { name: "Connect" }).click();
 await page.waitForTimeout(300);
 check(
   "chooser opens on the one connect button",
-  await page.getByText("Choisir un portefeuille").isVisible(),
+  await page.getByText("Choose a wallet").isVisible(),
   "panel visible",
 );
 // Headless chromium has no wallet extension, so the honest state is "none detected".
 check(
   "an empty browser is told no wallet was detected",
-  await page.getByText("Aucun portefeuille détecté dans ce navigateur.").isVisible(),
+  await page.getByText("No wallet detected in this browser.").isVisible(),
   "no dead rows",
 );
 await page.keyboard.press("Escape");
 await page.waitForTimeout(200);
 check(
   "Escape closes the chooser",
-  !(await page.getByText("Choisir un portefeuille").isVisible()),
+  !(await page.getByText("Choose a wallet").isVisible()),
   "closed",
 );
 
@@ -272,12 +272,12 @@ await page.goto(`${BASE_URL}/porte`, { waitUntil: "networkidle" });
 await page.waitForTimeout(900);
 check(
   "the door without an id shows the explanation",
-  await page.getByText("Chaque testament a sa porte.").isVisible(),
+  await page.getByText("Every testament has its own door.").isVisible(),
   "no stranger's testament on the doorstep",
 );
 check(
   "no testament content leaks on the linkless door",
-  !(await page.getByText("La porte est ouverte.").isVisible()),
+  !(await page.getByText("The door is open.").isVisible()),
   "nothing to read",
 );
 
@@ -288,7 +288,7 @@ await page.goto(`${BASE_URL}/apropos`, { waitUntil: "networkidle" });
 await page.waitForTimeout(900);
 check(
   "the about page renders on the scroll",
-  await page.getByText("Comprendre Testament").first().isVisible(),
+  await page.getByText("Understanding Testament").first().isVisible(),
   "title on the parchment",
 );
 const stepImageCount = await page.locator("img[src*='about']").count();
@@ -299,16 +299,16 @@ check("all five step photographs are mounted", stepImageCount === 5, `${stepImag
 console.log("\nlanguage");
 await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
 await page.waitForTimeout(900);
-const frenchHeadline = await page.locator("h1").first().innerText();
-await page.getByRole("button", { name: "English" }).click();
-await page.waitForTimeout(400);
 const englishHeadline = await page.locator("h1").first().innerText();
-const htmlLang = await page.evaluate(() => document.documentElement.lang);
-check("headline switches language", frenchHeadline !== englishHeadline, englishHeadline.replace(/\n/g, " ").slice(0, 40));
-check("html lang follows the switch", htmlLang === "en", `lang="${htmlLang}"`);
 await page.getByRole("button", { name: "Français" }).click();
+await page.waitForTimeout(400);
+const frenchHeadline = await page.locator("h1").first().innerText();
+const htmlLang = await page.evaluate(() => document.documentElement.lang);
+check("headline switches language", englishHeadline !== frenchHeadline, frenchHeadline.replace(/\n/g, " ").slice(0, 40));
+check("html lang follows the switch", htmlLang === "fr", `lang="${htmlLang}"`);
+await page.getByRole("button", { name: "English" }).click();
 await page.waitForTimeout(300);
-check("switches back to French", (await page.locator("h1").first().innerText()) === frenchHeadline, "round trip");
+check("switches back to English", (await page.locator("h1").first().innerText()) === englishHeadline, "round trip");
 
 // ---- The curtain rings when the pointer passes through it -----------------------------
 
@@ -334,7 +334,7 @@ const audioPage = await audioContext.newPage();
 await audioPage.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
 await audioPage.waitForTimeout(1400);
 
-await audioPage.getByRole("button", { name: /carillons/ }).click();
+await audioPage.getByRole("button", { name: /chimes/ }).click();
 await audioPage.waitForTimeout(300);
 const beforeSweep = await audioPage.evaluate(
   () => window.__oscillators ?? 0,
@@ -385,7 +385,7 @@ await noScriptPage.goto(`${BASE_URL}/`, { waitUntil: "domcontentloaded" });
 const headlineWithoutJs = await noScriptPage.locator("h1").first().innerText();
 check(
   "headline renders with JavaScript disabled",
-  headlineWithoutJs.includes("Votre Safe"),
+  headlineWithoutJs.includes("Your Safe"),
   headlineWithoutJs.replace(/\n/g, " ").slice(0, 48),
 );
 await noScriptPage.screenshot({ path: resolve(OUTPUT_DIR, "no-javascript.png") });

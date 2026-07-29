@@ -39,7 +39,8 @@ export function useTranslation(): LanguageControls {
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguage] = useState<Language>("fr");
+  // English first: the judges read English, and French stays one press away.
+  const [language, setLanguage] = useState<Language>("en");
 
   const toggleLanguage = useCallback(() => {
     setLanguage((current) => (current === "fr" ? "en" : "fr"));

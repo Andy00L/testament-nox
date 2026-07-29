@@ -1,8 +1,8 @@
 /**
  * Every word the interface says, in both languages it speaks.
  *
- * French is the default because the event is French-community heavy; English exists because
- * the judges are not. `english` is typed as `typeof french`, so a string added to one and
+ * English is the default because the judges read it; French stays one press away for the
+ * event's community. `english` is typed as `typeof french`, so a string added to one and
  * forgotten in the other is a compile error rather than a hole a visitor finds.
  *
  * Entries that need a value interpolated are functions, so no component ever concatenates

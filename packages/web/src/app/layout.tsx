@@ -33,13 +33,13 @@ const notoSerifSc = localFont({
 export const metadata: Metadata = {
   title: "Testament",
   description:
-    "Un testament confidentiel pour votre Safe, chiffré jusqu'au moment où il doit s'exécuter. A confidential will for your Safe, encrypted until the moment it must execute.",
+    "A confidential will for your Safe, encrypted until the moment it must execute. Un testament confidentiel pour votre Safe, chiffré jusqu'au moment où il doit s'exécuter.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    // `lang` starts French and is kept honest by HtmlLanguageSync when the visitor switches.
-    <html lang="fr" className={`${gambarino.variable} ${notoSerifSc.variable} h-full`}>
+    // `lang` starts English and is kept honest by HtmlLanguageSync when the visitor switches.
+    <html lang="en" className={`${gambarino.variable} ${notoSerifSc.variable} h-full`}>
       <body className="tatami-field relative flex min-h-full flex-col overflow-x-hidden">
         <WalletProviders>
           <LanguageProvider>
