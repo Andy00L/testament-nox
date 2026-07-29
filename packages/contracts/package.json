@@ -13,6 +13,7 @@
     "authorize-writer:sepolia": "hardhat run scripts/authorize-writer.ts --network sepolia",
     "disable-module:sepolia": "hardhat run scripts/disable-module.ts --network sepolia",
     "e2e:sepolia": "hardhat run scripts/e2e-sepolia.ts --network sepolia",
+    "demo-retry:sepolia": "hardhat run scripts/demo-retry.ts --network sepolia",
     "typecheck": "tsc --noEmit",
     "create-safe:sepolia": "hardhat run scripts/create-safe.ts --network sepolia",
     "write-demo:sepolia": "hardhat run scripts/write-demo.ts --network sepolia",

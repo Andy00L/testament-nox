@@ -16,6 +16,22 @@ export const testamentRegistryAbi = [
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "safe",
+        "type": "address"
+      },
+      {
+        "internalType": "uint32",
+        "name": "nonce",
+        "type": "uint32"
+      }
+    ],
+    "name": "AuthorizationAlreadyUsed",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint32",
         "name": "grace",
         "type": "uint32"
@@ -214,6 +230,22 @@ export const testamentRegistryAbi = [
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "testamentId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint8",
+        "name": "slot",
+        "type": "uint8"
+      }
+    ],
+    "name": "SlotAlreadyPaid",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "handleCount",
         "type": "uint256"
       },
@@ -229,6 +261,38 @@ export const testamentRegistryAbi = [
       }
     ],
     "name": "SlotCountMismatch",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "testamentId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint8",
+        "name": "slot",
+        "type": "uint8"
+      }
+    ],
+    "name": "SlotNotPlanned",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint8",
+        "name": "slot",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "slotCount",
+        "type": "uint256"
+      }
+    ],
+    "name": "SlotOutOfRange",
     "type": "error"
   },
   {
@@ -304,6 +368,68 @@ export const testamentRegistryAbi = [
       },
       {
         "indexed": true,
+        "internalType": "uint8",
+        "name": "slot",
+        "type": "uint8"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "heir",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "HeirPaymentFailed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "testamentId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint8",
+        "name": "slot",
+        "type": "uint8"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "heir",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "HeirPaymentSucceeded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "testamentId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
         "internalType": "address",
         "name": "executedBy",
         "type": "address"
@@ -328,6 +454,50 @@ export const testamentRegistryAbi = [
       }
     ],
     "name": "TestamentExecuted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "testamentId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "totalPaid",
+        "type": "uint256"
+      }
+    ],
+    "name": "TestamentFullyExecuted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "testamentId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "paidAmount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "failedAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "TestamentPartiallyExecuted",
     "type": "event"
   },
   {
@@ -523,6 +693,25 @@ export const testamentRegistryAbi = [
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "safe",
+        "type": "address"
+      }
+    ],
+    "name": "consumedAuthNonce",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "nonce",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "testamentId",
         "type": "uint256"
@@ -677,6 +866,78 @@ export const testamentRegistryAbi = [
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "testamentId",
+        "type": "uint256"
+      }
+    ],
+    "name": "paidSlots",
+    "outputs": [
+      {
+        "internalType": "uint8",
+        "name": "slots",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "testamentId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint8",
+        "name": "slot",
+        "type": "uint8"
+      }
+    ],
+    "name": "plannedPaymentOf",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "heir",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "paid",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "testamentId",
+        "type": "uint256"
+      }
+    ],
+    "name": "plannedSlots",
+    "outputs": [
+      {
+        "internalType": "uint8",
+        "name": "slots",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "fromId",
         "type": "uint256"
       },
@@ -708,6 +969,48 @@ export const testamentRegistryAbi = [
     "name": "release",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "testamentId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint8",
+        "name": "slot",
+        "type": "uint8"
+      }
+    ],
+    "name": "retryPayment",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "fromId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "toId",
+        "type": "uint256"
+      }
+    ],
+    "name": "retryableIds",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "ids",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -786,6 +1089,25 @@ export const testamentRegistryAbi = [
         "internalType": "uint32",
         "name": "authNonce",
         "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "testamentId",
+        "type": "uint256"
+      }
+    ],
+    "name": "unpaidSlots",
+    "outputs": [
+      {
+        "internalType": "uint8",
+        "name": "",
+        "type": "uint8"
       }
     ],
     "stateMutability": "view",
@@ -906,6 +1228,22 @@ export const testamentModuleAbi = [
   {
     "inputs": [],
     "name": "RegistryIsZeroAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "count",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maximum",
+        "type": "uint256"
+      }
+    ],
+    "name": "TooManyRecipients",
     "type": "error"
   },
   {
@@ -1153,14 +1491,19 @@ export const testamentModuleAbi = [
             "type": "uint256"
           },
           {
-            "internalType": "uint256",
+            "internalType": "uint8",
             "name": "successfulTransfers",
-            "type": "uint256"
+            "type": "uint8"
           },
           {
-            "internalType": "uint256",
+            "internalType": "uint8",
             "name": "failedTransfers",
-            "type": "uint256"
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint8",
+            "name": "paidBitmap",
+            "type": "uint8"
           }
         ],
         "internalType": "struct TestamentModule.DistributionResult",

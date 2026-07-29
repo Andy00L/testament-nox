@@ -64,10 +64,18 @@ contract TestamentRegistry is ReentrancyGuard {
 
     // ============ Types ============
 
+    /**
+     * @dev `None` stays at zero so an unwritten id reads as absent. `PartiallyExecuted` sits
+     *      between `Released` and `Executed` because that is the order a will moves through:
+     *      an heir whose wallet refuses ETH leaves the estate mid-settlement, and the record
+     *      has to be able to say so instead of claiming a payout that did not happen.
+     *      A will never moves backwards.
+     */
     enum TestamentState {
         None,
         Active,
         Released,
+        PartiallyExecuted,
         Executed,
         Revoked
     }
@@ -109,6 +117,35 @@ contract TestamentRegistry is ReentrancyGuard {
 
     mapping(uint256 testamentId => Testament testament) private _testaments;
 
+    /**
+     * @notice The last mandate nonce a Safe has already spent on a testament.
+     * @dev One authorization buys one will. `write` requires the Safe's current nonce to be
+     *      above whatever was spent here, so a mandate cannot be reused to draw a second will
+     *      after the first is revoked or paid out. The Safe simply authorizes again.
+     */
+    mapping(address safe => uint32 nonce) public consumedAuthNonce;
+
+    /**
+     * @notice Slots this testament owes, and slots it has actually paid. Bit `i` is slot `i`.
+     * @dev Both are written at execution. A will is finished only when they are equal, which
+     *      is what makes a refused heir a retryable debt rather than a rounding error.
+     */
+    mapping(uint256 testamentId => uint8 slots) public plannedSlots;
+    mapping(uint256 testamentId => uint8 slots) public paidSlots;
+
+    /**
+     * @dev The settled plan, written once at execution and read by every retry. Persisting it
+     *      is what makes a retry safe: the caller supplies nothing but an id and a slot, so
+     *      there is no heir, share, amount or proof for them to bend. It also pins each share
+     *      to the estate as it stood at execution, so a retry after the Safe has partly
+     *      drained still pays what the will actually allocated.
+     *
+     *      Storing plaintext here leaks nothing: a testament is only executable once released,
+     *      and release is the moment the whole plan becomes public by construction.
+     */
+    mapping(uint256 testamentId => address[SLOTS] recipients) private _plannedRecipients;
+    mapping(uint256 testamentId => uint256[SLOTS] amounts) private _plannedAmounts;
+
     // ============ Errors ============
 
     error ModuleIsZeroAddress();
@@ -127,6 +164,10 @@ contract TestamentRegistry is ReentrancyGuard {
     error NoValidBequests(uint256 testamentId);
     error ModuleNotEnabled(address safe);
     error InvalidRange(uint256 fromId, uint256 toId);
+    error AuthorizationAlreadyUsed(address safe, uint32 nonce);
+    error SlotOutOfRange(uint8 slot, uint256 slotCount);
+    error SlotNotPlanned(uint256 testamentId, uint8 slot);
+    error SlotAlreadyPaid(uint256 testamentId, uint8 slot);
 
     // ============ Events ============
 
@@ -153,6 +194,27 @@ contract TestamentRegistry is ReentrancyGuard {
         uint256 paidAmount,
         uint256 failedAmount
     );
+
+    event HeirPaymentSucceeded(
+        uint256 indexed testamentId,
+        uint8 indexed slot,
+        address indexed heir,
+        uint256 amount
+    );
+    event HeirPaymentFailed(
+        uint256 indexed testamentId,
+        uint8 indexed slot,
+        address indexed heir,
+        uint256 amount
+    );
+    /// @notice Some heirs are owed money still sitting in the Safe. Retry is open to anyone.
+    event TestamentPartiallyExecuted(
+        uint256 indexed testamentId,
+        uint256 paidAmount,
+        uint256 failedAmount
+    );
+    /// @notice Every heir the will named has been paid. The estate is settled.
+    event TestamentFullyExecuted(uint256 indexed testamentId, uint256 totalPaid);
 
     // ============ Constructor ============
 
@@ -222,6 +284,12 @@ contract TestamentRegistry is ReentrancyGuard {
         // any stranger could name any module-enabled Safe as the estate paying their will.
         (address mandatedWriter, uint32 authNonce) = module.authorizationOf(safe);
         require(mandatedWriter == msg.sender, WriterNotAuthorized(safe, msg.sender));
+        // One authorization buys one will. Spending it here means a Safe whose testament was
+        // revoked or settled has to say yes again before another can be drawn on it.
+        require(
+            authNonce > consumedAuthNonce[safe],
+            AuthorizationAlreadyUsed(safe, authNonce)
+        );
 
         testamentId = ++lastTestamentId;
         Testament storage testament = _testaments[testamentId];
@@ -249,6 +317,7 @@ contract TestamentRegistry is ReentrancyGuard {
 
         activeTestamentOf[msg.sender] = testamentId;
         activeTestamentOfSafe[safe] = testamentId;
+        consumedAuthNonce[safe] = authNonce;
         emit TestamentWritten(testamentId, msg.sender, safe, interval, grace, authNonce);
     }
 
@@ -345,48 +414,28 @@ contract TestamentRegistry is ReentrancyGuard {
         // retried once it is funded, rather than burning the one execution it gets.
         require(estateValue > 0, NothingToDistribute(testamentId, safe));
 
-        address[] memory recipients = new address[](SLOTS);
-        uint256[] memory amounts = new uint256[](SLOTS);
-        uint256 remainingBps = BPS_DENOMINATOR;
-        uint256 totalPlanned;
-
-        for (uint256 index; index < SLOTS; ++index) {
-            uint256 packedSlot = Nox.publicDecrypt(testament.slots[index], decryptionProofs[index]);
-
-            address beneficiary = address(uint160(packedSlot >> SHARE_BITS));
-            uint256 shareBps = packedSlot & SHARE_MASK;
-            if (beneficiary == address(0) || shareBps == 0) {
-                // Padded slot, or a slot the owner left empty. Nothing to pay.
-                continue;
-            }
-
-            // Defensive cap. Shares are validated client-side but are encrypted here, so
-            // this is the only place the contract can bound them.
-            if (shareBps > remainingBps) {
-                shareBps = remainingBps;
-            }
-            remainingBps -= shareBps;
-
-            uint256 amount = (estateValue * shareBps) / BPS_DENOMINATOR;
-            recipients[index] = beneficiary;
-            amounts[index] = amount;
-            totalPlanned += amount;
-        }
+        (
+            address[] memory recipients,
+            uint256[] memory amounts,
+            uint256 totalPlanned,
+            uint8 planned
+        ) = _decryptAndPlan(testament, estateValue, decryptionProofs);
 
         // Eight encrypted zeros, or eight zero shares, decrypt to a will that pays nobody.
         // Spending the single execution on that would record a payout that never happened
         // and leave a funded Safe behind a spent testament, so it refuses instead.
         require(totalPlanned > 0, NoValidBequests(testamentId));
+        plannedSlots[testamentId] = planned;
+        _storePlan(testamentId, recipients, amounts);
 
-        // Effects before interactions: beneficiaries can be contracts, and the Safe calls
-        // them during distribute.
-        testament.state = TestamentState.Executed;
-        delete activeTestamentOf[testament.owner];
-        delete activeTestamentOfSafe[safe];
+        // Effects before interactions: leaving Released here means a beneficiary that calls
+        // back in cannot start a second settlement of the same estate, quite apart from the
+        // reentrancy guard. The final state depends on what the Safe manages to pay.
+        testament.state = TestamentState.PartiallyExecuted;
 
         // The module checks the mandate again, against the Safe's state right now, and
         // reverts if it has been withdrawn or reassigned since this will was written. What
-        // comes back is what the Safe actually moved, which is not always what was planned.
+        // comes back is which heirs the Safe actually reached, slot by slot.
         TestamentModule.DistributionResult memory result = module.distribute(
             safe,
             testament.owner,
@@ -395,13 +444,67 @@ contract TestamentRegistry is ReentrancyGuard {
             amounts
         );
 
-        emit TestamentExecuted(
+        (uint256 paidAmount, uint256 failedAmount) = _recordSlotResults(
             testamentId,
-            msg.sender,
-            totalPlanned,
-            result.amountPaid,
-            result.amountFailed
+            planned,
+            result.paidBitmap,
+            recipients,
+            amounts
         );
+
+        emit TestamentExecuted(testamentId, msg.sender, totalPlanned, paidAmount, failedAmount);
+        _concludeSettlement(testamentId, testament, paidAmount, failedAmount);
+    }
+
+    /**
+     * @notice Pays one heir that a settled will still owes. Anyone may call this.
+     *
+     * @dev Takes nothing but an id and a slot. The heir, the share and the amount all come
+     *      from what `execute` decrypted, verified and wrote down, so a caller has no heir
+     *      address to redirect, no share to inflate, no proof to forge and no way to pay a
+     *      slot twice. Their only power is to spend gas on someone else's behalf.
+     *
+     *      The reentrancy guard is load-bearing here rather than decorative: the slot is
+     *      marked paid after the transfer returns, so a recipient that calls back in before
+     *      that would otherwise be paid twice out of the same debt.
+     */
+    function retryPayment(uint256 testamentId, uint8 slot) external nonReentrant {
+        Testament storage testament = _testaments[testamentId];
+        require(
+            testament.state == TestamentState.PartiallyExecuted,
+            UnexpectedState(testamentId, testament.state, TestamentState.PartiallyExecuted)
+        );
+        require(slot < SLOTS, SlotOutOfRange(slot, SLOTS));
+
+        uint8 bit = uint8(1) << slot;
+        uint8 planned = plannedSlots[testamentId];
+        require(planned & bit != 0, SlotNotPlanned(testamentId, slot));
+        require(paidSlots[testamentId] & bit == 0, SlotAlreadyPaid(testamentId, slot));
+
+        // One filled entry in a full-width batch, so the module's bitmap still lines up with
+        // slot numbers and every other heir is left alone.
+        address[] memory recipients = new address[](SLOTS);
+        uint256[] memory amounts = new uint256[](SLOTS);
+        recipients[slot] = _plannedRecipients[testamentId][slot];
+        amounts[slot] = _plannedAmounts[testamentId][slot];
+
+        TestamentModule.DistributionResult memory result = module.distribute(
+            testament.safe,
+            testament.owner,
+            testament.authNonce,
+            recipients,
+            amounts
+        );
+
+        (uint256 paidAmount, uint256 failedAmount) = _recordSlotResults(
+            testamentId,
+            planned,
+            result.paidBitmap,
+            recipients,
+            amounts
+        );
+
+        _concludeSettlement(testamentId, testament, paidAmount, failedAmount);
     }
 
     // ============ Views ============
@@ -435,11 +538,33 @@ contract TestamentRegistry is ReentrancyGuard {
         (address writer, uint32 nonce) = module.authorizationOf(safe);
         writerAuthorized = writer == testament.owner && nonce == testament.authNonce;
         safeFunded = safe.balance > 0;
+        // Partially executed counts: the estate still owes heirs, and a retry is open.
         executable =
-            testament.state == TestamentState.Released &&
+            (testament.state == TestamentState.Released ||
+                testament.state == TestamentState.PartiallyExecuted) &&
             moduleEnabled &&
             writerAuthorized &&
             safeFunded;
+    }
+
+    /// @notice Slots this will still owes, as a bitmap. Zero means nothing is outstanding.
+    function unpaidSlots(uint256 testamentId) external view returns (uint8) {
+        return plannedSlots[testamentId] & ~paidSlots[testamentId];
+    }
+
+    /**
+     * @notice What one settled slot owes and whether it has been paid.
+     * @dev Only meaningful once a will has been executed at least once: before that there is
+     *      no plan, because the shares are still encrypted.
+     */
+    function plannedPaymentOf(
+        uint256 testamentId,
+        uint8 slot
+    ) external view returns (address heir, uint256 amount, bool paid) {
+        require(slot < SLOTS, SlotOutOfRange(slot, SLOTS));
+        heir = _plannedRecipients[testamentId][slot];
+        amount = _plannedAmounts[testamentId][slot];
+        paid = paidSlots[testamentId] & (uint8(1) << slot) != 0;
     }
 
     /// @notice Whether the silence has already outlasted interval + grace.
@@ -532,7 +657,166 @@ contract TestamentRegistry is ReentrancyGuard {
         }
     }
 
+    /**
+     * @notice Ids in `[fromId, toId]` that paid some heirs and still owe others.
+     * @dev The third of the keeper's loops, after releasable and executable. Pair it with
+     *      `unpaidSlots` to know which slots to push. Zero-padded like the others.
+     */
+    function retryableIds(uint256 fromId, uint256 toId) external view returns (uint256[] memory ids) {
+        uint256 upperBound = _clampRange(fromId, toId);
+        ids = new uint256[](upperBound >= fromId ? upperBound - fromId + 1 : 0);
+
+        uint256 found;
+        for (uint256 testamentId = fromId; testamentId <= upperBound; ++testamentId) {
+            if (_testaments[testamentId].state == TestamentState.PartiallyExecuted) {
+                ids[found] = testamentId;
+                ++found;
+            }
+        }
+    }
+
     // ============ Internal ============
+
+    /**
+     * @dev Decrypts every slot, works out who is owed what against one estate snapshot, and
+     *      writes the plan down. Split out of `execute` because the two of them together put
+     *      more locals on the stack than the EVM can reach.
+     *
+     *      Division truncates, so a few wei of dust can stay in the Safe. Intentional.
+     */
+    function _decryptAndPlan(
+        Testament storage testament,
+        uint256 estateValue,
+        bytes[] calldata decryptionProofs
+    )
+        private
+        view
+        returns (
+            address[] memory recipients,
+            uint256[] memory amounts,
+            uint256 totalPlanned,
+            uint8 planned
+        )
+    {
+        recipients = new address[](SLOTS);
+        amounts = new uint256[](SLOTS);
+        uint256 remainingBps = BPS_DENOMINATOR;
+
+        for (uint256 index; index < SLOTS; ++index) {
+            uint256 packedSlot = Nox.publicDecrypt(testament.slots[index], decryptionProofs[index]);
+
+            address beneficiary = address(uint160(packedSlot >> SHARE_BITS));
+            uint256 shareBps = packedSlot & SHARE_MASK;
+            if (beneficiary == address(0) || shareBps == 0) {
+                // Padded slot, or a slot the owner left empty. Nothing to pay.
+                continue;
+            }
+
+            // Defensive cap. Shares are validated client-side but are encrypted here, so
+            // this is the only place the contract can bound them.
+            if (shareBps > remainingBps) {
+                shareBps = remainingBps;
+            }
+            remainingBps -= shareBps;
+
+            uint256 amount = (estateValue * shareBps) / BPS_DENOMINATOR;
+            if (amount == 0) {
+                // Truncation left this heir nothing. Recording a zero debt would make the
+                // will impossible to finish, because a zero transfer is never attempted.
+                continue;
+            }
+
+            recipients[index] = beneficiary;
+            amounts[index] = amount;
+            totalPlanned += amount;
+            planned |= uint8(1) << uint8(index);
+        }
+    }
+
+    /**
+     * @dev Persists the plan so every retry reads back the same heir and the same amount.
+     *      A separate pass from the decryption above, both because writing storage is a
+     *      different concern from working out the split, and because the two together put
+     *      more locals on the stack than the EVM can reach.
+     */
+    function _storePlan(
+        uint256 testamentId,
+        address[] memory recipients,
+        uint256[] memory amounts
+    ) private {
+        for (uint256 index; index < SLOTS; ++index) {
+            if (recipients[index] == address(0)) {
+                continue;
+            }
+            _plannedRecipients[testamentId][index] = recipients[index];
+            _plannedAmounts[testamentId][index] = amounts[index];
+        }
+    }
+
+    /**
+     * @dev Marks the slots that landed, announces each heir either way, and reports the two
+     *      totals for this attempt. Entries left at the zero address are slots this attempt
+     *      did not touch, which is how a single-slot retry leaves the rest of the will alone.
+     */
+    function _recordSlotResults(
+        uint256 testamentId,
+        uint8 planned,
+        uint8 justPaid,
+        address[] memory recipients,
+        uint256[] memory amounts
+    ) private returns (uint256 paidAmount, uint256 failedAmount) {
+        uint8 settled = paidSlots[testamentId];
+
+        for (uint256 index; index < SLOTS; ++index) {
+            uint8 bit = uint8(1) << uint8(index);
+            if (planned & bit == 0 || recipients[index] == address(0)) {
+                continue;
+            }
+
+            if (justPaid & bit != 0) {
+                settled |= bit;
+                paidAmount += amounts[index];
+                emit HeirPaymentSucceeded(testamentId, uint8(index), recipients[index], amounts[index]);
+            } else {
+                failedAmount += amounts[index];
+                emit HeirPaymentFailed(testamentId, uint8(index), recipients[index], amounts[index]);
+            }
+        }
+
+        paidSlots[testamentId] = settled;
+    }
+
+    /**
+     * @dev A will is finished only when every slot it owes has been paid. Until then it stays
+     *      partially executed and keeps its hold on the Safe, because the estate still owes
+     *      money that is sitting in it.
+     */
+    function _concludeSettlement(
+        uint256 testamentId,
+        Testament storage testament,
+        uint256 paidAmount,
+        uint256 failedAmount
+    ) private {
+        if (paidSlots[testamentId] != plannedSlots[testamentId]) {
+            emit TestamentPartiallyExecuted(testamentId, paidAmount, failedAmount);
+            return;
+        }
+
+        testament.state = TestamentState.Executed;
+        delete activeTestamentOf[testament.owner];
+        delete activeTestamentOfSafe[testament.safe];
+        emit TestamentFullyExecuted(testamentId, _totalPaidOf(testamentId));
+    }
+
+    /// @dev Everything paid across the first execution and every retry since.
+    function _totalPaidOf(uint256 testamentId) private view returns (uint256 total) {
+        uint8 settled = paidSlots[testamentId];
+        for (uint256 index; index < SLOTS; ++index) {
+            if (settled & (uint8(1) << uint8(index)) != 0) {
+                total += _plannedAmounts[testamentId][index];
+            }
+        }
+    }
 
     function _clampRange(uint256 fromId, uint256 toId) private view returns (uint256 upperBound) {
         require(fromId >= 1 && fromId <= toId, InvalidRange(fromId, toId));

@@ -29,6 +29,21 @@ export const TEST_INTERVAL_SECONDS = 90;
 /** Extra silence tolerated before release in tests. Unit: seconds. */
 export const TEST_GRACE_SECONDS = 30;
 
+/** The minimum a snapshot needs to expose. Kept local so the plugin's types stay internal. */
+type ChainSnapshot = { restore: () => Promise<void> };
+
+/**
+ * Every test in a file shares one simulated chain, and `time.increase` moves its clock
+ * forward permanently. Nox proofs carry a wall-clock expiry, so the release tests' jumps
+ * accumulate until the chain sits far enough ahead of real time that a freshly minted proof
+ * already reads as expired. Tests then start failing by their position in the file rather
+ * than by anything they do.
+ *
+ * Restoring a snapshot rewinds the clock along with the state, so each test starts from the
+ * same moment. A snapshot can only be restored once, hence taking a fresh one each time.
+ */
+let chainBaseline: ChainSnapshot | undefined;
+
 export async function deployTestamentFixture({
   estateWei = DEFAULT_ESTATE_WEI,
   enableModule = true,
@@ -36,6 +51,11 @@ export async function deployTestamentFixture({
 }: { estateWei?: bigint; enableModule?: boolean; authorizeOwner?: boolean } = {}) {
   const connection = await nox.connect();
   const { viem, networkHelpers } = connection;
+
+  if (chainBaseline !== undefined) {
+    await chainBaseline.restore();
+  }
+  chainBaseline = (await networkHelpers.takeSnapshot()) as ChainSnapshot;
 
   const publicClient = await viem.getPublicClient();
   const walletClients = await viem.getWalletClients();
@@ -121,6 +141,39 @@ export async function authorizeWriterOnSafe(
     }),
   ]);
   await fixture.publicClient.waitForTransactionReceipt({ hash });
+}
+
+/**
+ * A second Safe, prepared exactly like the fixture's own: module enabled, `writerAddress`
+ * named, and funded. For proving that one Safe's will never constrains another's.
+ */
+export async function prepareAnotherSafe(
+  fixture: TestamentFixture,
+  writerAddress: Address,
+  estateWei: bigint = DEFAULT_ESTATE_WEI,
+) {
+  const safe = await fixture.viem.deployContract("MockSafe", []);
+
+  const enableHash = await safe.write.enableModule([fixture.module.address]);
+  await fixture.publicClient.waitForTransactionReceipt({ hash: enableHash });
+
+  const authorizeHash = await safe.write.executeAsSafe([
+    fixture.module.address,
+    encodeFunctionData({
+      abi: testamentModuleAbi,
+      functionName: "authorizeWriter",
+      args: [writerAddress],
+    }),
+  ]);
+  await fixture.publicClient.waitForTransactionReceipt({ hash: authorizeHash });
+
+  const fundingHash = await fixture.ownerWallet.sendTransaction({
+    to: safe.address,
+    value: estateWei,
+  });
+  await fixture.publicClient.waitForTransactionReceipt({ hash: fundingHash });
+
+  return safe;
 }
 
 /** Withdraws the Safe's mandate, disarming any testament written under it. */

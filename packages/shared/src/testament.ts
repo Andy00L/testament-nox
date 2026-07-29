@@ -8,8 +8,10 @@ export const TESTAMENT_STATE = {
   None: 0,
   Active: 1,
   Released: 2,
-  Executed: 3,
-  Revoked: 4,
+  /** Settled once, but at least one heir refused their share. The debt is retryable. */
+  PartiallyExecuted: 3,
+  Executed: 4,
+  Revoked: 5,
 } as const;
 
 export type TestamentState = (typeof TESTAMENT_STATE)[keyof typeof TESTAMENT_STATE];
@@ -18,6 +20,7 @@ export const TESTAMENT_STATE_NAME: Record<TestamentState, string> = {
   [TESTAMENT_STATE.None]: "none",
   [TESTAMENT_STATE.Active]: "active",
   [TESTAMENT_STATE.Released]: "released",
+  [TESTAMENT_STATE.PartiallyExecuted]: "partially-executed",
   [TESTAMENT_STATE.Executed]: "executed",
   [TESTAMENT_STATE.Revoked]: "revoked",
 };

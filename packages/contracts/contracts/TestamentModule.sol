@@ -34,6 +34,9 @@ contract TestamentModule {
      */
     uint8 private constant OPERATION_CALL = 0;
 
+    /// @dev Entries per batch, bounded by the width of `DistributionResult.paidBitmap`.
+    uint256 private constant MAX_RECIPIENTS = 8;
+
     /// @notice The TestamentRegistry allowed to drive this module.
     address public immutable registry;
 
@@ -57,13 +60,16 @@ contract TestamentModule {
     struct DistributionResult {
         uint256 amountPaid;
         uint256 amountFailed;
-        uint256 successfulTransfers;
-        uint256 failedTransfers;
+        uint8 successfulTransfers;
+        uint8 failedTransfers;
+        /// @dev Bit `i` is set when entry `i` of the batch reached its recipient.
+        uint8 paidBitmap;
     }
 
     error RegistryIsZeroAddress();
     error NotRegistry(address caller);
     error LengthMismatch(uint256 recipientCount, uint256 amountCount);
+    error TooManyRecipients(uint256 count, uint256 maximum);
     error WriterIsZeroAddress();
     error ModuleNotEnabledOnSafe(address safe);
     error WriterNotAuthorized(address safe, address writer);
@@ -168,6 +174,9 @@ contract TestamentModule {
         uint256[] calldata amounts
     ) external onlyRegistry returns (DistributionResult memory result) {
         require(recipients.length == amounts.length, LengthMismatch(recipients.length, amounts.length));
+        // The result reports success as a bitmap, which is one bit per entry, so a batch
+        // wider than the bitmap would silently lose its tail.
+        require(recipients.length <= MAX_RECIPIENTS, TooManyRecipients(recipients.length, MAX_RECIPIENTS));
         _requireMandate(safe, writer, nonce);
 
         for (uint256 index; index < recipients.length; ++index) {
@@ -181,6 +190,7 @@ contract TestamentModule {
             if (executed) {
                 result.amountPaid += amount;
                 ++result.successfulTransfers;
+                result.paidBitmap |= uint8(1) << uint8(index);
                 emit Distributed(safe, recipient, amount);
             } else {
                 result.amountFailed += amount;

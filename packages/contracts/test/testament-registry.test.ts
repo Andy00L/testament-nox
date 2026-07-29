@@ -21,6 +21,7 @@ import {
   deployTestamentFixture,
   fetchSlotProofs,
   padRawSlots,
+  prepareAnotherSafe,
   revokeWriterOnSafe,
   writeTestament,
   type TestamentFixture,
@@ -437,6 +438,84 @@ describe("TestamentRegistry", () => {
       },
     );
 
+    it(
+      "spends the mandate, so one authorization buys exactly one will",
+      { timeout: TEST_TIMEOUT_MS },
+      async () => {
+        const fixture = await deployTestamentFixture();
+        const [, beneficiaryA] = fixture.walletClients;
+        if (beneficiaryA === undefined) throw new Error("missing beneficiary wallet");
+
+        const bequests = [{ beneficiary: beneficiaryA.account.address, shareBps: 10_000 }];
+        const firstId = await writeTestament(fixture, { bequests });
+
+        // Clear the way, so the only thing left standing between here and a second will is
+        // the spent mandate rather than the per-Safe or per-owner slot.
+        const revokeHash = await fixture.registry.write.revoke([firstId]);
+        await fixture.publicClient.waitForTransactionReceipt({ hash: revokeHash });
+        assert.equal(await fixture.registry.read.activeTestamentOfSafe([fixture.safe.address]), 0n);
+
+        await assert.rejects(
+          writeTestament(fixture, { bequests }),
+          /AuthorizationAlreadyUsed/,
+        );
+
+        // The Safe says yes again, and the way is open.
+        await authorizeWriterOnSafe(fixture, fixture.ownerWallet.account.address);
+        const secondId = await writeTestament(fixture, { bequests });
+        assert.equal(secondId, firstId + 1n);
+      },
+    );
+
+    it(
+      "spending the mandate does not invalidate the will it just created",
+      { timeout: TEST_TIMEOUT_MS },
+      async () => {
+        const fixture = await deployTestamentFixture();
+        const { testamentId, slotHandles } = await releaseDefaultTestament(fixture);
+
+        // Consumption is recorded separately from the mandate itself, so the will still
+        // matches the Safe's current writer and nonce when the module re-checks at payout.
+        // Getting this wrong would make every testament unpayable the moment it was written.
+        const proofs = await fetchSlotProofs(slotHandles);
+        const executeHash = await fixture.registry.write.execute([testamentId, proofs]);
+        await fixture.publicClient.waitForTransactionReceipt({ hash: executeHash });
+
+        const [, , , , , state] = await readTestament(fixture, testamentId);
+        assert.equal(state, TESTAMENT_STATE.Executed);
+      },
+    );
+
+    it(
+      "lets a second Safe hold its own will, unaffected by the first",
+      { timeout: TEST_TIMEOUT_MS },
+      async () => {
+        const fixture = await deployTestamentFixture();
+        const [, beneficiaryA] = fixture.walletClients;
+        if (beneficiaryA === undefined) throw new Error("missing beneficiary wallet");
+
+        const otherSafe = await prepareAnotherSafe(fixture, fixture.ownerWallet.account.address);
+        const bequests = [{ beneficiary: beneficiaryA.account.address, shareBps: 10_000 }];
+        const firstId = await writeTestament(fixture, { bequests });
+
+        // The second Safe is untouched by the first Safe's will.
+        assert.equal(await fixture.registry.read.activeTestamentOfSafe([otherSafe.address]), 0n);
+
+        // Only the per-writer limit stands in the way here, not anything to do with the Safe:
+        // the plugin encrypts with one account, so both wills would share a writer. Clearing
+        // that limit shows the second Safe was never blocked.
+        const revokeHash = await fixture.registry.write.revoke([firstId]);
+        await fixture.publicClient.waitForTransactionReceipt({ hash: revokeHash });
+
+        const secondId = await writeTestament(fixture, { bequests, safeAddress: otherSafe.address });
+        assert.equal(
+          await fixture.registry.read.activeTestamentOfSafe([otherSafe.address]),
+          secondId,
+        );
+        assert.equal(await fixture.registry.read.activeTestamentOfSafe([fixture.safe.address]), 0n);
+      },
+    );
+
     it("frees the Safe again once the owner revokes", { timeout: TEST_TIMEOUT_MS }, async () => {
       const fixture = await deployTestamentFixture();
       const [, beneficiaryA] = fixture.walletClients;
@@ -451,6 +530,9 @@ describe("TestamentRegistry", () => {
       // Both the per-owner and the per-Safe slot have to clear, or the estate stays locked
       // out of ever having a will again.
       assert.equal(await fixture.registry.read.activeTestamentOfSafe([fixture.safe.address]), 0n);
+
+      // The mandate went with the revoked will, so the Safe has to grant a new one.
+      await authorizeWriterOnSafe(fixture, fixture.ownerWallet.account.address);
       const secondId = await writeTestament(fixture, { bequests });
       assert.equal(secondId, firstId + 1n);
     });
@@ -547,6 +629,8 @@ describe("TestamentRegistry", () => {
       const slotHandles = await readSlotHandles(fixture, testamentId);
       assert.ok(slotHandles.every((handle) => handle === zeroHandle), "slots must be cleared");
 
+      // The revoked will spent the Safe's mandate, so writing again needs a fresh one.
+      await authorizeWriterOnSafe(fixture, fixture.ownerWallet.account.address);
       const secondId = await writeTestament(fixture, { bequests });
       assert.equal(secondId, 2n);
     });
@@ -954,6 +1038,251 @@ describe("TestamentRegistry", () => {
         DEFAULT_ESTATE_WEI,
       );
     });
+  });
+
+  /**
+   * A will that could not reach every heir is not finished. These cover the whole of that:
+   * what the record says, what the Safe still owes, and who can settle it.
+   */
+  describe("partial execution and retry", () => {
+    /** Slot 0 is a wallet, slot 1 a contract that refuses ETH. Released, proofs in hand. */
+    async function releaseWillWithRefusingHeir(fixture: TestamentFixture) {
+      const [, beneficiaryA] = fixture.walletClients;
+      if (beneficiaryA === undefined) throw new Error("missing beneficiary wallet");
+
+      const refusingHeir = await fixture.viem.deployContract("RejectingReceiver", []);
+      const testamentId = await writeTestament(fixture, {
+        rawSlots: padRawSlots([
+          packBequest({ beneficiary: beneficiaryA.account.address, shareBps: 6000 }),
+          packBequest({ beneficiary: refusingHeir.address, shareBps: 4000 }),
+        ]),
+      });
+
+      await fixture.networkHelpers.time.increase(PAST_DEADLINE_SECONDS);
+      const releaseHash = await fixture.registry.write.release([testamentId]);
+      await fixture.publicClient.waitForTransactionReceipt({ hash: releaseHash });
+
+      const slotHandles = await readSlotHandles(fixture, testamentId);
+      await waitForHandlesResolved(slotHandles);
+      const proofs = await fetchSlotProofs(slotHandles);
+
+      return { testamentId, proofs, refusingHeir, beneficiaryA };
+    }
+
+    it(
+      "pays the heirs it can reach and leaves the will partially executed",
+      { timeout: TEST_TIMEOUT_MS },
+      async () => {
+        const fixture = await deployTestamentFixture();
+        const { testamentId, proofs, beneficiaryA } = await releaseWillWithRefusingHeir(fixture);
+
+        const balanceBefore = await fixture.publicClient.getBalance({
+          address: beneficiaryA.account.address,
+        });
+
+        const executeHash = await fixture.registry.write.execute([testamentId, proofs]);
+        await fixture.publicClient.waitForTransactionReceipt({ hash: executeHash });
+
+        // The heir that could be reached is paid in full.
+        const balanceAfter = await fixture.publicClient.getBalance({
+          address: beneficiaryA.account.address,
+        });
+        assert.equal(balanceAfter - balanceBefore, computePayout(DEFAULT_ESTATE_WEI, 6000));
+
+        // The will is not finished, and says so.
+        const [, , , , , state] = await readTestament(fixture, testamentId);
+        assert.equal(state, TESTAMENT_STATE.PartiallyExecuted);
+
+        // Slot 0 settled, slot 1 still owed.
+        assert.equal(await fixture.registry.read.paidSlots([testamentId]), 0b0000_0001);
+        assert.equal(await fixture.registry.read.plannedSlots([testamentId]), 0b0000_0011);
+        assert.equal(await fixture.registry.read.unpaidSlots([testamentId]), 0b0000_0010);
+
+        // The refused share is still in the Safe, not lost.
+        assert.equal(
+          await fixture.publicClient.getBalance({ address: fixture.safe.address }),
+          computePayout(DEFAULT_ESTATE_WEI, 4000),
+        );
+      },
+    );
+
+    it(
+      "keeps its hold on the Safe while an heir is still owed",
+      { timeout: TEST_TIMEOUT_MS },
+      async () => {
+        const fixture = await deployTestamentFixture();
+        const { testamentId, proofs } = await releaseWillWithRefusingHeir(fixture);
+
+        const executeHash = await fixture.registry.write.execute([testamentId, proofs]);
+        await fixture.publicClient.waitForTransactionReceipt({ hash: executeHash });
+
+        // Freeing the Safe here would let a second will be drawn against an estate that
+        // still owes money to the first one.
+        assert.equal(
+          await fixture.registry.read.activeTestamentOfSafe([fixture.safe.address]),
+          testamentId,
+        );
+      },
+    );
+
+    it(
+      "settles the refused heir on retry and finishes the will",
+      { timeout: TEST_TIMEOUT_MS },
+      async () => {
+        const fixture = await deployTestamentFixture();
+        const { testamentId, proofs, refusingHeir } = await releaseWillWithRefusingHeir(fixture);
+
+        const executeHash = await fixture.registry.write.execute([testamentId, proofs]);
+        await fixture.publicClient.waitForTransactionReceipt({ hash: executeHash });
+
+        // The heir sorts out whatever was wrong with its wallet.
+        const acceptHash = await refusingHeir.write.setAccepts([true]);
+        await fixture.publicClient.waitForTransactionReceipt({ hash: acceptHash });
+
+        // Anyone may settle it, so a stranger does.
+        const [, , stranger] = fixture.walletClients;
+        if (stranger === undefined) throw new Error("missing stranger wallet");
+        const retryHash = await fixture.registry.write.retryPayment([testamentId, 1], {
+          account: stranger.account,
+        });
+        await fixture.publicClient.waitForTransactionReceipt({ hash: retryHash });
+
+        assert.equal(
+          await fixture.publicClient.getBalance({ address: refusingHeir.address }),
+          computePayout(DEFAULT_ESTATE_WEI, 4000),
+        );
+
+        const [, , , , , state] = await readTestament(fixture, testamentId);
+        assert.equal(state, TESTAMENT_STATE.Executed);
+        assert.equal(await fixture.registry.read.unpaidSlots([testamentId]), 0);
+
+        // Finished at last, so the Safe is free and the estate is empty.
+        assert.equal(
+          await fixture.registry.read.activeTestamentOfSafe([fixture.safe.address]),
+          0n,
+        );
+        assert.equal(
+          await fixture.publicClient.getBalance({ address: fixture.safe.address }),
+          0n,
+        );
+      },
+    );
+
+    it("refuses to pay a slot twice", { timeout: TEST_TIMEOUT_MS }, async () => {
+      const fixture = await deployTestamentFixture();
+      const { testamentId, proofs, refusingHeir } = await releaseWillWithRefusingHeir(fixture);
+
+      const executeHash = await fixture.registry.write.execute([testamentId, proofs]);
+      await fixture.publicClient.waitForTransactionReceipt({ hash: executeHash });
+
+      // Slot 0 was paid during execution. Asking again must not send a second share.
+      await assert.rejects(
+        fixture.registry.write.retryPayment([testamentId, 0]),
+        /SlotAlreadyPaid/,
+      );
+
+      const acceptHash = await refusingHeir.write.setAccepts([true]);
+      await fixture.publicClient.waitForTransactionReceipt({ hash: acceptHash });
+      const retryHash = await fixture.registry.write.retryPayment([testamentId, 1]);
+      await fixture.publicClient.waitForTransactionReceipt({ hash: retryHash });
+
+      // And once settled, that slot is closed too.
+      await assert.rejects(
+        fixture.registry.write.retryPayment([testamentId, 1]),
+        /UnexpectedState|SlotAlreadyPaid/,
+      );
+    });
+
+    it("refuses a retry on a slot the will never owed", { timeout: TEST_TIMEOUT_MS }, async () => {
+      const fixture = await deployTestamentFixture();
+      const { testamentId, proofs } = await releaseWillWithRefusingHeir(fixture);
+
+      const executeHash = await fixture.registry.write.execute([testamentId, proofs]);
+      await fixture.publicClient.waitForTransactionReceipt({ hash: executeHash });
+
+      // Slot 5 is padding: an encrypted zero that was never a bequest.
+      await assert.rejects(
+        fixture.registry.write.retryPayment([testamentId, 5]),
+        /SlotNotPlanned/,
+      );
+      await assert.rejects(
+        fixture.registry.write.retryPayment([testamentId, 8]),
+        /SlotOutOfRange/,
+      );
+    });
+
+    it("refuses a retry before the will was ever executed", { timeout: TEST_TIMEOUT_MS }, async () => {
+      const fixture = await deployTestamentFixture();
+      const { testamentId } = await releaseWillWithRefusingHeir(fixture);
+
+      await assert.rejects(
+        fixture.registry.write.retryPayment([testamentId, 1]),
+        /UnexpectedState/,
+      );
+    });
+
+    it("lists itself as retryable, so a keeper can find it", { timeout: TEST_TIMEOUT_MS }, async () => {
+      const fixture = await deployTestamentFixture();
+      const { testamentId, proofs, refusingHeir } = await releaseWillWithRefusingHeir(fixture);
+
+      const beforeExecution = (await fixture.registry.read.retryableIds([
+        1n,
+        10n,
+      ])) as readonly bigint[];
+      assert.ok(beforeExecution.every((candidateId) => candidateId === 0n));
+
+      const executeHash = await fixture.registry.write.execute([testamentId, proofs]);
+      await fixture.publicClient.waitForTransactionReceipt({ hash: executeHash });
+
+      // This plus unpaidSlots is everything the keeper needs to finish the estate on its own.
+      const afterExecution = (await fixture.registry.read.retryableIds([
+        1n,
+        10n,
+      ])) as readonly bigint[];
+      assert.equal(afterExecution[0], testamentId);
+
+      const acceptHash = await refusingHeir.write.setAccepts([true]);
+      await fixture.publicClient.waitForTransactionReceipt({ hash: acceptHash });
+      const retryHash = await fixture.registry.write.retryPayment([testamentId, 1]);
+      await fixture.publicClient.waitForTransactionReceipt({ hash: retryHash });
+
+      const afterSettlement = (await fixture.registry.read.retryableIds([
+        1n,
+        10n,
+      ])) as readonly bigint[];
+      assert.ok(afterSettlement.every((candidateId) => candidateId === 0n));
+    });
+
+    it(
+      "reports the settled plan for the interface to read back",
+      { timeout: TEST_TIMEOUT_MS },
+      async () => {
+        const fixture = await deployTestamentFixture();
+        const { testamentId, proofs, refusingHeir, beneficiaryA } =
+          await releaseWillWithRefusingHeir(fixture);
+
+        const executeHash = await fixture.registry.write.execute([testamentId, proofs]);
+        await fixture.publicClient.waitForTransactionReceipt({ hash: executeHash });
+
+        const paidSlot = (await fixture.registry.read.plannedPaymentOf([testamentId, 0])) as readonly [
+          string,
+          bigint,
+          boolean,
+        ];
+        assert.equal(paidSlot[0].toLowerCase(), beneficiaryA.account.address.toLowerCase());
+        assert.equal(paidSlot[1], computePayout(DEFAULT_ESTATE_WEI, 6000));
+        assert.equal(paidSlot[2], true);
+
+        const owedSlot = (await fixture.registry.read.plannedPaymentOf([testamentId, 1])) as readonly [
+          string,
+          bigint,
+          boolean,
+        ];
+        assert.equal(owedSlot[0].toLowerCase(), refusingHeir.address.toLowerCase());
+        assert.equal(owedSlot[1], computePayout(DEFAULT_ESTATE_WEI, 4000));
+        assert.equal(owedSlot[2], false);
+      },
+    );
   });
 
   describe("executionReadiness", () => {
