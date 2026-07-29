@@ -166,7 +166,7 @@ const contrastSamples = await page.evaluate(() => {
   return {
     bodyOnPanel: readPair(".panel .type-body"),
     labelOnPanel: readPair(".panel .type-label"),
-    heading: readPair("h1.type-display-hero"),
+    heading: readPair("h1"),
   };
 });
 

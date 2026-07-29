@@ -201,160 +201,180 @@ export function WritePanel() {
   const isBusy = stage === "encrypting" || stage === "signing" || stage === "confirming";
 
   return (
-    <div className="flex flex-col gap-14">
-      <section className="flex flex-col gap-6">
-        <div className="flex flex-col gap-2">
-          <h2 className="type-display-lg">{copy.write.heirsTitle}</h2>
-          <p className="type-body text-ink-muted">
-{copy.write.heirsLede}
-          </p>
-        </div>
+    <div className="flex flex-col gap-8">
+      {/*
+        Two halves of one sheet, side by side the way the reference lays them out, so the
+        whole ritual fits a single viewport: who inherits on the left, the vault and its
+        silence on the right, the seal at the bottom right where a document is signed.
+        The divider is the mat showing through a cut in the paper, not a drawn rule.
+      */}
+      <div className="grid gap-10 lg:grid-cols-[1fr_2px_1fr] lg:gap-x-9">
+        <section className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <h2 className="type-display-lg">{copy.write.heirsTitle}</h2>
+            <p className="type-body text-ink-muted">{copy.write.heirsLede}</p>
+          </div>
 
-        <ul className="flex flex-col gap-5">
-          {drafts.map((draft, draftIndex) => (
-            <li key={draft.id} className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
-              <div className="flex-1">
-                <TextField
-                  label={copy.write.heirLabel(draftIndex + 1)}
-                  value={draft.beneficiary}
-                  onChange={(event) => updateDraft(draft.id, { beneficiary: event.target.value })}
-                  placeholder="0x…"
-                  spellCheck={false}
-                  autoComplete="off"
-                  error={
-                    draft.beneficiary !== "" && !isAddress(draft.beneficiary)
-                      ? copy.write.invalidAddress
-                      : null
-                  }
-                />
-              </div>
-              <div className="w-full sm:w-36">
-                <TextField
-                  label={copy.write.shareLabel}
-                  value={draft.sharePercent}
-                  onChange={(event) =>
-                    updateDraft(draft.id, { sharePercent: event.target.value.replace(/[^\d]/g, "") })
-                  }
-                  placeholder="0"
-                  inputMode="numeric"
-                  suffix="%"
-                />
-              </div>
-              {drafts.length > 1 ? (
-                <button
-                  type="button"
-                  onClick={() => removeBequest(draft.id)}
-                  className="type-small mt-0 self-start text-ink-faint transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink sm:mt-8"
-                >
-                  {copy.write.remove}
-                </button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
+          <ul className="flex flex-col gap-3">
+            {drafts.map((draft, draftIndex) => (
+              <li key={draft.id} className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+                <div className="flex-1">
+                  <TextField
+                    label={copy.write.heirLabel(draftIndex + 1)}
+                    value={draft.beneficiary}
+                    onChange={(event) => updateDraft(draft.id, { beneficiary: event.target.value })}
+                    placeholder="0x…"
+                    spellCheck={false}
+                    autoComplete="off"
+                    error={
+                      draft.beneficiary !== "" && !isAddress(draft.beneficiary)
+                        ? copy.write.invalidAddress
+                        : null
+                    }
+                  />
+                </div>
+                <div className="w-full sm:w-28">
+                  <TextField
+                    label={copy.write.shareLabel}
+                    value={draft.sharePercent}
+                    onChange={(event) =>
+                      updateDraft(draft.id, { sharePercent: event.target.value.replace(/[^\d]/g, "") })
+                    }
+                    placeholder="0"
+                    inputMode="numeric"
+                    suffix="%"
+                  />
+                </div>
+                {drafts.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => removeBequest(draft.id)}
+                    className="type-small self-start text-ink-faint transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink sm:mt-8"
+                  >
+                    {copy.write.remove}
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
 
-        <div className="flex flex-wrap items-baseline justify-between gap-4">
           <button
             ref={addButtonRef}
             type="button"
             onClick={addBequest}
             disabled={drafts.length >= SLOT_COUNT}
-            className="type-small text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-bronze disabled:text-ink-faint"
+            className="panel-well type-small min-h-11 w-full px-4 text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-bronze-deep disabled:text-ink-faint"
           >
             {copy.write.addHeir}
           </button>
-          <p
-            className="type-small type-numeric"
-            style={{ color: totalPercent === 100 ? "var(--color-bronze)" : "var(--color-ink-muted)" }}
-          >
-            {copy.write.allocated(totalPercent)}
-          </p>
-        </div>
-      </section>
 
-      <section className="flex flex-col gap-5">
-        <h2 className="type-display-lg">{copy.write.vaultTitle}</h2>
-        <TextField
-          label={copy.write.safeLabel}
-          value={safeAddress}
-          onChange={(event) => setSafeAddress(event.target.value)}
-          placeholder="0x…"
-          spellCheck={false}
-          autoComplete="off"
-          error={safeAddress !== "" && !isAddress(safeAddress) ? copy.write.invalidAddress : null}
-          hint={
-            isModuleEnabled === true
-              ? copy.write.safeHintEnabled
-              : isModuleEnabled === false
-                ? copy.write.safeHintDisabled
-                : copy.write.safeHintDefault
-          }
-        />
-        <div className="flex flex-col gap-5 sm:flex-row">
-          <div className="flex-1">
-            <TextField
-              label={copy.write.intervalLabel}
-              value={intervalSeconds}
-              onChange={(event) => setIntervalSeconds(event.target.value.replace(/[^\d]/g, ""))}
-              inputMode="numeric"
-              suffix="s"
-              hint={copy.write.intervalHint(MIN_INTERVAL_SECONDS)}
-            />
+          {/*
+            The allocation meter: the same tonal-fill-in-a-well language as the heartbeat
+            charge. Full track, stable square edges, clamped, never a saturated bar.
+          */}
+          <div className="mt-auto flex items-center gap-4 pt-1">
+            <div aria-hidden="true" className="panel-well relative h-2 flex-1 overflow-hidden">
+              <span
+                className="absolute inset-y-0 left-0 bg-bronze-sunk"
+                style={{
+                  width: `${Math.min(100, totalPercent)}%`,
+                  transition: "width var(--dur-standard) var(--ease-standard)",
+                }}
+              />
+            </div>
+            <p
+              className="type-small type-numeric shrink-0"
+              style={{ color: totalPercent === 100 ? "var(--color-bronze-deep)" : "var(--color-ink-muted)" }}
+            >
+              {copy.write.allocated(totalPercent)}
+            </p>
           </div>
-          <div className="flex-1">
-            <TextField
-              label={copy.write.graceLabel}
-              value={graceSeconds}
-              onChange={(event) => setGraceSeconds(event.target.value.replace(/[^\d]/g, ""))}
-              inputMode="numeric"
-              suffix="s"
-              hint={copy.write.graceHint}
-            />
+        </section>
+
+        <span aria-hidden="true" className="hidden self-stretch bg-field lg:block" />
+
+        <section className="flex flex-col gap-4">
+          <h2 className="type-display-lg">{copy.write.vaultTitle}</h2>
+          <TextField
+            label={copy.write.safeLabel}
+            value={safeAddress}
+            onChange={(event) => setSafeAddress(event.target.value)}
+            placeholder="0x…"
+            spellCheck={false}
+            autoComplete="off"
+            error={safeAddress !== "" && !isAddress(safeAddress) ? copy.write.invalidAddress : null}
+            hint={
+              isModuleEnabled === true
+                ? copy.write.safeHintEnabled
+                : isModuleEnabled === false
+                  ? copy.write.safeHintDisabled
+                  : copy.write.safeHintDefault
+            }
+          />
+          <div className="flex flex-col gap-4 sm:flex-row">
+            <div className="flex-1">
+              <TextField
+                label={copy.write.intervalLabel}
+                value={intervalSeconds}
+                onChange={(event) => setIntervalSeconds(event.target.value.replace(/[^\d]/g, ""))}
+                inputMode="numeric"
+                suffix="s"
+                hint={copy.write.intervalHint(MIN_INTERVAL_SECONDS)}
+              />
+            </div>
+            <div className="flex-1">
+              <TextField
+                label={copy.write.graceLabel}
+                value={graceSeconds}
+                onChange={(event) => setGraceSeconds(event.target.value.replace(/[^\d]/g, ""))}
+                inputMode="numeric"
+                suffix="s"
+                hint={copy.write.graceHint}
+              />
+            </div>
           </div>
-        </div>
-      </section>
 
-      <section className="flex flex-col gap-6 pt-6">
-        <SealPress
-          onPress={() => void handleSeal()}
-          isStamped={stage === "sealed"}
-          isBusy={isBusy}
-          busyLabel={resolveBusyLabel(stage, copy)}
-          disabledReason={validation.ok ? null : validation.message}
-        />
+          <div className="mt-auto flex flex-col gap-3 pt-1">
+            <SealPress
+              onPress={() => void handleSeal()}
+              isStamped={stage === "sealed"}
+              isBusy={isBusy}
+              busyLabel={resolveBusyLabel(stage, copy)}
+              disabledReason={validation.ok ? null : validation.message}
+            />
 
-        {errorMessage !== null ? (
-          <p role="alert" className="type-small text-cinnabar">
-            {errorMessage}
-          </p>
-        ) : null}
+            {errorMessage !== null ? (
+              <p role="alert" className="type-small text-cinnabar">
+                {errorMessage}
+              </p>
+            ) : null}
 
-        {sealTransaction !== null ? (
-          <a
-            href={buildTransactionUrl(sealTransaction)}
-            target="_blank"
-            rel="noreferrer"
-            className="type-small type-numeric text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
-          >
-            {copy.write.viewTransaction}
-          </a>
-        ) : null}
-      </section>
+            {sealTransaction !== null ? (
+              <a
+                href={buildTransactionUrl(sealTransaction)}
+                target="_blank"
+                rel="noreferrer"
+                className="type-small type-numeric text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+              >
+                {copy.write.viewTransaction}
+              </a>
+            ) : null}
+          </div>
+        </section>
+      </div>
 
       {stage === "sealed" ? (
-        <section className="flex flex-col gap-4 pt-6">
+        <section className="flex flex-col gap-4 border-0 pt-2">
           <h2 className="type-display-lg">{copy.write.openPassageTitle}</h2>
-          <p className="type-body text-ink-muted">
-{copy.write.openPassageLede}
-          </p>
+          <p className="type-body text-ink-muted">{copy.write.openPassageLede}</p>
           {isModuleEnabled === true ? (
-            <p className="type-small text-bronze">{copy.write.moduleEnabled}</p>
+            <p className="type-small text-bronze-deep">{copy.write.moduleEnabled}</p>
           ) : (
             <button
               type="button"
               onClick={() => void handleEnableModule()}
               disabled={isEnablingModule}
-              className="panel-well type-small min-h-11 w-fit px-5 py-3 text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-bronze disabled:text-ink-faint"
+              className="panel-well type-small min-h-11 w-fit px-5 py-3 text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-bronze-deep disabled:text-ink-faint"
             >
               {isEnablingModule ? copy.write.enablingModule : copy.write.enableModule}
             </button>
