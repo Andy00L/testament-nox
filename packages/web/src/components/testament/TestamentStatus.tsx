@@ -93,7 +93,7 @@ export function TestamentStatus() {
         {sentence.after}
       </p>
 
-      <HeartbeatControl testamentId={testament.testamentId} />
+      <HeartbeatControl testamentId={testament.testamentId} onSent={testament.refetch} />
     </div>
   );
 }

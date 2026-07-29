@@ -19,12 +19,16 @@ import { readDeployment } from "@/lib/chain";
 
 type TestamentRecord = readonly [Address, Address, number, number, bigint, number];
 
-export type ActiveTestament =
+export type ActiveTestament = (
   | { status: "not-deployed"; missing: string[] }
   | { status: "disconnected" }
   | { status: "loading" }
   | { status: "none" }
-  | { status: "found"; testamentId: bigint; summary: TestamentSummary };
+  | { status: "found"; testamentId: bigint; summary: TestamentSummary }
+) & {
+  /** Re-reads both queries. Called after a write lands so the UI never shows stale state. */
+  refetch: () => void;
+};
 
 /** The connected wallet's current unreleased testament, if it has one. */
 export function useActiveTestament(): ActiveTestament {
@@ -51,26 +55,32 @@ export function useActiveTestament(): ActiveTestament {
     query: { enabled: registryAddress !== undefined && hasTestament },
   });
 
+  const refetch = () => {
+    void activeIdQuery.refetch();
+    void recordQuery.refetch();
+  };
+
   if (!deployment.isDeployed) {
-    return { status: "not-deployed", missing: deployment.missing };
+    return { status: "not-deployed", missing: deployment.missing, refetch };
   }
   if (!isConnected || address === undefined) {
-    return { status: "disconnected" };
+    return { status: "disconnected", refetch };
   }
   if (activeIdQuery.isPending) {
-    return { status: "loading" };
+    return { status: "loading", refetch };
   }
   if (!hasTestament) {
-    return { status: "none" };
+    return { status: "none", refetch };
   }
   if (recordQuery.isPending || recordQuery.data === undefined) {
-    return { status: "loading" };
+    return { status: "loading", refetch };
   }
 
   return {
     status: "found",
     testamentId: activeId,
     summary: toTestamentSummary(recordQuery.data as TestamentRecord),
+    refetch,
   };
 }
 

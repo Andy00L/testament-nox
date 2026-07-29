@@ -1,6 +1,15 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { createChimeVoice, type ChimeVoice } from "@/scene/chime";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
@@ -34,6 +43,15 @@ export function useSound(): SoundControls {
 export function SoundProvider({ children }: { children: ReactNode }) {
   const voiceRef = useRef<ChimeVoice | null>(null);
   const [isEnabled, setIsEnabled] = useState(false);
+
+  // External system: the Web Audio graph. The provider lives for the app's lifetime in
+  // practice, but if it ever unmounts the context must be released, not leaked.
+  useEffect(() => {
+    return () => {
+      voiceRef.current?.close();
+      voiceRef.current = null;
+    };
+  }, []);
 
   const toggle = useCallback(() => {
     setIsEnabled((wasEnabled) => {

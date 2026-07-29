@@ -44,8 +44,18 @@ export type DeploymentStatus =
 /**
  * The contract addresses, read as a value rather than thrown, so a checkout without a
  * deployment renders an honest "not deployed yet" state instead of a blank screen.
+ *
+ * Computed once at module scope: NEXT_PUBLIC_ values are inlined at build time, so the
+ * result can never change while the app runs. Returning a fresh object per call put an
+ * unstable identity into hook dependency arrays, and in HeartbeatControl that re-armed the
+ * hold effect on every progress frame, resetting the hold clock: the heartbeat could never
+ * actually be sent. A constant makes that class of bug impossible.
  */
 export function readDeployment(): DeploymentStatus {
+  return DEPLOYMENT;
+}
+
+function computeDeployment(): DeploymentStatus {
   // Not named `module`: the bundler treats that identifier specially in this scope.
   const registryAddress = process.env.NEXT_PUBLIC_REGISTRY_ADDRESS?.trim();
   const moduleAddress = process.env.NEXT_PUBLIC_MODULE_ADDRESS?.trim();
@@ -67,6 +77,8 @@ export function readDeployment(): DeploymentStatus {
     addresses: { registry: registryAddress as Address, module: moduleAddress as Address },
   };
 }
+
+const DEPLOYMENT: DeploymentStatus = computeDeployment();
 
 /** Etherscan link for a transaction, so every claim in the UI is checkable. */
 export function buildTransactionUrl(transactionHash: string): string {

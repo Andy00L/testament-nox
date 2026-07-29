@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 /**
  * The seal: this product's one bespoke silhouette.
  *
@@ -31,6 +33,12 @@ const IMPRESSION_PATH =
   "M7.4 5.2 C24 3.4 41 3.1 57.6 4.4 C60.2 4.6 61.3 6.1 61.6 8.6 C63.1 25 63.4 41.8 62 58.2 C61.7 60.9 60.3 62.1 57.4 62.4 C41 63.9 24.2 64.1 7.8 62.6 C5.1 62.3 3.8 61 3.5 58.2 C2.1 41.6 2.2 24.6 3.8 8.2 C4.1 6.2 5.2 5.4 7.4 5.2 Z";
 
 export function Seal({ size = 64, pressed = 1, className, label }: SealProps) {
+  // The seal renders more than once per page (the plaque, the press), so its internal
+  // gradient and clip ids must be unique or the documents shares one id three ways.
+  const instanceId = useId();
+  const pasteId = `seal-paste-${instanceId}`;
+  const clipId = `seal-clip-${instanceId}`;
+
   return (
     <svg
       viewBox="0 0 66 68"
@@ -48,23 +56,23 @@ export function Seal({ size = 64, pressed = 1, className, label }: SealProps) {
           The paste is never even: it pools where the stone bit hardest and thins at the
           lifted corner. One directional light, matching the rest of the product.
         */}
-        <radialGradient id="seal-paste" cx="38%" cy="30%" r="82%">
+        <radialGradient id={pasteId} cx="38%" cy="30%" r="82%">
           <stop offset="0%" stopColor="var(--color-cinnabar)" stopOpacity="1" />
           <stop offset="72%" stopColor="var(--color-cinnabar)" stopOpacity="0.94" />
           <stop offset="100%" stopColor="var(--color-cinnabar)" stopOpacity="0.72" />
         </radialGradient>
-        <clipPath id="seal-clip">
+        <clipPath id={clipId}>
           <path d={IMPRESSION_PATH} />
         </clipPath>
       </defs>
 
-      <path d={IMPRESSION_PATH} fill="url(#seal-paste)" />
+      <path d={IMPRESSION_PATH} fill={`url(#${pasteId})`} />
 
       {/*
         Carved in relief (朱文): the character is cut away from the block, so it reads in
         the surface underneath rather than in ink.
       */}
-      <g clipPath="url(#seal-clip)">
+      <g clipPath={`url(#${clipId})`}>
         <text
           x="33"
           y="34"
