@@ -32,8 +32,14 @@ import { sepolia } from "viem/chains";
 /** How long to wait between passes when running as a loop. Unit: milliseconds. */
 const POLL_INTERVAL_MS = Number(process.env.KEEPER_POLL_INTERVAL_MS ?? 60_000);
 
-/** Highest testament id scanned per pass. The registry clamps to what exists. */
-const SCAN_UPPER_BOUND = 1_000n;
+/**
+ * Ids requested per read. The registry clamps the upper bound to what exists, so the last
+ * page is short rather than wasteful.
+ *
+ * A fixed ceiling here used to mean testaments past it were never settled by this keeper.
+ * The scan now walks to `lastTestamentId` instead, so the registry decides how far it goes.
+ */
+const SCAN_PAGE_SIZE = 200n;
 
 function requireEnv(variableName: string): string {
   const raw = process.env[variableName];
@@ -68,15 +74,34 @@ function withoutPadding(ids: readonly bigint[]): bigint[] {
   return ids.filter((testamentId) => testamentId !== 0n);
 }
 
-async function releaseExpiredTestaments(): Promise<void> {
-  const candidates = withoutPadding(
-    await publicClient.readContract({
+/**
+ * Walks one of the registry's batch views from id 1 to whatever exists right now.
+ *
+ * Paged rather than one huge call, because a single view over thousands of ids eventually
+ * exceeds the node's gas cap for an `eth_call` and starts returning nothing at all.
+ */
+async function scanIds(viewName: "releasableIds" | "executableIds"): Promise<bigint[]> {
+  const lastTestamentId = await publicClient.readContract({
+    address: registryAddress,
+    abi: testamentRegistryAbi,
+    functionName: "lastTestamentId",
+  });
+
+  const found: bigint[] = [];
+  for (let fromId = 1n; fromId <= lastTestamentId; fromId += SCAN_PAGE_SIZE) {
+    const page = await publicClient.readContract({
       address: registryAddress,
       abi: testamentRegistryAbi,
-      functionName: "releasableIds",
-      args: [1n, SCAN_UPPER_BOUND],
-    }),
-  );
+      functionName: viewName,
+      args: [fromId, fromId + SCAN_PAGE_SIZE - 1n],
+    });
+    found.push(...withoutPadding(page));
+  }
+  return found;
+}
+
+async function releaseExpiredTestaments(): Promise<void> {
+  const candidates = await scanIds("releasableIds");
 
   for (const testamentId of candidates) {
     try {
@@ -96,14 +121,7 @@ async function releaseExpiredTestaments(): Promise<void> {
 }
 
 async function executeReleasedTestaments(): Promise<void> {
-  const candidates = withoutPadding(
-    await publicClient.readContract({
-      address: registryAddress,
-      abi: testamentRegistryAbi,
-      functionName: "executableIds",
-      args: [1n, SCAN_UPPER_BOUND],
-    }),
-  );
+  const candidates = await scanIds("executableIds");
 
   for (const testamentId of candidates) {
     try {
