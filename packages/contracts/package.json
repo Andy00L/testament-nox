@@ -10,10 +10,13 @@
     "test": "hardhat test",
     "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
     "enable-module:sepolia": "hardhat run scripts/enable-module.ts --network sepolia",
+    "authorize-writer:sepolia": "hardhat run scripts/authorize-writer.ts --network sepolia",
+    "disable-module:sepolia": "hardhat run scripts/disable-module.ts --network sepolia",
     "e2e:sepolia": "hardhat run scripts/e2e-sepolia.ts --network sepolia",
     "typecheck": "tsc --noEmit",
     "create-safe:sepolia": "hardhat run scripts/create-safe.ts --network sepolia",
-    "write-demo:sepolia": "hardhat run scripts/write-demo.ts --network sepolia"
+    "write-demo:sepolia": "hardhat run scripts/write-demo.ts --network sepolia",
+    "revoke:sepolia": "hardhat run scripts/revoke-active.ts --network sepolia"
   },
   "dependencies": {
     "@iexec-nox/nox-protocol-contracts": "^0.2.4",

@@ -38,6 +38,9 @@ export {
 export { retryAsync, sleep, type RetryOptions, type RetryResult } from "./retry.ts";
 
 export {
+  SAFE_SENTINEL_MODULES,
+  buildAuthorizeWriterTransaction,
+  buildDisableModuleTransaction,
   buildEnableModuleTransaction,
   encodePrevalidatedSignature,
   safeManagementAbi,

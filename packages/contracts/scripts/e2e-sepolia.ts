@@ -10,6 +10,7 @@ import {
   retryAsync,
   safeManagementAbi,
   sleep,
+  testamentModuleAbi,
   testamentRegistryAbi,
   unpackBequest,
 } from "@testament/shared";
@@ -94,6 +95,21 @@ if (!moduleEnabled) {
   );
 }
 
+// Enabling the module is not consent to any particular will. The Safe also has to name its
+// writer, and the will carries the nonce that naming landed on.
+const [mandatedWriter, mandateNonce] = await publicClient.readContract({
+  address: moduleAddress,
+  abi: testamentModuleAbi,
+  functionName: "authorizationOf",
+  args: [safeAddress],
+});
+if (mandatedWriter.toLowerCase() !== ownerAddress.toLowerCase()) {
+  throw new Error(
+    `[e2e] the Safe's writer is ${mandatedWriter}, not ${ownerAddress}. Run: bun run authorize-writer:sepolia`,
+  );
+}
+console.log(`[e2e] mandate  nonce ${mandateNonce}`);
+
 let estateValueWei = await publicClient.getBalance({ address: safeAddress });
 if (estateValueWei < MINIMUM_ESTATE_WEI) {
   // A previous run drained it. Top it back up so the rehearsal is repeatable.
@@ -123,6 +139,20 @@ if (existingId !== 0n) {
     args: [existingId],
   });
   await publicClient.waitForTransactionReceipt({ hash: revokeHash });
+}
+
+// One Safe backs one will at a time. If something else still holds the slot the run cannot
+// start, and saying which testament it is beats a bare SafeAlreadyHasTestament revert.
+const safeHeldId = await publicClient.readContract({
+  address: registryAddress,
+  abi: testamentRegistryAbi,
+  functionName: "activeTestamentOfSafe",
+  args: [safeAddress],
+});
+if (safeHeldId !== 0n) {
+  throw new Error(
+    `[e2e] testament #${safeHeldId} is still active against ${safeAddress} and belongs to someone else. Its owner has to revoke it, or the Safe has to rotate its mandate.`,
+  );
 }
 
 // ---- Write --------------------------------------------------------------------------

@@ -162,6 +162,22 @@ export const testamentRegistryAbi = [
         "internalType": "address",
         "name": "safe",
         "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "testamentId",
+        "type": "uint256"
+      }
+    ],
+    "name": "SafeAlreadyHasTestament",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "safe",
+        "type": "address"
       }
     ],
     "name": "SafeIsNotAContract",
@@ -212,6 +228,22 @@ export const testamentRegistryAbi = [
       }
     ],
     "name": "UnexpectedState",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "safe",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "writer",
+        "type": "address"
+      }
+    ],
+    "name": "WriterNotAuthorized",
     "type": "error"
   },
   {
@@ -340,6 +372,12 @@ export const testamentRegistryAbi = [
         "internalType": "uint32",
         "name": "grace",
         "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "authNonce",
+        "type": "uint32"
       }
     ],
     "name": "TestamentWritten",
@@ -419,6 +457,25 @@ export const testamentRegistryAbi = [
       }
     ],
     "name": "activeTestamentOf",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "testamentId",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "safe",
+        "type": "address"
+      }
+    ],
+    "name": "activeTestamentOfSafe",
     "outputs": [
       {
         "internalType": "uint256",
@@ -656,6 +713,11 @@ export const testamentRegistryAbi = [
         "internalType": "enum TestamentRegistry.TestamentState",
         "name": "state",
         "type": "uint8"
+      },
+      {
+        "internalType": "uint32",
+        "name": "authNonce",
+        "type": "uint32"
       }
     ],
     "stateMutability": "view",
@@ -717,6 +779,27 @@ export const testamentModuleAbi = [
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "safe",
+        "type": "address"
+      },
+      {
+        "internalType": "uint32",
+        "name": "written",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "current",
+        "type": "uint32"
+      }
+    ],
+    "name": "AuthorizationRotated",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "recipientCount",
         "type": "uint256"
@@ -734,6 +817,17 @@ export const testamentModuleAbi = [
     "inputs": [
       {
         "internalType": "address",
+        "name": "safe",
+        "type": "address"
+      }
+    ],
+    "name": "ModuleNotEnabledOnSafe",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
         "name": "caller",
         "type": "address"
       }
@@ -744,6 +838,27 @@ export const testamentModuleAbi = [
   {
     "inputs": [],
     "name": "RegistryIsZeroAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "WriterIsZeroAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "safe",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "writer",
+        "type": "address"
+      }
+    ],
+    "name": "WriterNotAuthorized",
     "type": "error"
   },
   {
@@ -797,11 +912,152 @@ export const testamentModuleAbi = [
     "type": "event"
   },
   {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "safe",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "writer",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "nonce",
+        "type": "uint32"
+      }
+    ],
+    "name": "WriterAuthorized",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "safe",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "writer",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "nonce",
+        "type": "uint32"
+      }
+    ],
+    "name": "WriterRevoked",
+    "type": "event"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
         "name": "safe",
         "type": "address"
+      }
+    ],
+    "name": "authorizationNonce",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "nonce",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "safe",
+        "type": "address"
+      }
+    ],
+    "name": "authorizationOf",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "writer",
+        "type": "address"
+      },
+      {
+        "internalType": "uint32",
+        "name": "nonce",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "writer",
+        "type": "address"
+      }
+    ],
+    "name": "authorizeWriter",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "nonce",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "safe",
+        "type": "address"
+      }
+    ],
+    "name": "authorizedWriter",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "writer",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "safe",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "writer",
+        "type": "address"
+      },
+      {
+        "internalType": "uint32",
+        "name": "nonce",
+        "type": "uint32"
       },
       {
         "internalType": "address[]",
@@ -849,6 +1105,19 @@ export const testamentModuleAbi = [
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "revokeWriter",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "nonce",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "nonpayable",
     "type": "function"
   }
 ] as const;

@@ -16,6 +16,12 @@ import {TestamentModule} from "./TestamentModule.sol";
  * it only stores Nox handles. While the owner keeps sending heartbeats the plan stays
  * sealed and readable by the owner alone.
  *
+ * Writing is not open to everyone. The Safe that will pay has to enable TestamentModule and
+ * then authorize this particular writer, both as Safe transactions that clear the Safe's own
+ * threshold. Without that mandate `write` reverts, and one Safe backs at most one live
+ * testament at a time. The mandate is checked again at payout, inside the module, so a will
+ * cannot outlive the authority it was written under.
+ *
  * When the silence outlasts `interval + grace`, anyone can call `release`, which marks
  * the slots publicly decryptable. From that point the plan is public and anyone can
  * fetch a decryption proof from the Handle Gateway and call `execute`, which verifies
@@ -67,8 +73,10 @@ contract TestamentRegistry is ReentrancyGuard {
     }
 
     /**
-     * @dev `interval` and `grace` are uint32 seconds (136 years of range) so that the
-     *      whole record fits in two storage slots next to the address fields.
+     * @dev `interval` and `grace` are uint32 seconds (136 years of range) and `authNonce` is
+     *      uint32, so the whole record still fits in two storage slots next to the address
+     *      fields: owner, interval, grace and state in the first, safe, lastHeartbeat and
+     *      authNonce in the second.
      */
     struct Testament {
         address owner;
@@ -77,6 +85,7 @@ contract TestamentRegistry is ReentrancyGuard {
         TestamentState state;
         address safe;
         uint64 lastHeartbeat;
+        uint32 authNonce;
         euint256[SLOTS] slots;
     }
 
@@ -91,6 +100,13 @@ contract TestamentRegistry is ReentrancyGuard {
     /// @notice The current unreleased testament of an owner, or 0. One at a time.
     mapping(address owner => uint256 testamentId) public activeTestamentOf;
 
+    /**
+     * @notice The current unreleased testament drawn on a Safe, or 0. One at a time.
+     * @dev Keyed by the paying Safe and not by the writer, so a Safe can never end up with
+     *      several live wills competing over one estate.
+     */
+    mapping(address safe => uint256 testamentId) public activeTestamentOfSafe;
+
     mapping(uint256 testamentId => Testament testament) private _testaments;
 
     // ============ Errors ============
@@ -102,6 +118,8 @@ contract TestamentRegistry is ReentrancyGuard {
     error GraceOutOfRange(uint32 grace, uint32 maxGrace);
     error SlotCountMismatch(uint256 handleCount, uint256 proofCount, uint256 expected);
     error OwnerAlreadyHasTestament(address owner, uint256 testamentId);
+    error SafeAlreadyHasTestament(address safe, uint256 testamentId);
+    error WriterNotAuthorized(address safe, address writer);
     error NotOwner(uint256 testamentId, address caller);
     error UnexpectedState(uint256 testamentId, TestamentState actual, TestamentState expected);
     error NotExpiredYet(uint256 testamentId, uint64 deadline, uint64 nowTimestamp);
@@ -115,7 +133,8 @@ contract TestamentRegistry is ReentrancyGuard {
         address indexed owner,
         address indexed safe,
         uint32 interval,
-        uint32 grace
+        uint32 grace,
+        uint32 authNonce
     );
     event Heartbeat(uint256 indexed testamentId, address indexed owner, uint64 occurredAt);
     event TestamentRevoked(uint256 indexed testamentId, address indexed owner);
@@ -133,8 +152,9 @@ contract TestamentRegistry is ReentrancyGuard {
 
     /**
      * @notice Seals a testament. The caller becomes its owner.
-     * @param safe The Safe that will pay out. It must have TestamentModule enabled before
-     *        execution, which the app handles as a separate step.
+     * @param safe The Safe that will pay out. It must already have TestamentModule enabled
+     *        and must have authorized the caller as its writer, both through Safe
+     *        transactions. Neither is something the caller can do on the Safe's behalf.
      * @param interval Seconds of silence tolerated between heartbeats.
      * @param grace Extra seconds of silence before anyone may release.
      * @param slotHandles Exactly SLOTS encrypted slots. Each plaintext packs one
@@ -176,6 +196,15 @@ contract TestamentRegistry is ReentrancyGuard {
         uint256 existingId = activeTestamentOf[msg.sender];
         require(existingId == 0, OwnerAlreadyHasTestament(msg.sender, existingId));
 
+        uint256 existingSafeId = activeTestamentOfSafe[safe];
+        require(existingSafeId == 0, SafeAlreadyHasTestament(safe, existingSafeId));
+
+        // The Safe's own mandate, granted by a Safe transaction that cleared its threshold.
+        // Enabling a module hands it unrestricted spending authority, so without this check
+        // any stranger could name any module-enabled Safe as the estate paying their will.
+        (address mandatedWriter, uint32 authNonce) = module.authorizationOf(safe);
+        require(mandatedWriter == msg.sender, WriterNotAuthorized(safe, msg.sender));
+
         testamentId = ++lastTestamentId;
         Testament storage testament = _testaments[testamentId];
         testament.owner = msg.sender;
@@ -183,6 +212,7 @@ contract TestamentRegistry is ReentrancyGuard {
         testament.interval = interval;
         testament.grace = grace;
         testament.lastHeartbeat = uint64(block.timestamp);
+        testament.authNonce = authNonce;
         testament.state = TestamentState.Active;
 
         for (uint256 index; index < SLOTS; ++index) {
@@ -200,7 +230,8 @@ contract TestamentRegistry is ReentrancyGuard {
         }
 
         activeTestamentOf[msg.sender] = testamentId;
-        emit TestamentWritten(testamentId, msg.sender, safe, interval, grace);
+        activeTestamentOfSafe[safe] = testamentId;
+        emit TestamentWritten(testamentId, msg.sender, safe, interval, grace, authNonce);
     }
 
     /**
@@ -225,6 +256,7 @@ contract TestamentRegistry is ReentrancyGuard {
         Testament storage testament = _requireOwnedAndActive(testamentId);
         testament.state = TestamentState.Revoked;
         delete activeTestamentOf[msg.sender];
+        delete activeTestamentOfSafe[testament.safe];
 
         for (uint256 index; index < SLOTS; ++index) {
             testament.slots[index] = euint256.wrap(bytes32(0));
@@ -327,8 +359,11 @@ contract TestamentRegistry is ReentrancyGuard {
         // them during distribute.
         testament.state = TestamentState.Executed;
         delete activeTestamentOf[testament.owner];
+        delete activeTestamentOfSafe[safe];
 
-        module.distribute(safe, recipients, amounts);
+        // The module checks the mandate again, against the Safe's state right now, and
+        // reverts if it has been withdrawn or reassigned since this will was written.
+        module.distribute(safe, testament.owner, testament.authNonce, recipients, amounts);
 
         emit TestamentExecuted(testamentId, msg.sender, totalDistributed);
     }
@@ -349,7 +384,12 @@ contract TestamentRegistry is ReentrancyGuard {
         return block.timestamp > _deadlineOf(testament);
     }
 
-    /// @notice The public half of a testament. The encrypted half is in `slotsOf`.
+    /**
+     * @notice The public half of a testament. The encrypted half is in `slotsOf`.
+     * @dev `authNonce` comes last so positional readers written against the previous shape
+     *      keep working. Compare it with the module's current nonce for the Safe to know
+     *      whether this will can still be paid out.
+     */
     function testamentOf(
         uint256 testamentId
     )
@@ -361,7 +401,8 @@ contract TestamentRegistry is ReentrancyGuard {
             uint32 interval,
             uint32 grace,
             uint64 lastHeartbeat,
-            TestamentState state
+            TestamentState state,
+            uint32 authNonce
         )
     {
         Testament storage testament = _testaments[testamentId];
@@ -371,7 +412,8 @@ contract TestamentRegistry is ReentrancyGuard {
             testament.interval,
             testament.grace,
             testament.lastHeartbeat,
-            testament.state
+            testament.state,
+            testament.authNonce
         );
     }
 

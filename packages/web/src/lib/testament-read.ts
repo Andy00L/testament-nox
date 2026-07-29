@@ -17,7 +17,8 @@ import { readDeployment } from "@/lib/chain";
  * there is one place that decodes the registry's tuples into named fields.
  */
 
-type TestamentRecord = readonly [Address, Address, number, number, bigint, number];
+/** owner, safe, interval, grace, lastHeartbeat, state, authNonce. */
+type TestamentRecord = readonly [Address, Address, number, number, bigint, number, number];
 
 export type ActiveTestament = (
   | { status: "not-deployed"; missing: string[] }
