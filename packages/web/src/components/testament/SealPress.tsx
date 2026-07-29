@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 
 import { Seal } from "@/components/scene/Seal";
+import { useTranslation } from "@/components/i18n/LanguageProvider";
 
 /**
  * The signature. The one moment in this product that spends the motion budget.
@@ -24,6 +25,7 @@ type SealPressProps = {
 };
 
 export function SealPress({ onPress, isStamped, isBusy, busyLabel, disabledReason }: SealPressProps) {
+  const { copy } = useTranslation();
   const isDisabled = isBusy || isStamped || (disabledReason != null && disabledReason !== "");
 
   return (
@@ -37,7 +39,7 @@ export function SealPress({ onPress, isStamped, isBusy, busyLabel, disabledReaso
         {/* The carved recess the stone is pressed into. */}
         <span
           aria-hidden="true"
-          className="lacquer-well relative grid size-16 shrink-0 place-items-center transition-transform duration-(--dur-micro) ease-(--ease-standard) group-active:not-disabled:scale-[0.98]"
+          className="panel-well relative grid size-16 shrink-0 place-items-center transition-transform duration-(--dur-micro) ease-(--ease-standard) group-active:not-disabled:scale-[0.98]"
         >
           <AnimatePresence>
             {isStamped ? (
@@ -48,7 +50,7 @@ export function SealPress({ onPress, isStamped, isBusy, busyLabel, disabledReaso
                 transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
                 className="absolute inset-0 grid place-items-center"
               >
-                <Seal size={46} />
+                <Seal size={46} label={copy.seal.sealed} />
               </motion.span>
             ) : (
               <motion.span
@@ -66,12 +68,10 @@ export function SealPress({ onPress, isStamped, isBusy, busyLabel, disabledReaso
 
         <span className="flex flex-col gap-1">
           <span className="type-title text-ink">
-            {isBusy ? busyLabel : isStamped ? "Testament scellé" : "Presser le sceau"}
+            {isBusy ? busyLabel : isStamped ? copy.seal.sealed : copy.seal.idle}
           </span>
           <span className="type-small text-ink-muted">
-            {isStamped
-              ? "Les héritiers et les parts sont chiffrés on-chain."
-              : "Chiffre le testament et l'inscrit dans le registre. Irréversible."}
+            {isStamped ? copy.seal.sealedLede : copy.seal.idleLede}
           </span>
         </span>
       </button>

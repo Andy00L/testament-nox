@@ -12,6 +12,7 @@ import {
 } from "react";
 
 import { createCurtainScene, type CurtainMood, type CurtainScene } from "@/scene/curtain";
+import { useSound } from "@/components/scene/SoundProvider";
 
 /**
  * Owns the one canvas the whole product shares, and hands every screen two verbs:
@@ -44,22 +45,26 @@ export function useCurtain(): CurtainControls {
 /** Highest device pixel ratio we render at. Beyond 2 the cost buys nothing visible. */
 const MAX_PIXEL_RATIO = 2;
 
-function readPaletteFromDocument(): { brass: string; brassDeep: string; iron: string } {
+function readPaletteFromDocument(): { bronze: string; bronzeDeep: string; iron: string } {
   const computed = getComputedStyle(document.documentElement);
   const readToken = (token: string, fallback: string) =>
     computed.getPropertyValue(token).trim() || fallback;
   // The token sheet stays the single source of truth: the canvas reads the same custom
   // properties the CSS does rather than carrying its own copy of the palette.
   return {
-    brass: readToken("--color-brass", "#c9a227"),
-    brassDeep: readToken("--color-brass-deep", "#8a6d1f"),
-    iron: readToken("--color-iron", "#56524c"),
+    bronze: readToken("--color-bronze", "#8a6d1f"),
+    bronzeDeep: readToken("--color-bronze-deep", "#5e4a14"),
+    iron: readToken("--color-iron", "#bdb3a8"),
   };
 }
 
 export function CurtainStage({ children }: { children: ReactNode }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<CurtainScene | null>(null);
+  const { playChime } = useSound();
+  // Held in a ref so the scene's setup effect never has to re-run when sound is toggled;
+  // tearing down and rebuilding the simulation would visibly drop the curtain.
+  const playChimeRef = useRef(playChime);
   const [mood, setMoodState] = useState<CurtainMood>({ silence: 0, isReleased: false });
 
   const setMood = useCallback((nextMood: CurtainMood) => {
@@ -92,6 +97,12 @@ export function CurtainStage({ children }: { children: ReactNode }) {
     [setMood, sendGust, setCharge, rippleAt],
   );
 
+  // Kept in step through an effect rather than assigned during render: writing a ref
+  // while rendering is not safe under concurrent rendering.
+  useEffect(() => {
+    playChimeRef.current = playChime;
+  }, [playChime]);
+
   // External system: the canvas 2D context, requestAnimationFrame, ResizeObserver, and
   // window pointer events. None of these are owned by React, so they are set up and torn
   // down here.
@@ -107,6 +118,10 @@ export function CurtainStage({ children }: { children: ReactNode }) {
 
     const scene = createCurtainScene(readPaletteFromDocument());
     sceneRef.current = scene;
+
+    // The curtain rings when the pointer passes through a cord. The scene reports the
+    // crossing; whether anything is audible is the sound provider's business.
+    scene.setStrandStruckListener((brightness) => playChimeRef.current(brightness));
 
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -151,6 +166,7 @@ export function CurtainStage({ children }: { children: ReactNode }) {
     }
 
     return () => {
+      scene.setStrandStruckListener(null);
       resizeObserver.disconnect();
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerleave", handlePointerLeave);

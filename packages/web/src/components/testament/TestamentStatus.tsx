@@ -11,8 +11,10 @@ import { useEffect } from "react";
 
 import { HeartbeatControl } from "@/components/testament/HeartbeatControl";
 import { useCurtain } from "@/components/scene/CurtainStage";
+import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { buildAddressUrl, shortenAddress } from "@/lib/chain";
-import { formatRemaining, useActiveTestament, useNowSeconds } from "@/lib/testament-read";
+import { formatRemaining } from "@/lib/i18n";
+import { useActiveTestament, useNowSeconds } from "@/lib/testament-read";
 
 /**
  * What the scene is currently saying, in one line of prose, plus the heartbeat.
@@ -24,6 +26,7 @@ export function TestamentStatus() {
   const testament = useActiveTestament();
   const nowSeconds = useNowSeconds();
   const { setMood } = useCurtain();
+  const { copy } = useTranslation();
 
   const summary = testament.status === "found" ? testament.summary : null;
   const silence =
@@ -40,7 +43,7 @@ export function TestamentStatus() {
   if (testament.status === "not-deployed") {
     // One quiet sentence. The missing variable names belong in the console, not in a
     // sentence a visitor has to read past.
-    return <p className="type-small text-ink-faint">Contrats non déployés sur ce réseau.</p>;
+    return <p className="type-small text-ink-faint">{copy.status.notDeployed}</p>;
   }
 
   if (testament.status === "disconnected" || testament.status === "none") {
@@ -48,7 +51,7 @@ export function TestamentStatus() {
   }
 
   if (testament.status === "loading" || summary === null || nowSeconds === null) {
-    return <p className="type-small text-ink-faint">Lecture de la chaîne…</p>;
+    return <p className="type-small text-ink-faint">{copy.status.reading}</p>;
   }
 
   const phase = computeTestamentPhase(summary, nowSeconds);
@@ -57,37 +60,37 @@ export function TestamentStatus() {
   if (summary.state === TESTAMENT_STATE.Released) {
     return (
       <div className="flex flex-col gap-3">
-        <p className="type-body text-ink">
-          Le vent est tombé. Le testament est ouvert et attend son exécution.
-        </p>
+        <p className="type-body text-ink">{copy.status.releasedLede}</p>
         <Link
           href="/porte"
           className="type-small text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
         >
-          Aller à la porte
+          {copy.status.goToDoor}
         </Link>
       </div>
     );
   }
+
+  const sentence = copy.status.safeWillPay(shortenAddress(summary.safe));
 
   return (
     <div className="flex flex-col gap-5">
       <p className="type-body text-ink-muted">
         <span className="text-ink">
           {phase === "expired"
-            ? "Le vent est tombé."
-            : `Le vent tombe dans ${formatRemaining(secondsLeft)}.`}
+            ? copy.status.windFell
+            : copy.status.windFallsIn(formatRemaining(secondsLeft, copy.duration))}
         </span>{" "}
-        Le Safe{" "}
+        {sentence.before}
         <a
           href={buildAddressUrl(summary.safe)}
           target="_blank"
           rel="noreferrer"
           className="type-numeric transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
         >
-          {shortenAddress(summary.safe)}
-        </a>{" "}
-        paiera vos héritiers si le silence dure.
+          {sentence.link}
+        </a>
+        {sentence.after}
       </p>
 
       <HeartbeatControl testamentId={testament.testamentId} />

@@ -18,11 +18,11 @@ Built for the iExec WTF Hackathon, Summer Edition.
 ![tests](https://img.shields.io/badge/tests-41%20contract%20%2B%2021%20unit-56524C)
 ![license](https://img.shields.io/badge/license-MIT-56524C)
 
-![The curtain: the home scene, with the will's silence driving the strands](docs/screenshots/01-scene.png)
+![The curtain: the home scene, with the will's silence driving the strands](docs/screenshots/01-scene.webp)
 
 | Writing the will (the ritual)                    | The door, before anyone may open it            |
 | ------------------------------------------------ | ---------------------------------------------- |
-| ![Write flow](docs/screenshots/02-write.png)      | ![Door closed](docs/screenshots/03-door.png)   |
+| ![Write flow](docs/screenshots/02-write.webp)      | ![Door closed](docs/screenshots/03-door.webp)   |
 
 ## 🎯 The problem
 
@@ -57,6 +57,13 @@ nobody puts a real succession plan on chain.
   exact same transaction.
 - **The Safe is never modified.** It enables one module, once. The registry holds no funds
   and cannot be repointed: both addresses are `immutable`.
+- **The curtain is the countdown.** No DAYS/HRS/MIN widget exists in this product. The
+  strands are warm bronze under a live breeze while the heartbeat is recent, cool toward
+  pale iron as the silence runs on, and detach and fall once the will is released. Passing
+  the cursor through them rings a pentatonic chime, off until you ask for it.
+- **French and English**, switchable from the plaque, `lang` kept in step for screen
+  readers. Every string lives in [one typed dictionary](packages/web/src/lib/i18n.ts) where a
+  missing translation is a compile error.
 
 ## 🧭 How it works
 
@@ -236,12 +243,19 @@ event.
   `ReentrancyGuard`.
 - **Curtain physics** adapted from Liam Egan's
   ["Strings" CodePen](https://codepen.io/shubniggurath/pen/xbwOJye) (MIT): the pinned-top
-  Verlet chain structure and the radial pointer force. Rewritten against a fixed timestep.
+  Verlet chain structure and the radial pointer force. Rewritten against a fixed timestep so
+  the curtain behaves the same on a 60Hz and a 144Hz display.
   See [`verlet.ts`](packages/web/src/scene/verlet.ts).
-- **Visual direction** takes its design *language* from
-  [Marina Budarina's chimes site](https://marinabudarina.github.io/chimes/#home): a hanging
-  curtain, the cursor as wind, a hanzi word device. Every asset here is drawn for this
-  project; no copy, image, or code was taken.
+- **Artwork by [Marina Budarina](https://budarina.design), used with her permission.**
+  The tatami field (`public/scene/tatami.webp`) and the painted double-eave roof
+  (`public/scene/roof.webp`) come from her
+  [chimes project](https://marinabudarina.github.io/chimes/#home), re-encoded to WebP at
+  render size by [`optimise-scene-assets.ts`](packages/web/scripts/optimise-scene-assets.ts)
+  and otherwise unmodified. Her repository is marked "all rights reserved"; permission to use
+  these two files in this project was requested and granted by the author directly. No other
+  asset, copy, or code from that project is used here. The ink values her stylesheet defines
+  informed this project's palette so the drawn elements and the photographic ones sit in one
+  colour world. Her site is worth visiting on its own terms.
 - **Type**: [Gambarino](https://www.fontshare.com/fonts/gambarino) from Fontshare and a
   two-glyph subset of Noto Serif SC, both self-hosted.
 

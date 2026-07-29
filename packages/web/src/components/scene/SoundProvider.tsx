@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { createChimeVoice, type ChimeVoice } from "@/scene/chime";
+import { useTranslation } from "@/components/i18n/LanguageProvider";
 
 /**
  * Sound, off until asked for.
@@ -67,6 +68,7 @@ export function SoundProvider({ children }: { children: ReactNode }) {
 /** The one control that turns the chimes on. Deliberately quiet and out of the way. */
 export function SoundToggle() {
   const { isEnabled, toggle } = useSound();
+  const { copy } = useTranslation();
 
   return (
     <button
@@ -75,7 +77,7 @@ export function SoundToggle() {
       aria-pressed={isEnabled}
       className="type-small text-ink-faint transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
     >
-      {isEnabled ? "Couper le son" : "Écouter les carillons"}
+      {isEnabled ? copy.sound.disable : copy.sound.enable}
     </button>
   );
 }

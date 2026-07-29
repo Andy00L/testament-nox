@@ -17,10 +17,13 @@ is a deliberate edit to this file, not a one-off style in a component.
 - **Density:** narrative and airy on the scene and the door; focused single column with
   one action on the write flow.
 - **Hero moment:** the curtain, and the seal pressed onto the panel at signing.
-- **Theme scope:** one committed field, dark. This is not "dark mode" with a light
-  counterpart missing. The product is a doorway at night; a light theme would describe a
-  different object. Recorded here as a deliberate single-theme decision so no future
-  session retrofits one.
+- **Theme scope:** one committed field, light. Woven tatami under warm daylight. This is
+  not "light mode" with a dark counterpart missing: the product is a doorway you stand in
+  during the day. Recorded here as a deliberate single-theme decision so no future session
+  retrofits one.
+- **Languages:** French and English, one typed dictionary at `src/lib/i18n.ts` where
+  `english` is typed as `typeof french`, so a string added to one language and forgotten in
+  the other fails the build.
 - **Stack:** Next.js App Router, Bun, Tailwind v4 (tokens as CSS variables in
   `@theme`), Motion for choreography, canvas 2D for the curtain. No second styling
   system, no second component library.
@@ -29,26 +32,31 @@ is a deliberate edit to this file, not a one-off style in a component.
 
 ## 1. Palette
 
-Warm throughout. The field is aged beam wood at night, deliberately not the
-blue-charcoal every dark product ships.
+Warm throughout. The field is a woven rush mat under daylight, deliberately not the
+cream-and-white every editorial template ships: the texture, not the tint, carries it.
 
 | Role | Token | Value | Where |
 | --- | --- | --- | --- |
-| Field | `--field` | `#171210` | The page. Lacquer near-black. |
-| Field raised | `--field-raised` | `#1F1815` | Panels, the nav, anything one step up. |
-| Field sunk | `--field-sunk` | `#100C0B` | Wells, the doorway behind the curtain. |
-| Ink | `--ink` | `#EAE0CE` | Primary text. Warm bone. |
-| Ink muted | `--ink-muted` | `#9A8F80` | Secondary text, labels. |
-| Ink faint | `--ink-faint` | `#6A6157` | Placeholders, disabled, hairlines at strength. |
-| Accent | `--brass` | `#C9A227` | The one interactive colour, and the strand material. |
-| Accent deep | `--brass-deep` | `#8A6D1F` | The far end of the strand gradient, pressed states. |
-| Accent sunk | `--brass-sunk` | `#332A16` | Tonal fill under a focused or active control. |
-| Reserved | `--cinnabar` | `#9E2B25` | Irreversibility. Nothing else, ever. |
+| Field | `--color-field` | `#F3E8D5` | The mat, under the woven texture. |
+| Field raised | `--color-field-raised` | `#FFFDF7` | Panels and the plaque. Cream paper. |
+| Field sunk | `--color-field-sunk` | `#E8DFD0` | Wells and inputs. |
+| Ink | `--color-ink` | `#3A2D2A` | Primary text. |
+| Ink muted | `--color-ink-muted` | `#58423C` | Secondary text, labels. |
+| Ink faint | `--color-ink-faint` | `#9A8A84` | Placeholders, disabled, hints. Never body copy. |
+| Accent | `--color-bronze` | `#8A6D1F` | The one interactive colour, and the strand material. |
+| Accent deep | `--color-bronze-deep` | `#5E4A14` | The far end of the strand gradient. |
+| Accent sunk | `--color-bronze-sunk` | `#EFE4C6` | Tonal fill under a charging control. |
+| Reserved | `--color-cinnabar` | `#9E2B25` | Irreversibility. Nothing else, ever. |
+| Iron | `--color-iron` | `#BDB3A8` | Strands once the wind falls: they fade into the mat. |
 
-**The one accent is brass.** It is the material the chimes are made of, so interaction
-and the signature artifact speak the same language. It appears as an object colour on
-the curtain, and in the interface only as a focus ring, an active hairline, and the
-`--brass-sunk` tonal fill. It is never sprayed on type, dots, and fills at once.
+The ink values come from Marina Budarina's chimes stylesheet (`--ink: #58423c`,
+`--ink-strong: #3a2d2a`), so the drawn interface and her photographic tatami and roof sit in
+one colour world rather than two. Her artwork is used with permission; see the README.
+
+**The one accent is bronze.** It is the material the chimes are made of, so interaction
+and the signature artifact speak the same language. It appears as an object colour on the
+curtain, and in the interface only as a focus ring, a hover state, and the
+`--color-bronze-sunk` tonal fill. It is never sprayed on type, dots, and fills at once.
 
 **The one reserved colour is cinnabar, and it means "this cannot be undone".** The seal
 at signing, the revoke action, the release action. One cinnabar element per screen, at
@@ -56,18 +64,17 @@ most. It doubles as the destructive colour on purpose: in this product the irrev
 and the ceremonial are the same thing, so they get one pigment rather than two competing
 reds.
 
-Contrast, measured against `--field` `#171210`:
+Contrast is measured on the rendered page rather than computed from the sheet, by
+`bun run --cwd packages/web verify-ui`, which fails the build below 4.5:1. Current readings:
 
 | Pair | Ratio | Floor |
 | --- | --- | --- |
-| `--ink` on `--field` | 14.1:1 | 4.5:1 body |
-| `--ink-muted` on `--field` | 6.7:1 | 4.5:1 body |
-| `--ink-faint` on `--field` | 3.4:1 | 3:1 large and non-text only |
-| `--brass` on `--field` | 7.4:1 | 4.5:1 body |
-| `--ink` on `--field-raised` | 12.4:1 | 4.5:1 body |
+| body copy on a panel | 7.66:1 | 4.5:1 |
+| field label on a panel | 7.66:1 | 4.5:1 |
+| display heading on the mat | 10.90:1 | 4.5:1 |
 
-`--ink-faint` never carries body copy. It is for hairlines, disabled states, and text at
-or above 24px.
+`--color-ink-faint` never carries body copy. It is for hints, disabled states, and
+placeholder text.
 
 ---
 
@@ -119,35 +126,37 @@ luxury logo move and reads as a template.
 
 - Spacing base 4px. The rhythm runs 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 / 96.
 - Radii: `2` (controls, chips), `4` (panels), `999` (the seal and the strand beads only).
-  This is a world of lacquered wood and pressed paper; soft corners would make it
-  plastic. Inner radius always smaller than its parent's.
+  This is a world of pressed paper and painted timber; soft corners would make it plastic.
+  Inner radius always smaller than its parent's.
 - Content width 1120px, text measure capped at 62ch, side padding 24px mobile / 40px
   desktop.
 - Panel padding 24px mobile / 32px desktop.
 
 ---
 
-## 4. Material: lacquer, not glass
+## 4. Material: paper on the mat
 
-One material, one recipe, one light source, from directly above.
+One material, one recipe, one light source, from above and slightly front.
 
 ```css
---lacquer-surface: linear-gradient(180deg, #221A17 0%, #1B1512 100%);
---lacquer-lip: inset 0 1px 0 rgba(234, 224, 206, 0.07);   /* the light catches the top edge */
---lacquer-ring: inset 0 0 0 1px rgba(234, 224, 206, 0.06); /* self-coloured edge, not a drawn line */
---lacquer-cast:
-  0 1px 2px rgba(8, 5, 4, 0.5),
-  0 14px 34px rgba(8, 5, 4, 0.34);
+--panel-surface: linear-gradient(180deg, #fffdf7 0%, #fdf7ea 100%);
+--panel-lip: inset 0 1px 0 rgba(255, 255, 255, 0.9);      /* the light catches the top edge */
+--panel-ring: inset 0 0 0 1px rgba(88, 66, 60, 0.10);      /* self-coloured edge, not a drawn line */
+--panel-cast:
+  0 1px 2px rgba(58, 45, 42, 0.06),
+  0 12px 28px rgba(58, 45, 42, 0.10);
 ```
 
 The edge is self-coloured and low-opacity, so it reads as a rounded lip catching light
 rather than a hairline border drawn around a box. The shadow is tinted with the field's
 own darkest value, never pure black, and is directional, never a symmetric halo. Panels
-never nest on panels: a well inside a panel uses `--field-sunk` with the ring only and
-no cast.
+never nest on panels: a well inside a panel uses `--color-field-sunk` with an inset ring
+and no cast.
 
-**Grain** sits at 4% opacity on the field, animated in steps, and always **behind**
-content. It never overlays text, the canvas, or a control.
+**Texture** comes from the tatami itself, a fixed woven substrate behind everything, plus
+one very soft radial that brightens the mat toward the doorway and lets it fall into shade
+at the corners. No separate grain layer is stacked on top: one texture, not two, and it
+never crosses text or a control.
 
 ---
 
@@ -176,9 +185,9 @@ duration token; its constants live in `scene/constants.ts` and are documented th
 ## 6. The signature
 
 **One artifact: the curtain.** A full-viewport canvas of hanging Verlet chains, 40
-strands on desktop and 24 on mobile, pinned under a hand-drawn eave, with brass beads
+strands on desktop and 24 on mobile, pinned under the painted roof band, with bronze beads
 along each strand. The pointer is wind. The scene's colour and breeze are driven by the
-live testament state, so the artifact is also the status display: warm brass and a lively
+live testament state, so the artifact is also the status display: warm bronze and a lively
 breeze while the heartbeat is recent, desaturating toward cold iron as the silence runs
 on, strands detaching and falling once released. There is no countdown widget anywhere in
 this product; the curtain is the countdown.
@@ -194,5 +203,5 @@ Everything else in the interface is quiet so these two land.
 
 ## 7. House style, in one line
 
-A lacquered door at night: still, warm, and ceremonial, where the only thing that moves
-is the wind you are still sending.
+A doorway at midday under a painted roof: still, warm, and ceremonial, where the only
+thing that moves is the wind you are still sending.

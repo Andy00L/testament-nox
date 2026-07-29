@@ -26,7 +26,7 @@ export function TextField({ label, error, hint, suffix, ...inputProps }: TextFie
         {label}
       </label>
 
-      <div className="lacquer-well flex items-center gap-2 px-3 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brass">
+      <div className="panel-well flex items-center gap-2 px-3 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-bronze">
         <input
           {...inputProps}
           id={fieldId}

@@ -6,13 +6,16 @@ import {
   computePayout,
   type Bequest,
 } from "@testament/shared";
+import type { Copy } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { formatEther } from "viem";
 import { useAccount, useBalance, usePublicClient, useWalletClient } from "wagmi";
 
 import { useCurtain } from "@/components/scene/CurtainStage";
+import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { buildAddressUrl, buildTransactionUrl, readDeployment, shortenAddress } from "@/lib/chain";
-import { formatRemaining, useLastTestamentId, useNowSeconds, useTestamentById } from "@/lib/testament-read";
+import { formatRemaining } from "@/lib/i18n";
+import { useLastTestamentId, useNowSeconds, useTestamentById } from "@/lib/testament-read";
 import {
   describeWriteFailure,
   executeTestament,
@@ -41,6 +44,7 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
   const publicClient = usePublicClient();
   const nowSeconds = useNowSeconds();
   const { setMood } = useCurtain();
+  const { copy } = useTranslation();
 
   const { summary, slotHandles, isPending, refetch } = useTestamentById(testamentId);
   const estate = useBalance({ address: summary?.safe });
@@ -83,23 +87,23 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
   }, [isReleased, slotHandles, will]);
 
   if (!deployment.isDeployed) {
-    return <p className="type-body text-ink-faint">Contrats non configurés.</p>;
+    return <p className="type-body text-ink-faint">{copy.door.notConfigured}</p>;
   }
 
   if (isPending || summary === undefined || testamentId === undefined) {
-    return <p className="type-body text-ink-faint">Lecture de la chaîne…</p>;
+    return <p className="type-body text-ink-faint">{copy.door.reading}</p>;
   }
 
   if (summary.state === TESTAMENT_STATE.None) {
-    return <p className="type-body text-ink-muted">Aucun testament n&apos;a encore été scellé ici.</p>;
+    return <p className="type-body text-ink-muted">{copy.door.none}</p>;
   }
 
   if (summary.state === TESTAMENT_STATE.Revoked) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="type-display-hero">La porte a été murée.</h1>
+        <h1 className="type-display-hero">{copy.door.revokedTitle}</h1>
         <p className="type-body text-ink-muted">
-          Ce testament a été révoqué par son auteur. Rien ne s&apos;ouvrira.
+{copy.door.revokedLede}
         </p>
       </div>
     );
@@ -110,7 +114,7 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
 
   const runRelease = async () => {
     if (walletClient === undefined || publicClient === undefined) {
-      setErrorMessage("Connectez un portefeuille pour ouvrir la porte.");
+      setErrorMessage(copy.door.connectToOpen);
       return;
     }
     setIsWorking(true);
@@ -132,7 +136,7 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
 
   const runExecute = async () => {
     if (walletClient === undefined || publicClient === undefined || slotHandles === undefined) {
-      setErrorMessage("Connectez un portefeuille pour déclencher le paiement.");
+      setErrorMessage(copy.door.connectToExecute);
       return;
     }
     setIsWorking(true);
@@ -157,14 +161,12 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
   if (summary.state === TESTAMENT_STATE.Active && !isExpired) {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="type-display-hero">La porte est fermée.</h1>
-        <p className="type-body text-ink-muted">
-          Quelqu&apos;un envoie encore des signes de vie. Ce que contient ce testament, qui y
-          est nommé et pour quelle part, personne ne peut le lire, et cette page ne le sait pas
-          davantage que vous.
-        </p>
+        <h1 className="type-display-hero">{copy.door.closedTitle}</h1>
+        <p className="type-body text-ink-muted">{copy.door.closedLede}</p>
         <p className="type-small text-ink-faint">
-          {nowSeconds === null ? " " : `Le vent tombe dans ${formatRemaining(deadline - nowSeconds)}.`}
+          {nowSeconds === null
+            ? " "
+            : copy.door.windFallsIn(formatRemaining(deadline - nowSeconds, copy.duration))}
         </p>
       </div>
     );
@@ -174,13 +176,12 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
   if (summary.state === TESTAMENT_STATE.Active && isExpired) {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="type-display-hero">Le vent est tombé.</h1>
+        <h1 className="type-display-hero">{copy.door.expiredTitle}</h1>
         <p className="type-body text-ink-muted">
-          Le silence a duré plus longtemps que prévu. N&apos;importe qui peut maintenant ouvrir
-          ce testament : l&apos;ouverture ne donne aucun privilège à celui qui la déclenche.
+{copy.door.expiredLede}
         </p>
-        <ActionButton onPress={() => void runRelease()} isWorking={isWorking} label="Ouvrir le testament" workingLabel="Ouverture…" />
-        <Feedback errorMessage={errorMessage} transactionHash={actionTransaction} />
+        <ActionButton onPress={() => void runRelease()} isWorking={isWorking} label={copy.door.openIt} workingLabel={copy.door.opening} />
+        <Feedback errorMessage={errorMessage} transactionHash={actionTransaction} feedbackCopy={copy.door} />
       </div>
     );
   }
@@ -196,16 +197,14 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-4">
-        <h1 className="type-display-hero">{isPaid ? "La porte est ouverte." : "La porte s'ouvre."}</h1>
+        <h1 className="type-display-hero">{isPaid ? copy.door.openedTitle : copy.door.openingTitle}</h1>
         <p className="type-body text-ink-muted">
-          Le testament a été déchiffré. Chaque part est vérifiée on-chain avant le moindre
-          paiement, si bien que la personne qui déclenche l&apos;exécution ne peut rien changer
-          à ce qui a été écrit.
+{copy.door.openedLede}
         </p>
       </div>
 
       {will === null ? (
-        <p className="type-small text-ink-faint">Déchiffrement du testament ouvert…</p>
+        <p className="type-small text-ink-faint">{copy.door.decrypting}</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {will.map((bequest) => {
@@ -214,18 +213,18 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
             return (
               <li
                 key={bequest.beneficiary}
-                className="lacquer-well flex flex-wrap items-baseline justify-between gap-3 px-4 py-3"
+                className="panel-well flex flex-wrap items-baseline justify-between gap-3 px-4 py-3"
               >
                 <a
                   href={buildAddressUrl(bequest.beneficiary)}
                   target="_blank"
                   rel="noreferrer"
                   className={`type-small type-numeric transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink ${
-                    isVisitor ? "text-brass" : "text-ink-muted"
+                    isVisitor ? "text-bronze" : "text-ink-muted"
                   }`}
                 >
                   {shortenAddress(bequest.beneficiary)}
-                  {isVisitor ? " · vous" : ""}
+                  {isVisitor ? copy.door.you : ""}
                 </a>
                 <span className="type-small type-numeric text-ink">
                   {bequest.shareBps / 100} %
@@ -241,7 +240,7 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
 
       {visitorShare !== null && !isPaid ? (
         <p className="type-body text-ink">
-          Vous héritez de {visitorShare.shareBps / 100} % de ce coffre.
+{copy.door.yourShare(visitorShare.shareBps / 100)}
         </p>
       ) : null}
 
@@ -249,14 +248,14 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
         <ActionButton
           onPress={() => void runExecute()}
           isWorking={isWorking}
-          label="Déclencher le paiement"
-          workingLabel="Vérification des preuves…"
+          label={copy.door.execute}
+          workingLabel={copy.door.executing}
         />
       ) : (
-        <p className="type-body text-brass">Le coffre a payé. Chaque part est partie à son adresse.</p>
+        <p className="type-body text-bronze">{copy.door.paid}</p>
       )}
 
-      <Feedback errorMessage={errorMessage} transactionHash={actionTransaction} />
+      <Feedback errorMessage={errorMessage} transactionHash={actionTransaction} feedbackCopy={copy.door} />
     </div>
   );
 }
@@ -277,7 +276,7 @@ function ActionButton({
       type="button"
       onClick={onPress}
       disabled={isWorking}
-      className="lacquer-well type-small min-h-11 w-fit px-5 py-3 text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-brass disabled:text-ink-faint"
+      className="panel-well type-small min-h-11 w-fit px-5 py-3 text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-bronze disabled:text-ink-faint"
     >
       {isWorking ? workingLabel : label}
     </button>
@@ -287,9 +286,11 @@ function ActionButton({
 function Feedback({
   errorMessage,
   transactionHash,
+  feedbackCopy,
 }: {
   errorMessage: string | null;
   transactionHash: string | null;
+  feedbackCopy: Copy["door"];
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -305,7 +306,7 @@ function Feedback({
           rel="noreferrer"
           className="type-small type-numeric text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
         >
-          Voir la transaction sur Etherscan
+          {feedbackCopy.viewTransaction}
         </a>
       ) : null}
     </div>

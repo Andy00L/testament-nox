@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>Testament</title>
+  <!--
+    The seal, reduced to what survives at 16px: the cinnabar block, and a doorway with the
+    curtain hanging in it cut out of the paste. No text, no fine detail; at favicon size a
+    carved character turns to mud, so the doorway carries the meaning instead.
+
+    Colours are the app's own tokens (docs/UI_DESIGN_SYSTEM.md): cinnabar #9E2B25 on the
+    cream field #F3E8D5, which stays legible on a light or a dark browser tab.
+  -->
+  <rect width="64" height="64" rx="7" fill="#9E2B25" />
+  <g fill="#F3E8D5">
+    <!-- The lintel and the two jambs of the doorway. -->
+    <path d="M17 15 H47 V21 H17 Z" />
+    <path d="M17 15 H23 V52 H17 Z" />
+    <path d="M41 15 H47 V52 H41 Z" />
+    <!-- Three strands of the curtain hanging in the opening, with their beads. -->
+    <rect x="27.1" y="25" width="1.8" height="22" rx="0.9" />
+    <rect x="34.1" y="25" width="1.8" height="19" rx="0.9" />
+    <circle cx="28" cy="34" r="2.2" />
+    <circle cx="35" cy="30" r="2.2" />
+    <circle cx="28" cy="43" r="2.2" />
+  </g>
+</svg>

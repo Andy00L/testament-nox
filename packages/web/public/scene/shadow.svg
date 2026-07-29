@@ -1,0 +1,15 @@
+<svg preserveAspectRatio="none" width="100%" height="100%" overflow="visible" style="display: block;" viewBox="0 0 996 468" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Sharp shadow (no Gaussian blur). Opacity falloff via gradients only — matches Figma shape 605:6464. -->
+  <path d="M0 0H489.5L996 468H519.428L0 0Z" fill="url(#shadowGradA)"/>
+  <path d="M0 0H489.5L996 468H519.428L0 0Z" fill="url(#shadowGradB)"/>
+  <defs>
+    <linearGradient id="shadowGradA" x1="281.14" y1="0" x2="283.4" y2="412.05" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5D3D15" stop-opacity="0.29"/>
+      <stop offset="1" stop-color="#57432A" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="shadowGradB" x1="281.14" y1="0" x2="285.7" y2="115.15" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4D2E07" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#542F02" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+</svg>

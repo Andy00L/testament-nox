@@ -9,6 +9,8 @@ import { SealPress } from "@/components/testament/SealPress";
 import { TextField } from "@/components/ui/TextField";
 import { useCurtain } from "@/components/scene/CurtainStage";
 import { useSound } from "@/components/scene/SoundProvider";
+import { useTranslation } from "@/components/i18n/LanguageProvider";
+import type { Copy } from "@/lib/i18n";
 import { buildTransactionUrl, readDeployment } from "@/lib/chain";
 import {
   describeWriteFailure,
@@ -54,6 +56,7 @@ export function WritePanel() {
   const { data: walletClient } = useWalletClient();
   const { rippleAt } = useCurtain();
   const { playChime } = useSound();
+  const { copy } = useTranslation();
 
   const [drafts, setDrafts] = useState<BequestDraft[]>(() => [createDraft(), createDraft()]);
   const [safeAddress, setSafeAddress] = useState("");
@@ -136,7 +139,7 @@ export function WritePanel() {
 
   const handleSeal = async () => {
     if (!deployment.isDeployed || walletClient === undefined || publicClient === undefined) {
-      setErrorMessage("Connectez un portefeuille sur Sepolia.");
+      setErrorMessage(copy.write.connectFirst);
       return;
     }
     if (!validation.ok) {
@@ -201,11 +204,9 @@ export function WritePanel() {
     <div className="flex flex-col gap-14">
       <section className="flex flex-col gap-6">
         <div className="flex flex-col gap-2">
-          <h2 className="type-display-lg">Les héritiers</h2>
+          <h2 className="type-display-lg">{copy.write.heirsTitle}</h2>
           <p className="type-body text-ink-muted">
-            Huit lignes au maximum. Les lignes que vous ne remplissez pas sont chiffrées comme
-            les autres, si bien que la chaîne ne révèle pas combien de personnes vous avez
-            nommées.
+{copy.write.heirsLede}
           </p>
         </div>
 
@@ -214,7 +215,7 @@ export function WritePanel() {
             <li key={draft.id} className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
               <div className="flex-1">
                 <TextField
-                  label={`Héritier ${draftIndex + 1}`}
+                  label={copy.write.heirLabel(draftIndex + 1)}
                   value={draft.beneficiary}
                   onChange={(event) => updateDraft(draft.id, { beneficiary: event.target.value })}
                   placeholder="0x…"
@@ -222,14 +223,14 @@ export function WritePanel() {
                   autoComplete="off"
                   error={
                     draft.beneficiary !== "" && !isAddress(draft.beneficiary)
-                      ? "Adresse invalide."
+                      ? copy.write.invalidAddress
                       : null
                   }
                 />
               </div>
               <div className="w-full sm:w-36">
                 <TextField
-                  label="Part"
+                  label={copy.write.shareLabel}
                   value={draft.sharePercent}
                   onChange={(event) =>
                     updateDraft(draft.id, { sharePercent: event.target.value.replace(/[^\d]/g, "") })
@@ -245,7 +246,7 @@ export function WritePanel() {
                   onClick={() => removeBequest(draft.id)}
                   className="type-small mt-0 self-start text-ink-faint transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink sm:mt-8"
                 >
-                  Retirer
+                  {copy.write.remove}
                 </button>
               ) : null}
             </li>
@@ -258,56 +259,56 @@ export function WritePanel() {
             type="button"
             onClick={addBequest}
             disabled={drafts.length >= SLOT_COUNT}
-            className="type-small text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-brass disabled:text-ink-faint"
+            className="type-small text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-bronze disabled:text-ink-faint"
           >
-            Ajouter un héritier
+            {copy.write.addHeir}
           </button>
           <p
             className="type-small type-numeric"
-            style={{ color: totalPercent === 100 ? "var(--color-brass)" : "var(--color-ink-muted)" }}
+            style={{ color: totalPercent === 100 ? "var(--color-bronze)" : "var(--color-ink-muted)" }}
           >
-            {totalPercent} % attribués sur 100
+            {copy.write.allocated(totalPercent)}
           </p>
         </div>
       </section>
 
       <section className="flex flex-col gap-5">
-        <h2 className="type-display-lg">Le coffre et le silence</h2>
+        <h2 className="type-display-lg">{copy.write.vaultTitle}</h2>
         <TextField
-          label="Adresse du Safe"
+          label={copy.write.safeLabel}
           value={safeAddress}
           onChange={(event) => setSafeAddress(event.target.value)}
           placeholder="0x…"
           spellCheck={false}
           autoComplete="off"
-          error={safeAddress !== "" && !isAddress(safeAddress) ? "Adresse invalide." : null}
+          error={safeAddress !== "" && !isAddress(safeAddress) ? copy.write.invalidAddress : null}
           hint={
             isModuleEnabled === true
-              ? "Le module est déjà activé sur ce Safe."
+              ? copy.write.safeHintEnabled
               : isModuleEnabled === false
-                ? "Le module n'est pas encore activé. Deuxième étape, après le sceau."
-                : "Le Safe qui paiera. Il reste intact : rien n'y est modifié."
+                ? copy.write.safeHintDisabled
+                : copy.write.safeHintDefault
           }
         />
         <div className="flex flex-col gap-5 sm:flex-row">
           <div className="flex-1">
             <TextField
-              label="Intervalle"
+              label={copy.write.intervalLabel}
               value={intervalSeconds}
               onChange={(event) => setIntervalSeconds(event.target.value.replace(/[^\d]/g, ""))}
               inputMode="numeric"
               suffix="s"
-              hint={`Minimum ${MIN_INTERVAL_SECONDS} s. Le temps entre deux signes de vie.`}
+              hint={copy.write.intervalHint(MIN_INTERVAL_SECONDS)}
             />
           </div>
           <div className="flex-1">
             <TextField
-              label="Délai de grâce"
+              label={copy.write.graceLabel}
               value={graceSeconds}
               onChange={(event) => setGraceSeconds(event.target.value.replace(/[^\d]/g, ""))}
               inputMode="numeric"
               suffix="s"
-              hint="Le silence supplémentaire toléré avant l'ouverture."
+              hint={copy.write.graceHint}
             />
           </div>
         </div>
@@ -318,7 +319,7 @@ export function WritePanel() {
           onPress={() => void handleSeal()}
           isStamped={stage === "sealed"}
           isBusy={isBusy}
-          busyLabel={resolveBusyLabel(stage)}
+          busyLabel={resolveBusyLabel(stage, copy)}
           disabledReason={validation.ok ? null : validation.message}
         />
 
@@ -335,28 +336,27 @@ export function WritePanel() {
             rel="noreferrer"
             className="type-small type-numeric text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
           >
-            Voir la transaction sur Etherscan
+            {copy.write.viewTransaction}
           </a>
         ) : null}
       </section>
 
       {stage === "sealed" ? (
         <section className="flex flex-col gap-4 pt-6">
-          <h2 className="type-display-lg">Ouvrir le passage</h2>
+          <h2 className="type-display-lg">{copy.write.openPassageTitle}</h2>
           <p className="type-body text-ink-muted">
-            Le registre ne détient aucun fonds. Pour qu&apos;il puisse faire payer le Safe le
-            moment venu, activez le module une seule fois.
+{copy.write.openPassageLede}
           </p>
           {isModuleEnabled === true ? (
-            <p className="type-small text-brass">Module activé. Le passage est ouvert.</p>
+            <p className="type-small text-bronze">{copy.write.moduleEnabled}</p>
           ) : (
             <button
               type="button"
               onClick={() => void handleEnableModule()}
               disabled={isEnablingModule}
-              className="lacquer-well type-small min-h-11 w-fit px-5 py-3 text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-brass disabled:text-ink-faint"
+              className="panel-well type-small min-h-11 w-fit px-5 py-3 text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-bronze disabled:text-ink-faint"
             >
-              {isEnablingModule ? "Activation…" : "Activer le module sur le Safe"}
+              {isEnablingModule ? copy.write.enablingModule : copy.write.enableModule}
             </button>
           )}
           {moduleTransaction !== null ? (
@@ -366,7 +366,7 @@ export function WritePanel() {
               rel="noreferrer"
               className="type-small type-numeric text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
             >
-              Voir la transaction sur Etherscan
+              {copy.write.viewTransaction}
             </a>
           ) : null}
         </section>
@@ -433,14 +433,14 @@ function validateDraft({
   };
 }
 
-function resolveBusyLabel(stage: SealStage): string {
+function resolveBusyLabel(stage: SealStage, copy: Copy): string {
   switch (stage) {
     case "encrypting":
-      return "Chiffrement des huit lignes…";
+      return copy.seal.encrypting;
     case "signing":
-      return "Signature en attente…";
+      return copy.seal.signing;
     case "confirming":
-      return "Inscription dans le registre…";
+      return copy.seal.confirming;
     default:
       return "";
   }

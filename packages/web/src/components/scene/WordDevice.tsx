@@ -1,3 +1,7 @@
+"use client";
+
+import { useTranslation } from "@/components/i18n/LanguageProvider";
+
 /**
  * 传承, chuánchéng: what is passed on.
  *
@@ -6,6 +10,8 @@
  * one flat plane. The gloss sits in front, at the scroll's foot.
  */
 export function WordDevice() {
+  const { copy } = useTranslation();
+
   return (
     <div className="pointer-events-none flex flex-col items-end gap-5">
       <p
@@ -13,20 +19,20 @@ export function WordDevice() {
         className="font-(family-name:--font-hanzi) text-ink"
         style={{
           writingMode: "vertical-rl",
-          fontSize: "clamp(5.5rem, 12vw, 11rem)",
+          fontSize: "clamp(4.5rem, 10vw, 9rem)",
           lineHeight: 1,
           letterSpacing: "0.08em",
           fontWeight: 500,
-          opacity: 0.62,
+          opacity: 0.2,
         }}
       >
         传承
       </p>
       <div className="pointer-events-auto text-right">
         <p className="type-small text-ink" lang="zh-Latn">
-          chuánchéng
+          {copy.word.pinyin}
         </p>
-        <p className="type-small text-ink-muted">ce qui se transmet</p>
+        <p className="type-small text-ink-muted">{copy.word.gloss}</p>
       </div>
     </div>
   );

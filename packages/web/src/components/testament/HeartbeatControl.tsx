@@ -6,6 +6,8 @@ import { useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
 import { useCurtain } from "@/components/scene/CurtainStage";
 import { readDeployment } from "@/lib/chain";
+import { useTranslation } from "@/components/i18n/LanguageProvider";
+import type { Copy } from "@/lib/i18n";
 
 /**
  * The heartbeat, sent by holding rather than clicking.
@@ -28,6 +30,7 @@ type HeartbeatControlProps = {
 export function HeartbeatControl({ testamentId, onSent }: HeartbeatControlProps) {
   const deployment = readDeployment();
   const { setCharge, sendGust } = useCurtain();
+  const { copy } = useTranslation();
   const [chargeProgress, setChargeProgress] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
   const holdStartedAtRef = useRef<number | null>(null);
@@ -107,7 +110,7 @@ export function HeartbeatControl({ testamentId, onSent }: HeartbeatControlProps)
     setChargeProgress(0);
   };
 
-  const label = resolveLabel({ isPending, isConfirming, isHolding });
+  const label = resolveLabel({ isPending, isConfirming, isHolding, copy });
 
   return (
     <div className="flex flex-col gap-2">
@@ -130,7 +133,7 @@ export function HeartbeatControl({ testamentId, onSent }: HeartbeatControlProps)
           }
         }}
         aria-describedby="heartbeat-hint"
-        className="lacquer-well relative min-h-11 w-fit min-w-56 touch-none overflow-hidden px-5 py-3 text-left transition-colors duration-(--dur-small) ease-(--ease-standard) disabled:text-ink-faint"
+        className="panel-well relative min-h-11 w-fit min-w-56 touch-none overflow-hidden px-5 py-3 text-left transition-colors duration-(--dur-small) ease-(--ease-standard) disabled:text-ink-faint"
       >
         {/*
           A tonal fill rising through the well. It fills the full track, has stable square
@@ -138,7 +141,7 @@ export function HeartbeatControl({ testamentId, onSent }: HeartbeatControlProps)
         */}
         <span
           aria-hidden="true"
-          className="absolute inset-x-0 bottom-0 bg-brass-sunk"
+          className="absolute inset-x-0 bottom-0 bg-bronze-sunk"
           style={{
             height: `${chargeProgress * 100}%`,
             transition: isHolding ? "none" : "height var(--dur-standard) var(--ease-exit)",
@@ -147,7 +150,7 @@ export function HeartbeatControl({ testamentId, onSent }: HeartbeatControlProps)
         <span className="type-small relative">{label}</span>
       </button>
       <p id="heartbeat-hint" className="type-small text-ink-faint">
-        Maintenir jusqu&apos;à ce que le vent se lève.
+        {copy.heartbeat.hint}
       </p>
     </div>
   );
@@ -157,19 +160,21 @@ function resolveLabel({
   isPending,
   isConfirming,
   isHolding,
+  copy,
 }: {
   isPending: boolean;
   isConfirming: boolean;
   isHolding: boolean;
+  copy: Copy;
 }): string {
   if (isPending) {
-    return "Signature en attente…";
+    return copy.heartbeat.signing;
   }
   if (isConfirming) {
-    return "Le vent se lève…";
+    return copy.heartbeat.confirming;
   }
   if (isHolding) {
-    return "Ne relâchez pas…";
+    return copy.heartbeat.holding;
   }
-  return "Donner un signe de vie";
+  return copy.heartbeat.idle;
 }

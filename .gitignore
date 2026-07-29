@@ -38,3 +38,7 @@ ui-design/
 *.tsbuildinfo
 .claude2/
 .claude2/
+
+# Scene art sources. The committed deliverables are the WebP files next to them;
+# regenerate with: bun run --cwd packages/web scripts/optimise-scene-assets.ts
+packages/web/public/scene/*.png

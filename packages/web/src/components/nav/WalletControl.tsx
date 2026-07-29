@@ -3,6 +3,7 @@
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 
 import { shortenAddress } from "@/lib/chain";
+import { useTranslation } from "@/components/i18n/LanguageProvider";
 
 /**
  * Connect and disconnect, rendered by this project rather than by a connector kit.
@@ -15,6 +16,7 @@ export function WalletControl() {
   const { address, isConnected } = useAccount();
   const { connect, connectors, isPending } = useConnect();
   const { disconnect } = useDisconnect();
+  const { copy } = useTranslation();
 
   if (isConnected && address !== undefined) {
     return (
@@ -22,7 +24,7 @@ export function WalletControl() {
         type="button"
         onClick={() => disconnect()}
         className="type-small type-numeric px-1 text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
-        title="Se déconnecter"
+        title={copy.wallet.disconnect}
       >
         {shortenAddress(address)}
       </button>
@@ -42,12 +44,12 @@ export function WalletControl() {
           className="type-small px-1 text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink disabled:text-ink-faint"
         >
           {connectorIndex === 0 && connector === firstConnector && connectors.length === 1
-            ? "Connecter"
+            ? copy.wallet.connect
             : connector.name}
         </button>
       ))}
       {connectors.length === 0 ? (
-        <span className="type-small text-ink-faint">Aucun portefeuille détecté</span>
+        <span className="type-small text-ink-faint">{copy.wallet.none}</span>
       ) : null}
     </div>
   );

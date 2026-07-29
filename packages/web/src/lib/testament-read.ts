@@ -155,30 +155,4 @@ export function useNowSeconds(tickMs = 1000): number | null {
   return nowSeconds;
 }
 
-/**
- * "3 j 04 h", "12 min 30 s". Two units at most: this is a quiet line of prose, not a
- * countdown widget, and this product does not own a DAYS / HRS / MIN box.
- */
-export function formatRemaining(totalSeconds: number): string {
-  if (totalSeconds <= 0) {
-    return "le vent est tombé";
-  }
-
-  const days = Math.floor(totalSeconds / 86_400);
-  const hours = Math.floor((totalSeconds % 86_400) / 3_600);
-  const minutes = Math.floor((totalSeconds % 3_600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (days > 0) {
-    return `${days} j ${String(hours).padStart(2, "0")} h`;
-  }
-  if (hours > 0) {
-    return `${hours} h ${String(minutes).padStart(2, "0")} min`;
-  }
-  if (minutes > 0) {
-    return `${minutes} min ${String(seconds).padStart(2, "0")} s`;
-  }
-  return `${seconds} s`;
-}
-
 export const TESTAMENT_STATE_VALUES = TESTAMENT_STATE;

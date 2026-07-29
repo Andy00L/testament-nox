@@ -16,6 +16,11 @@ type SealProps = {
   /** 0 hides the impression, 1 is fully pressed. Drives the press animation. */
   pressed?: number;
   className?: string;
+  /**
+   * Accessible name. Omit where the seal is decoration sitting beside the wordmark that
+   * already names the brand; supply it where the seal is the meaning, as on the press.
+   */
+  label?: string;
 };
 
 /**
@@ -25,15 +30,17 @@ type SealProps = {
 const IMPRESSION_PATH =
   "M7.4 5.2 C24 3.4 41 3.1 57.6 4.4 C60.2 4.6 61.3 6.1 61.6 8.6 C63.1 25 63.4 41.8 62 58.2 C61.7 60.9 60.3 62.1 57.4 62.4 C41 63.9 24.2 64.1 7.8 62.6 C5.1 62.3 3.8 61 3.5 58.2 C2.1 41.6 2.2 24.6 3.8 8.2 C4.1 6.2 5.2 5.4 7.4 5.2 Z";
 
-export function Seal({ size = 64, pressed = 1, className }: SealProps) {
+export function Seal({ size = 64, pressed = 1, className, label }: SealProps) {
   return (
     <svg
       viewBox="0 0 66 68"
       width={size}
       height={size * (68 / 66)}
       className={className}
-      role="img"
-      aria-label="Sceau de scellement"
+      data-seal=""
+      role={label === undefined ? "presentation" : "img"}
+      aria-hidden={label === undefined ? true : undefined}
+      aria-label={label}
       style={{ opacity: pressed }}
     >
       <defs>

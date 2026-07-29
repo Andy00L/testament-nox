@@ -4,6 +4,7 @@ import localFont from "next/font/local";
 import { CurtainStage } from "@/components/scene/CurtainStage";
 import { DoorwayNav } from "@/components/nav/DoorwayNav";
 import { Eave } from "@/components/scene/Eave";
+import { HtmlLanguageSync, LanguageProvider } from "@/components/i18n/LanguageProvider";
 import { SoundProvider, SoundToggle } from "@/components/scene/SoundProvider";
 import { WalletProviders } from "@/app/providers";
 
@@ -32,35 +33,39 @@ const notoSerifSc = localFont({
 export const metadata: Metadata = {
   title: "Testament",
   description:
-    "Un testament confidentiel pour votre Safe. Les héritiers et les parts restent chiffrés jusqu'au moment où ils doivent s'exécuter.",
+    "Un testament confidentiel pour votre Safe, chiffré jusqu'au moment où il doit s'exécuter. A confidential will for your Safe, encrypted until the moment it must execute.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
+    // `lang` starts French and is kept honest by HtmlLanguageSync when the visitor switches.
     <html lang="fr" className={`${gambarino.variable} ${notoSerifSc.variable} h-full`}>
-      <body className="grain-substrate relative flex min-h-full flex-col overflow-x-hidden">
+      <body className="tatami-field relative flex min-h-full flex-col overflow-x-hidden">
         <WalletProviders>
-          <SoundProvider>
-            <CurtainStage>
-              <Eave />
-              <DoorwayNav />
-              <main
-                className="relative flex flex-1 flex-col"
-                style={{ zIndex: "var(--layer-content)" }}
-              >
-                {children}
-              </main>
-              {/* Bottom right, out of the copy column's way on every screen. */}
-              <div
-                className="pointer-events-none fixed bottom-5 right-6 sm:bottom-6 sm:right-10"
-                style={{ zIndex: "var(--layer-nav)" }}
-              >
-                <div className="pointer-events-auto">
-                  <SoundToggle />
+          <LanguageProvider>
+            <HtmlLanguageSync />
+            <SoundProvider>
+              <CurtainStage>
+                <Eave />
+                <DoorwayNav />
+                <main
+                  className="relative flex flex-1 flex-col"
+                  style={{ zIndex: "var(--layer-content)" }}
+                >
+                  {children}
+                </main>
+                {/* Bottom right, out of the copy column's way on every screen. */}
+                <div
+                  className="pointer-events-none fixed bottom-5 right-6 sm:bottom-6 sm:right-10"
+                  style={{ zIndex: "var(--layer-nav)" }}
+                >
+                  <div className="pointer-events-auto">
+                    <SoundToggle />
+                  </div>
                 </div>
-              </div>
-            </CurtainStage>
-          </SoundProvider>
+              </CurtainStage>
+            </SoundProvider>
+          </LanguageProvider>
         </WalletProviders>
       </body>
     </html>

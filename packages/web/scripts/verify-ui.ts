@@ -18,6 +18,16 @@ import { chromium, type Page } from "playwright";
  * Run against a production build: bun run verify-ui
  */
 
+/**
+ * The counter the chime check installs in the page. Declared rather than cast: a type
+ * assertion would hide a rename, and this is the only thing the browser context adds.
+ */
+declare global {
+  interface Window {
+    __oscillators?: number;
+  }
+}
+
 const BASE_URL = process.env.BASE_URL ?? "http://127.0.0.1:3100";
 const OUTPUT_DIR = resolve(import.meta.dirname, "../../../.scratch/verify");
 
@@ -81,7 +91,7 @@ await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1200);
 
 const sealCentering = await page.evaluate(() => {
-  const seal = document.querySelector('svg[role="img"][aria-label="Sceau de scellement"]');
+  const seal = document.querySelector("svg[data-seal]");
   const glyph = seal?.querySelector("text");
   if (seal === null || seal === undefined || glyph === null || glyph === undefined) {
     return null;
@@ -115,7 +125,7 @@ if (sealCentering === null) {
 // A large render of the seal, so the centring can also be judged by eye.
 await page.setContent(
   `<body style="margin:0;background:#171210;display:grid;place-items:center;height:100vh">
-     ${(await page.evaluate(() => document.querySelector('svg[role="img"][aria-label="Sceau de scellement"]')?.outerHTML ?? ""))
+     ${(await page.evaluate(() => document.querySelector("svg[data-seal]")?.outerHTML ?? ""))
        .replace('width="18"', 'width="360"')
        .replace(/height="[\d.]+"/, 'height="371"')}
      <div style="position:fixed;inset:0;pointer-events:none">
@@ -154,8 +164,8 @@ const contrastSamples = await page.evaluate(() => {
     return { color: getComputedStyle(node).color, background };
   };
   return {
-    bodyOnPanel: readPair(".lacquer .type-body"),
-    labelOnPanel: readPair(".lacquer .type-label"),
+    bodyOnPanel: readPair(".panel .type-body"),
+    labelOnPanel: readPair(".panel .type-label"),
     heading: readPair("h1.type-display-hero"),
   };
 });
@@ -209,17 +219,83 @@ check("sound toggle changes state", soundLabelBefore !== soundLabelAfter, `${sou
 const sealButton = page.getByRole("button", { name: /Presser le sceau/ });
 check("seal is disabled on an invalid will", await sealButton.isDisabled(), "disabled with a stated reason");
 
+// ---- Language ------------------------------------------------------------------------
+
+console.log("\nlanguage");
+await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
+await page.waitForTimeout(900);
+const frenchHeadline = await page.locator("h1").first().innerText();
+await page.getByRole("button", { name: "English" }).click();
+await page.waitForTimeout(400);
+const englishHeadline = await page.locator("h1").first().innerText();
+const htmlLang = await page.evaluate(() => document.documentElement.lang);
+check("headline switches language", frenchHeadline !== englishHeadline, englishHeadline.replace(/\n/g, " ").slice(0, 40));
+check("html lang follows the switch", htmlLang === "en", `lang="${htmlLang}"`);
+await page.getByRole("button", { name: "Français" }).click();
+await page.waitForTimeout(300);
+check("switches back to French", (await page.locator("h1").first().innerText()) === frenchHeadline, "round trip");
+
+// ---- The curtain rings when the pointer passes through it -----------------------------
+
+console.log("\nchimes");
+const audioContext = await browser.newContext({
+  viewport: { width: 1440, height: 900 },
+  deviceScaleFactor: 1,
+  locale: "fr-FR",
+});
+// Count oscillators instead of listening: this proves notes were actually scheduled,
+// which a headless browser will never make audible.
+await audioContext.addInitScript(() => {
+  const originalAudioContext = window.AudioContext;
+  class CountingAudioContext extends originalAudioContext {
+    createOscillator() {
+      window.__oscillators = (window.__oscillators ?? 0) + 1;
+      return super.createOscillator();
+    }
+  }
+  Object.defineProperty(window, "AudioContext", { value: CountingAudioContext, writable: true });
+});
+const audioPage = await audioContext.newPage();
+await audioPage.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
+await audioPage.waitForTimeout(1400);
+
+await audioPage.getByRole("button", { name: /carillons/ }).click();
+await audioPage.waitForTimeout(300);
+const beforeSweep = await audioPage.evaluate(
+  () => window.__oscillators ?? 0,
+);
+
+// Sweep the pointer horizontally through the hanging strands.
+await audioPage.mouse.move(200, 520);
+for (let step = 0; step <= 24; step += 1) {
+  await audioPage.mouse.move(200 + step * 45, 520);
+  await audioPage.waitForTimeout(35);
+}
+await audioPage.waitForTimeout(400);
+const afterSweep = await audioPage.evaluate(
+  () => window.__oscillators ?? 0,
+);
+check(
+  "sweeping the cursor through the curtain rings it",
+  afterSweep > beforeSweep,
+  `${(afterSweep - beforeSweep) / 2} strands struck`,
+);
+await audioContext.close();
+
 // ---- Focus is visible on every interactive element ----------------------------------
 
 console.log("\nfocus");
+// The focus treatment lives on the form, so go back to the page that has one.
+await page.goto(`${BASE_URL}/ecrire`, { waitUntil: "networkidle" });
+await page.waitForTimeout(800);
 const focusOutline = await page.evaluate(() => {
   const field = document.querySelector<HTMLInputElement>("input");
   if (field === null) return null;
   field.focus();
-  const wrapper = field.closest(".lacquer-well");
+  const wrapper = field.closest(".panel-well");
   return wrapper === null ? null : getComputedStyle(wrapper).outlineColor;
 });
-check("focused field shows the brass ring", focusOutline !== null && focusOutline !== "rgba(0, 0, 0, 0)", String(focusOutline));
+check("focused field shows the bronze ring", focusOutline !== null && focusOutline !== "rgba(0, 0, 0, 0)", String(focusOutline));
 
 // ---- Content survives with no JavaScript at all -------------------------------------
 

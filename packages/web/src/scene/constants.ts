@@ -17,6 +17,13 @@ export const MOBILE_BREAKPOINT_PX = 768;
 /** Points per strand, including the pinned one at the eave. */
 export const SEGMENTS_PER_STRAND = 14;
 
+/**
+ * Where the strands are pinned, as a fraction of viewport height.
+ * Matches the roof band in Eave.tsx, so the cords appear to hang from the building rather
+ * than from the top edge of the window.
+ */
+export const EAVE_HEIGHT_RATIO = 0.17;
+
 /** Fraction of the viewport height a strand spans at rest. */
 export const STRAND_LENGTH_RATIO = 0.58;
 
@@ -95,7 +102,7 @@ export const BEAD_RADIUS_PX = 3.4;
  * The curtain is the signature, not the loudest thing on screen: at full strength the
  * strands compete with the headline for the eye, and two things fighting reads cheap.
  */
-export const STRAND_ALPHA = 0.5;
+export const STRAND_ALPHA = 0.74;
 
 /** Strand stroke width at the eave and at the free end. Unit: CSS px. */
 export const STRAND_WIDTH_TOP_PX = 1.5;
@@ -112,3 +119,13 @@ export const RIPPLE_RADIUS_PX = 340;
 
 /** Peak displacement at the ripple's centre. Unit: CSS px. */
 export const RIPPLE_STRENGTH_PX = 26;
+
+/**
+ * Shortest gap between two chimes from the same strand. Unit: milliseconds.
+ * Without it, a cursor held still against a swaying strand retriggers every frame and the
+ * chime turns into a buzz.
+ */
+export const STRAND_STRIKE_COOLDOWN_MS = 260;
+
+/** Vertical band of the strand the pointer must be within to strike it. Unit: CSS px. */
+export const STRIKE_VERTICAL_REACH_PX = 150;

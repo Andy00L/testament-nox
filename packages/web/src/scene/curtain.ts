@@ -7,6 +7,7 @@ import {
   BREEZE_STRENGTH_PX_PER_S2,
   CHARGE_STRENGTH_PX_PER_S2,
   CONSTRAINT_ITERATIONS,
+  EAVE_HEIGHT_RATIO,
   FIXED_TIMESTEP_SECONDS,
   GRAVITY_PX_PER_S2,
   GUST_STRENGTH_PX_PER_S2,
@@ -21,13 +22,15 @@ import {
   RIPPLE_RADIUS_PX,
   RIPPLE_STRENGTH_PX,
   SEGMENTS_PER_STRAND,
-  STRAND_COUNT_DESKTOP,
   STRAND_ALPHA,
+  STRAND_COUNT_DESKTOP,
   STRAND_COUNT_MOBILE,
   STRAND_LENGTH_RATIO,
   STRAND_LENGTH_VARIANCE,
   STRAND_WIDTH_BOTTOM_PX,
+  STRAND_STRIKE_COOLDOWN_MS,
   STRAND_WIDTH_TOP_PX,
+  STRIKE_VERTICAL_REACH_PX,
   VELOCITY_DAMPING,
 } from "./constants.ts";
 import {
@@ -41,15 +44,15 @@ import {
 
 /**
  * The curtain: a row of hanging chains that also happens to be the product's status
- * display. Warm brass and a moving breeze mean the heartbeat is recent. As the silence
+ * display. Warm bronze and a moving breeze mean the heartbeat is recent. As the silence
  * runs on the strands cool toward iron and the air goes still. Released, they let go of
  * the eave and fall out of frame. There is no countdown widget anywhere in this product
  * because this is the countdown.
  */
 
 export type CurtainPalette = {
-  brass: string;
-  brassDeep: string;
+  bronze: string;
+  bronzeDeep: string;
   iron: string;
 };
 
@@ -67,6 +70,10 @@ type Strand = {
   anchorX: number;
   /** Shift applied to this strand's beads so they never align into a row. */
   beadOffset: number;
+  /** Which side the pointer was last on, so a crossing can be detected. */
+  lastPointerSide: number;
+  /** performance.now() of the last chime from this strand. Unit: milliseconds. */
+  lastStruckAt: number;
   /** Seconds after release at which this strand lets go of the eave. */
   detachDelaySeconds: number;
   hasDetached: boolean;
@@ -103,12 +110,17 @@ export function createCurtainScene(palette: CurtainPalette) {
   let charge = 0;
   /** True while settling before the first paint, so the curtain hangs straight to start. */
   let isSettling = false;
+  /**
+   * Called when the pointer passes through a strand. The scene knows nothing about audio;
+   * it reports the event and whoever cares decides what to do with it.
+   */
+  let onStrandStruck: ((brightness: number) => void) | null = null;
 
   function resize(nextWidth: number, nextHeight: number): void {
     width = nextWidth;
     height = nextHeight;
-    // The eave sits just off the top edge so the strands appear to hang from behind it.
-    eaveY = Math.round(height * 0.085);
+    // Pinned just inside the roof band, so the strands emerge from under the building.
+    eaveY = Math.round(height * EAVE_HEIGHT_RATIO);
     build();
     strandGradient = null;
   }
@@ -152,6 +164,8 @@ export function createCurtainScene(palette: CurtainPalette) {
         // Deterministic rather than random: the same curtain every reload, and no
         // Math.random in a render path.
         beadOffset: (((strandIndex * 37) % 13) / 13 - 0.5) * BEAD_STAGGER_RANGE,
+        lastPointerSide: 0,
+        lastStruckAt: 0,
         // The wave starts at the middle of the curtain and travels outward, so the fall
         // reads as one event rather than a left-to-right wipe.
         detachDelaySeconds:
@@ -176,6 +190,48 @@ export function createCurtainScene(palette: CurtainPalette) {
     pointer.x = x;
     pointer.y = y;
     pointer.isInside = true;
+    detectStrikes();
+  }
+
+  /** Reports a strand the pointer has just crossed, at most once per cooldown. */
+  function setStrandStruckListener(listener: ((brightness: number) => void) | null): void {
+    onStrandStruck = listener;
+  }
+
+  /**
+   * A strike is the pointer crossing a strand, not merely being near one: the side of the
+   * strand the pointer sits on has to flip. That makes a sweep through the curtain ring
+   * every cord it actually passes through, and a cursor resting beside one stay silent.
+   */
+  function detectStrikes(): void {
+    if (onStrandStruck === null || mood.isReleased) {
+      return;
+    }
+    const now = performance.now();
+
+    for (const strand of strands) {
+      const reference = strand.points[Math.floor(strand.points.length / 2)];
+      if (reference === undefined) {
+        continue;
+      }
+      if (Math.abs(pointer.y - reference.y) > STRIKE_VERTICAL_REACH_PX) {
+        strand.lastPointerSide = 0;
+        continue;
+      }
+
+      const side = Math.sign(pointer.x - reference.x);
+      const previousSide = strand.lastPointerSide;
+      strand.lastPointerSide = side;
+
+      const hasCrossed = previousSide !== 0 && side !== 0 && side !== previousSide;
+      if (!hasCrossed || now - strand.lastStruckAt < STRAND_STRIKE_COOLDOWN_MS) {
+        continue;
+      }
+      strand.lastStruckAt = now;
+      // Strands further left ring lower, further right ring higher, so sweeping across
+      // the curtain plays a run rather than a random scatter.
+      onStrandStruck(width === 0 ? 0.5 : reference.x / width);
+    }
   }
 
   function clearPointer(): void {
@@ -319,8 +375,8 @@ export function createCurtainScene(palette: CurtainPalette) {
     }
 
     const gradient = context.createLinearGradient(0, eaveY, 0, eaveY + height * STRAND_LENGTH_RATIO);
-    gradient.addColorStop(0, mixHexColors(palette.brass, palette.iron, mood.silence));
-    gradient.addColorStop(1, mixHexColors(palette.brassDeep, palette.iron, mood.silence));
+    gradient.addColorStop(0, mixHexColors(palette.bronze, palette.iron, mood.silence));
+    gradient.addColorStop(1, mixHexColors(palette.bronzeDeep, palette.iron, mood.silence));
 
     strandGradient = gradient;
     gradientSilenceKey = silenceKey;
@@ -438,6 +494,7 @@ export function createCurtainScene(palette: CurtainPalette) {
     sendGust,
     setCharge,
     rippleAt,
+    setStrandStruckListener,
     settle,
   };
 }

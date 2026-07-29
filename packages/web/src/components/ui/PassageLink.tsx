@@ -23,7 +23,7 @@ export function PassageLink({
     <Link
       href={href}
       className={`group inline-flex items-baseline gap-3 transition-colors duration-(--dur-small) ease-(--ease-standard) ${
-        isPrimary ? "type-title text-ink hover:text-brass" : "type-small text-ink-muted hover:text-ink"
+        isPrimary ? "type-title text-ink hover:text-bronze" : "type-small text-ink-muted hover:text-ink"
       }`}
     >
       <span>{children}</span>

@@ -3,28 +3,37 @@
 /*
  * Every value the interface renders lives here or in docs/UI_DESIGN_SYSTEM.md.
  * Components read tokens, never literals.
+ *
+ * The field is woven tatami under warm daylight. The ink values are taken from the
+ * reference the art direction comes from, so the drawn elements and the photographic ones
+ * sit in one colour world instead of two.
  */
 @theme {
-  /* ---- Palette. Warm throughout, one committed dark field. ---- */
-  --color-field: #171210;
-  --color-field-raised: #1f1815;
-  --color-field-sunk: #100c0b;
-  --color-ink: #eae0ce;
-  --color-ink-muted: #9a8f80;
-  --color-ink-faint: #6a6157;
-  --color-brass: #c9a227;
-  --color-brass-deep: #8a6d1f;
-  --color-brass-sunk: #332a16;
+  /* ---- Palette. Warm, light, one committed field. ---- */
+  --color-field: #f3e8d5;
+  --color-field-raised: #fffdf7;
+  --color-field-sunk: #e8dfd0;
+  --color-ink: #3a2d2a;
+  --color-ink-muted: #58423c;
+  --color-ink-faint: #9a8a84;
+
+  /* The one interactive colour. Deep enough to carry body text on cream. */
+  --color-bronze: #8a6d1f;
+  --color-bronze-deep: #5e4a14;
+  --color-bronze-sunk: #efe4c6;
+
+  /* Reserved, and it means one thing only: this cannot be undone. */
   --color-cinnabar: #9e2b25;
-  /* What the strands become once the wind has fallen. Cold against the warm field. */
-  --color-iron: #56524c;
+
+  /* What the strands become once the wind has fallen: they fade into the field. */
+  --color-iron: #bdb3a8;
 
   /* ---- Type ---- */
   --font-display: var(--font-gambarino), Georgia, serif;
   --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-hanzi: var(--font-noto-serif-sc), serif;
 
-  /* ---- Shape. Lacquered wood and pressed paper, so corners stay near-square. ---- */
+  /* ---- Shape. Paper and lacquered wood, so corners stay near-square. ---- */
   --radius-panel: 4px;
   --radius-control: 2px;
 
@@ -41,28 +50,31 @@
   --dur-large: 380ms;
   --stagger: 45ms;
 
-  /* One light source, from directly above. Every shadow agrees. */
-  --lacquer-surface: linear-gradient(180deg, #221a17 0%, #1b1512 100%);
-  --lacquer-lip: inset 0 1px 0 rgba(234, 224, 206, 0.07);
-  --lacquer-ring: inset 0 0 0 1px rgba(234, 224, 206, 0.06);
-  --lacquer-cast: 0 1px 2px rgba(8, 5, 4, 0.5), 0 14px 34px rgba(8, 5, 4, 0.34);
+  /*
+   * One material: paper resting on the mat. One light source, from above and slightly
+   * front, so every shadow agrees and every lip catches the same highlight.
+   */
+  --panel-surface: linear-gradient(180deg, #fffdf7 0%, #fdf7ea 100%);
+  --panel-lip: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --panel-ring: inset 0 0 0 1px rgba(88, 66, 60, 0.1);
+  --panel-cast: 0 1px 2px rgba(58, 45, 42, 0.06), 0 12px 28px rgba(58, 45, 42, 0.1);
 
   /* One spatial model. The hanzi sits behind the curtain, the copy in front of it. */
   --layer-field: 0;
   --layer-behind-curtain: 5;
   --layer-curtain: 10;
   --layer-content: 20;
+  --layer-roof: 30;
   --layer-nav: 40;
   --layer-status: 50;
 }
 
 html {
   background-color: var(--color-field);
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
-  background-color: var(--color-field);
   color: var(--color-ink);
   font-family: var(--font-body);
   font-size: 1rem;
@@ -71,33 +83,39 @@ body {
 }
 
 /*
- * Grain. Sits on the substrate at 4%, stepped so it reads as film rather than a
- * dirty screen, and always behind content: it never crosses text or a control.
+ * The mat. A woven substrate rather than a flat fill, fixed so the page moves over it and
+ * it never scrolls away. It carries its own grain, which is why no separate noise layer is
+ * stacked on top: one texture, not two.
  */
-.grain-substrate::after {
+.tatami-field::before {
   content: "";
   position: fixed;
-  inset: -12%;
+  inset: 0;
   z-index: var(--layer-field);
   pointer-events: none;
-  opacity: 0.04;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
-  animation: grain-step 900ms steps(1, end) infinite;
+  background-color: var(--color-field);
+  background-image: url("/scene/tatami.webp");
+  background-size: 1200px auto;
+  background-repeat: repeat;
+  background-position: center top;
 }
 
-@keyframes grain-step {
-  0% {
-    transform: translate3d(0, 0, 0);
-  }
-  25% {
-    transform: translate3d(-2%, 1%, 0);
-  }
-  50% {
-    transform: translate3d(1%, -2%, 0);
-  }
-  75% {
-    transform: translate3d(-1%, -1%, 0);
-  }
+/*
+ * Daylight falling from the doorway: the mat is brighter where the opening is and settles
+ * into shade at the corners. Maximum feather, minimum darkness, so it cannot be pointed at.
+ */
+.tatami-field::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: var(--layer-field);
+  pointer-events: none;
+  background: radial-gradient(
+    120% 80% at 50% 4%,
+    rgba(255, 253, 247, 0.55) 0%,
+    rgba(255, 253, 247, 0) 46%,
+    rgba(88, 66, 60, 0.09) 100%
+  );
 }
 
 /*
@@ -161,29 +179,29 @@ body {
   font-feature-settings: "tnum";
 }
 
-/* The one material: lacquer. Self-coloured edge, one light from above. */
-.lacquer {
-  background: var(--lacquer-surface);
+/* The one material: paper on the mat. Self-coloured edge, one light from above. */
+.panel {
+  background: var(--panel-surface);
   border-radius: var(--radius-panel);
-  box-shadow: var(--lacquer-lip), var(--lacquer-ring), var(--lacquer-cast);
+  box-shadow: var(--panel-lip), var(--panel-ring), var(--panel-cast);
 }
 
 /* A well inside a panel. No cast: the panel already did the depth work. */
-.lacquer-well {
+.panel-well {
   background: var(--color-field-sunk);
   border-radius: var(--radius-control);
-  box-shadow: var(--lacquer-ring);
+  box-shadow: inset 0 1px 2px rgba(58, 45, 42, 0.09), inset 0 0 0 1px rgba(88, 66, 60, 0.08);
 }
 
 /* One focus treatment, visible on the field and on the material, everywhere. */
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid var(--color-brass);
+  outline: 2px solid var(--color-bronze);
   outline-offset: 2px;
   border-radius: var(--radius-control);
 }
 
 ::selection {
-  background: var(--color-brass-sunk);
+  background: var(--color-bronze-sunk);
   color: var(--color-ink);
 }
 
@@ -194,9 +212,5 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-  }
-
-  .grain-substrate::after {
-    animation: none;
   }
 }
