@@ -26,7 +26,11 @@ const french = {
   wallet: {
     connect: "Connecter",
     disconnect: "Se déconnecter",
-    none: "Aucun portefeuille détecté",
+    choose: "Choisir un portefeuille",
+    browser: "Portefeuille du navigateur",
+    connecting: "Connexion…",
+    failed: "La connexion a échoué. Réessayez.",
+    none: "Aucun portefeuille détecté dans ce navigateur.",
   },
 
   sound: {
@@ -176,7 +180,11 @@ const english: typeof french = {
   wallet: {
     connect: "Connect",
     disconnect: "Disconnect",
-    none: "No wallet detected",
+    choose: "Choose a wallet",
+    browser: "Browser wallet",
+    connecting: "Connecting…",
+    failed: "Connection failed. Try again.",
+    none: "No wallet detected in this browser.",
   },
 
   sound: {

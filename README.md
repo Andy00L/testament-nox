@@ -258,6 +258,11 @@ event.
   colour world. Her site is worth visiting on its own terms.
 - **Type**: [Gambarino](https://www.fontshare.com/fonts/gambarino) from Fontshare and a
   two-glyph subset of Noto Serif SC, both self-hosted.
+- **The transmission illustration** on the door page (an elder passing a sword to a bowing
+  heir) is an AI-generated image (Google Gemini) supplied by the team. Its baked-in
+  checkerboard background is removed at build time by a border flood fill in
+  [`optimise-scene-assets.ts`](packages/web/scripts/optimise-scene-assets.ts), which spares
+  the enclosed light details a colour key would erase.
 
 ## 📜 License
 

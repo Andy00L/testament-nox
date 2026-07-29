@@ -24,6 +24,79 @@ const CONVERSIONS = [
   { source: "roof-china.png", output: "roof.webp", width: 1400, quality: 82, trim: true },
 ] as const;
 
+/**
+ * The transmission illustration arrives with its "transparent" checkerboard baked into the
+ * pixels. Keying by colour alone would also erase the white cranes on the elder's robe, so
+ * the background is removed by flood fill instead: starting from the borders, expand only
+ * through near-neutral bright pixels. Anything light that is enclosed by the figures is
+ * unreachable from the border and survives.
+ */
+async function keyOutCheckerboard(sourcePath: string, outputPath: string): Promise<void> {
+  const { data, info } = await sharp(sourcePath)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const { width, height, channels } = info;
+
+  /** Checkerboard squares are neutral (r=g=b within a hair) and bright. Unit: 0-255. */
+  const KEY_BRIGHTNESS_FLOOR = 172;
+  const KEY_NEUTRALITY = 10;
+
+  const isKeyColour = (offset: number): boolean => {
+    const red = data[offset] ?? 0;
+    const green = data[offset + 1] ?? 0;
+    const blue = data[offset + 2] ?? 0;
+    return (
+      Math.min(red, green, blue) >= KEY_BRIGHTNESS_FLOOR &&
+      Math.abs(red - green) <= KEY_NEUTRALITY &&
+      Math.abs(green - blue) <= KEY_NEUTRALITY &&
+      Math.abs(red - blue) <= KEY_NEUTRALITY
+    );
+  };
+
+  const visited = new Uint8Array(width * height);
+  const queue: number[] = [];
+  const enqueue = (x: number, y: number) => {
+    const pixel = y * width + x;
+    if (visited[pixel] === 1) return;
+    if (!isKeyColour(pixel * channels)) return;
+    visited[pixel] = 1;
+    queue.push(pixel);
+  };
+
+  for (let x = 0; x < width; x += 1) {
+    enqueue(x, 0);
+    enqueue(x, height - 1);
+  }
+  for (let y = 0; y < height; y += 1) {
+    enqueue(0, y);
+    enqueue(width - 1, y);
+  }
+
+  while (queue.length > 0) {
+    const pixel = queue.pop() as number;
+    const x = pixel % width;
+    const y = Math.floor(pixel / width);
+    data[pixel * channels + 3] = 0;
+    if (x > 0) enqueue(x - 1, y);
+    if (x < width - 1) enqueue(x + 1, y);
+    if (y > 0) enqueue(x, y - 1);
+    if (y < height - 1) enqueue(x, y + 1);
+  }
+
+  await sharp(data, { raw: { width, height, channels: 4 } })
+    .trim()
+    .resize({ width: 1100, withoutEnlargement: true })
+    .webp({ quality: 82, effort: 6 })
+    .toFile(outputPath);
+  console.log(`[optimiseSceneAssets] checkerboard keyed out -> ${outputPath}`);
+}
+
+await keyOutCheckerboard(
+  resolve(SCENE_DIR, "transmission-source.png"),
+  resolve(SCENE_DIR, "transmission.webp"),
+);
+
 for (const conversion of CONVERSIONS) {
   const sourcePath = resolve(SCENE_DIR, conversion.source);
   const outputPath = resolve(SCENE_DIR, conversion.output);

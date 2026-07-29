@@ -219,6 +219,32 @@ check("sound toggle changes state", soundLabelBefore !== soundLabelAfter, `${sou
 const sealButton = page.getByRole("button", { name: /Presser le sceau/ });
 check("seal is disabled on an invalid will", await sealButton.isDisabled(), "disabled with a stated reason");
 
+// ---- The wallet chooser opens, says something honest, and closes -----------------------
+
+console.log("\nwallet chooser");
+await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
+await page.waitForTimeout(900);
+await page.getByRole("button", { name: "Connecter" }).click();
+await page.waitForTimeout(300);
+check(
+  "chooser opens on the one connect button",
+  await page.getByText("Choisir un portefeuille").isVisible(),
+  "panel visible",
+);
+// Headless chromium has no wallet extension, so the honest state is "none detected".
+check(
+  "an empty browser is told no wallet was detected",
+  await page.getByText("Aucun portefeuille détecté dans ce navigateur.").isVisible(),
+  "no dead rows",
+);
+await page.keyboard.press("Escape");
+await page.waitForTimeout(200);
+check(
+  "Escape closes the chooser",
+  !(await page.getByText("Choisir un portefeuille").isVisible()),
+  "closed",
+);
+
 // ---- Language ------------------------------------------------------------------------
 
 console.log("\nlanguage");
