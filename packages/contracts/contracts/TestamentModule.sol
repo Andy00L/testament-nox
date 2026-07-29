@@ -47,6 +47,20 @@ contract TestamentModule {
      */
     mapping(address safe => uint32 nonce) public authorizationNonce;
 
+    /**
+     * @notice What a payout actually did, as opposed to what it intended.
+     * @dev `distribute` cannot revert on a beneficiary that refuses ETH without stranding
+     *      everyone else, so it reports instead. The registry emits these numbers rather
+     *      than the total it planned, because a testament that paid three of four heirs
+     *      must not go on record as having paid all four.
+     */
+    struct DistributionResult {
+        uint256 amountPaid;
+        uint256 amountFailed;
+        uint256 successfulTransfers;
+        uint256 failedTransfers;
+    }
+
     error RegistryIsZeroAddress();
     error NotRegistry(address caller);
     error LengthMismatch(uint256 recipientCount, uint256 amountCount);
@@ -152,7 +166,7 @@ contract TestamentModule {
         uint32 nonce,
         address[] calldata recipients,
         uint256[] calldata amounts
-    ) external onlyRegistry {
+    ) external onlyRegistry returns (DistributionResult memory result) {
         require(recipients.length == amounts.length, LengthMismatch(recipients.length, amounts.length));
         _requireMandate(safe, writer, nonce);
 
@@ -165,8 +179,12 @@ contract TestamentModule {
 
             bool executed = ISafe(safe).execTransactionFromModule(recipient, amount, "", OPERATION_CALL);
             if (executed) {
+                result.amountPaid += amount;
+                ++result.successfulTransfers;
                 emit Distributed(safe, recipient, amount);
             } else {
+                result.amountFailed += amount;
+                ++result.failedTransfers;
                 emit DistributionRefused(safe, recipient, amount);
             }
         }
