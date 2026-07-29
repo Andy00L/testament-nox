@@ -15,8 +15,13 @@ Built for the iExec WTF Hackathon, Summer Edition.
 ![confidentiality](https://img.shields.io/badge/confidentiality-iExec%20Nox%20(Intel%20TDX)-9E2B25)
 ![custody](https://img.shields.io/badge/custody-Safe%20v1.4.1%20module-56524C)
 ![contracts](https://img.shields.io/badge/contracts-verified%20on%20Etherscan-C9A227)
-![tests](https://img.shields.io/badge/tests-59%20contract%20%2B%2021%20unit-56524C)
+![tests](https://img.shields.io/badge/tests-67%20contract%20%2B%2021%20unit-56524C)
 ![license](https://img.shields.io/badge/license-MIT-56524C)
+[![CI](https://github.com/Andy00L/testament-nox/actions/workflows/ci.yml/badge.svg)](https://github.com/Andy00L/testament-nox/actions/workflows/ci.yml)
+
+> **Sepolia testnet demonstration. Unaudited contracts. Do not use with real funds.**
+> This is not legal advice and not a substitute for a legally valid will. What is protected,
+> what is not, and which addresses are deprecated: [SECURITY.md](SECURITY.md).
 
 ![The curtain: the home scene, with the will's silence driving the strands](docs/screenshots/01-scene.webp)
 
@@ -189,10 +194,11 @@ bun run --cwd packages/contracts test
 bun run --cwd packages/shared test
 ```
 
-Success is `59 passing` from the contract suite and `21 pass, 0 fail` from the codec suite.
-Both exit non-zero on any failure. Seventeen of those contract tests are the authorization
+Success is `67 passing` from the contract suite and `21 pass, 0 fail` from the codec suite.
+Both exit non-zero on any failure. Twenty of those contract tests are the authorization
 boundary on its own: an outsider is refused, an unnamed owner is refused, a withdrawn or
-rotated mandate cannot pay out, and one Safe never backs two live wills.
+rotated mandate cannot pay out, a mandate does not survive a redeployment, and one Safe never
+backs two live wills.
 
 To run it against Sepolia yourself, copy `packages/contracts/.env.example` to `.env`, fill
 in a funded throwaway key, then:
@@ -255,6 +261,18 @@ completes its handshake and the page then never hydrates, which leaves the canva
 - **A beneficiary contract that burns all the gas can still block the batch.**
   `execTransactionFromModule` offers no gas cap, so this is inherent to the Safe module
   interface. A recipient that merely *reverts* is handled (see `DistributionRefused`).
+- **A refused payment is reported honestly, and is not recoverable.** `TestamentExecuted`
+  carries planned, paid and failed amounts separately, so the record never counts a refused
+  share as delivered. But a testament gets one execution, so that share simply stays in the
+  Safe with no retry path. A claim-based payout contract would fix this and is not built.
+- **Release can be front-run.** A late heartbeat and a `release()` can sit in the mempool
+  together and the release can win, making the plan public even though the owner was alive.
+  A two-phase release with a challenge window would fix this and is not built.
+- **Onboarding assumes a 1-of-1 Safe.** The scripts and the app build a pre-validated
+  signature that only works when a single owner submits the transaction itself. Multi-owner
+  Safes can still enable the module and authorize a writer through the Safe interface, and
+  the contracts do not care how the threshold was met, but this repository does not collect
+  signatures for you.
 - **The trust root is Intel TDX plus its attestation chain**, not mathematics alone. See
   [Nox's chain of trust](https://docs.noxprotocol.io/protocol/chain-of-trust).
 - **The demo timings are 90 s interval and 30 s grace**, set in `.env` so a video can be
