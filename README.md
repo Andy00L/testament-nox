@@ -15,7 +15,7 @@ Built for the iExec WTF Hackathon, Summer Edition.
 ![confidentiality](https://img.shields.io/badge/confidentiality-iExec%20Nox%20(Intel%20TDX)-9E2B25)
 ![custody](https://img.shields.io/badge/custody-Safe%20v1.4.1%20module-56524C)
 ![contracts](https://img.shields.io/badge/contracts-verified%20on%20Etherscan-C9A227)
-![tests](https://img.shields.io/badge/tests-41%20contract%20%2B%2021%20unit-56524C)
+![tests](https://img.shields.io/badge/tests-59%20contract%20%2B%2021%20unit-56524C)
 ![license](https://img.shields.io/badge/license-MIT-56524C)
 
 ![The curtain: the home scene, with the will's silence driving the strands](docs/screenshots/01-scene.webp)
@@ -55,8 +55,14 @@ nobody puts a real succession plan on chain.
   which forwards to `NoxCompute.validateDecryptionProof` and reverts on a bad signature. The
   keeper in this repo is a courier, not an authority: a beneficiary or a judge can send the
   exact same transaction.
-- **The Safe is never modified.** It enables one module, once. The registry holds no funds
-  and cannot be repointed: both addresses are `immutable`.
+- **The Safe consents twice, and can take it back.** It enables the module once, then names
+  the single address allowed to draw a will on it. Both are Safe transactions that clear the
+  Safe's own threshold, so neither can be done on its behalf. Enabling a module grants
+  unrestricted spending authority over the Safe, which is why the second consent exists: it
+  is what stops a stranger naming your module-enabled Safe as the estate paying their own
+  testament. The mandate is checked again inside the module at payout, against the Safe's
+  state right then, so withdrawing or reassigning it disarms a will already written. The
+  registry holds no funds and cannot be repointed: both addresses are `immutable`.
 - **Every testament has its own door.** An heir reaches `/porte?id=N` through the link the
   owner shares, surfaced after the seal and on the home page while connected. Without a
   link the door explains itself instead of showing the registry's latest testament, so
@@ -76,11 +82,15 @@ nobody puts a real succession plan on chain.
 
 ```mermaid
 flowchart TD
+    subgraph consent["Once, and only from the Safe itself"]
+        safeOwners["Safe owners, threshold met"] -->|"enableModule, then authorizeWriter"| mandate["TestamentModule records writer + nonce"]
+    end
     subgraph browser["In the browser, before anything is sent"]
         owner["Owner"] -->|"8 slot values"| encrypt["encryptInput, Handle Gateway in Intel TDX"]
         encrypt -->|"handles + EIP-712 proofs"| writeTx["write()"]
     end
     subgraph chain["On Ethereum Sepolia"]
+        mandate -->|"no mandate, no will"| writeTx
         writeTx --> registry["TestamentRegistry, 8 euint256 handles"]
         owner -->|"heartbeat()"| registry
         registry -->|"silence outlasts interval + grace"| released["release(): allowPublicDecryption"]
@@ -88,20 +98,23 @@ flowchart TD
     subgraph settle["Settlement, open to anyone"]
         released -->|"publicDecrypt per slot"| proofs["8 gateway-signed proofs"]
         proofs --> executeTx["execute(id, proofs)"]
-        executeTx -->|"Nox.publicDecrypt verifies each on-chain"| module["TestamentModule"]
+        executeTx -->|"Nox.publicDecrypt verifies each on-chain"| module["TestamentModule re-checks the mandate"]
         module -->|"execTransactionFromModule"| safe["Safe pays each heir"]
     end
     classDef browserSide fill:#F5EDD6,stroke:#8A6D1F,color:#4A3A10
     classDef chainSide fill:#EFEBE3,stroke:#56524C,color:#2A2622
     classDef settleSide fill:#F7E4E2,stroke:#9E2B25,color:#5A1815
     class owner,encrypt,writeTx browserSide
-    class registry,released chainSide
+    class safeOwners,mandate,registry,released chainSide
     class proofs,executeTx,module,safe settleSide
 ```
 
 Gold, in the browser before anything leaves. Grey, on chain. Red, the irreversible half.
 
-What the diagram cannot show is the failure paths, which are most of the design. A
+What the diagram cannot show is the failure paths, which are most of the design. The first
+one is refusal: `write()` reverts unless the Safe named this exact caller, and the module
+refuses again at payout unless the mandate still stands at the same nonce, so a will can
+never outlive the authority it was drawn under and one Safe backs at most one live will. A
 beneficiary that cannot accept ETH does not abort the payout: the module emits
 `DistributionRefused` and keeps going, because a testament gets exactly one execution and
 one bad recipient must not strand everyone else's inheritance. An empty Safe makes
@@ -121,6 +134,16 @@ are never made publicly decryptable.
 | `Revoked`  | `revoke()`, owner only       | no          | no       | never         | no        |
 
 ## 🔗 Live on Sepolia
+
+> **Superseded, redeploy pending.** The pair below is the version that was audited, and it
+> carries a critical flaw: `write()` accepted any Safe address from any caller, so anyone
+> could name a module-enabled Safe as the estate paying their own will and drain it one
+> minute later. The contracts in this repository fix it (`authorizeWriter`, a per-Safe
+> mandate, a rotation nonce re-checked inside the module at payout, one live will per Safe).
+> The registry and module hold each other's address as `immutable`, so the fix cannot be
+> applied in place: the pair has to be redeployed and this table and its evidence replaced.
+> The exact command sequence is under [Reproduce it](#-reproduce-it). Until it has run, read
+> this section as the record of what was audited, not as a deployment to trust.
 
 | Artifact            | Address                                      | Link                                                                                             |
 | ------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
@@ -166,19 +189,31 @@ bun run --cwd packages/contracts test
 bun run --cwd packages/shared test
 ```
 
-Success is `41 passing` from the contract suite and `21 pass, 0 fail` from the codec suite.
-Both exit non-zero on any failure.
+Success is `59 passing` from the contract suite and `21 pass, 0 fail` from the codec suite.
+Both exit non-zero on any failure. Seventeen of those contract tests are the authorization
+boundary on its own: an outsider is refused, an unnamed owner is refused, a withdrawn or
+rotated mandate cannot pay out, and one Safe never backs two live wills.
 
 To run it against Sepolia yourself, copy `packages/contracts/.env.example` to `.env`, fill
 in a funded throwaway key, then:
 
 ```bash
 cd packages/contracts
-bun run deploy:sepolia        # deploys the pair, writes the addresses back into .env
-bun run create-safe:sepolia   # creates and funds a 1-of-1 Safe you own
-bun run enable-module:sepolia # one transaction, no Safe SDK
-bun run e2e:sepolia           # write, heartbeat, wait out the silence, release, execute
+
+# Retiring a previous pair first: an enabled module keeps unrestricted spending authority
+# over the Safe forever, so deploying a replacement does not remove what it replaces.
+DISABLE_MODULE_ADDRESS=0x<old module> bun run disable-module:sepolia
+
+bun run deploy:sepolia          # deploys the pair, writes the addresses back into .env
+bun run create-safe:sepolia     # creates and funds a 1-of-1 Safe you own
+bun run enable-module:sepolia   # the Safe opens the passage
+bun run authorize-writer:sepolia # the Safe names the deployer as its writer
+bun run e2e:sepolia             # write, heartbeat, wait out the silence, release, execute
 ```
+
+`enable-module` and `authorize-writer` are two separate Safe transactions on purpose, and
+`e2e:sepolia` refuses to start without both. Batch them through MultiSend to keep it to one
+signature, `enableModule` first.
 
 `e2e:sepolia` deploys nothing and tops the Safe back up if a previous run drained it, so it
 is repeatable. It exits non-zero unless both heirs receive exactly their share and the
@@ -199,6 +234,14 @@ completes its handshake and the page then never hydrates, which leaves the canva
 - **Nothing is mocked on the confidentiality path.** Real Nox handles, real Handle Gateway,
   real on-chain proof verification, real Safe, real payout. The only test doubles are
   `MockSafe` and `RejectingReceiver`, and they exist solely inside the contract test suite.
+- **A Safe module is all or nothing, and the mandate narrows who, not how much.** Enabling
+  TestamentModule lets it move the Safe's entire native balance; Safe's module interface
+  offers no spending cap. The mandate decides whose will it will act on and nothing else, so
+  naming a writer is trusting that person with the whole distribution, the way signing a
+  paper will over to a solicitor is. Name your own wallet unless you mean otherwise.
+- **A withdrawn mandate stops a payout, it does not erase the will.** `revokeWriter` leaves
+  the testament sitting in the registry, released and unpayable. Only the owner's own
+  `revoke()` clears the record and frees the Safe to back a new one.
 - **Confidentiality is not anonymity, and Nox does not claim otherwise.** That an address
   wrote a testament is public. Which Safe it points at is public. The heartbeat cadence and
   every heartbeat's timing are public. Hidden until release: who inherits, how much, and how
