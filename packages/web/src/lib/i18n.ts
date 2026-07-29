@@ -49,6 +49,7 @@ const french = {
     lede: "Les héritiers et les parts restent chiffrés. Vous envoyez un signe de vie. Le jour où le silence dure trop longtemps, le Safe paie.",
     write: "Écrire le testament",
     heir: "Je suis un héritier",
+    about: "Comprendre",
   },
 
   status: {
@@ -56,6 +57,7 @@ const french = {
     reading: "Lecture de la chaîne…",
     releasedLede: "Le vent est tombé. Le testament est ouvert et attend son exécution.",
     goToDoor: "Aller à la porte",
+    shareDoor: "La porte de vos héritiers, à leur partager",
     windFell: "Le vent est tombé.",
     windFallsIn: (remaining: string) => `Le vent tombe dans ${remaining}.`,
     safeWillPay: (safe: string) => ({
@@ -104,6 +106,7 @@ const french = {
     moduleEnabled: "Module activé. Le passage est ouvert.",
     viewTransaction: "Voir la transaction sur Etherscan",
     connectFirst: "Connectez un portefeuille sur Sepolia.",
+    doorLinkLabel: "La porte de ce testament. Partagez ce lien à vos héritiers :",
   },
 
   seal: {
@@ -120,6 +123,11 @@ const french = {
     notConfigured: "Contrats non configurés.",
     reading: "Lecture de la chaîne…",
     none: "Aucun testament n'a encore été scellé ici.",
+    noLinkTitle: "Chaque testament a sa porte.",
+    noLinkLede:
+      "Cette page s'ouvre par le lien que l'auteur d'un testament partage à ses héritiers. Sans ce lien, il n'y a rien à montrer : avant l'ouverture, un testament ne révèle rien, pas même à cette page.",
+    noLinkHint:
+      "Vous avez écrit un testament ? Son lien apparaît après le sceau, et sur la page d'accueil quand votre portefeuille est connecté.",
     revokedTitle: "La porte a été murée.",
     revokedLede: "Ce testament a été révoqué par son auteur. Rien ne s'ouvrira.",
     closedTitle: "La porte est fermée.",
@@ -145,6 +153,44 @@ const french = {
     connectToExecute: "Connectez un portefeuille pour déclencher le paiement.",
     back: "Revenir devant la porte",
     viewTransaction: "Voir la transaction sur Etherscan",
+  },
+
+  about: {
+    title: "Comprendre Testament",
+    lede: "Un testament confidentiel pour votre Safe. Vous écrivez qui hérite et de combien ; personne ne peut le lire tant que vous donnez signe de vie. Le jour où le silence dure trop longtemps, il s'exécute tout seul.",
+    conceptTitle: "Ce que cette maison garde",
+    conceptBody:
+      "Le chiffrement est porté par Nox, la couche de contrats confidentiels d'iExec. Les héritiers et les parts vivent chiffrés on-chain : la chaîne ne voit que des pointeurs, et le déchiffrement n'est possible qu'une fois la porte ouverte, preuve à l'appui, vérifiée par le contrat avant le moindre paiement. Le Safe, lui, reste intact ; un module lui est simplement ajouté, qu'il peut retirer à tout moment.",
+    stepsTitle: "Comment s'en servir",
+    steps: [
+      {
+        title: "Connecter un portefeuille",
+        body: "Le bouton Connecter liste les portefeuilles détectés dans votre navigateur. Un portefeuille sur Ethereum Sepolia suffit : tout se passe sur le réseau de test.",
+        alt: "Le choix du portefeuille, ouvert sous la plaque",
+      },
+      {
+        title: "Écrire le testament",
+        body: "Nommez jusqu'à huit héritiers et leurs parts, indiquez le Safe qui paiera, choisissez le silence toléré. Tout est chiffré dans votre navigateur avant de partir, puis scellé d'un geste.",
+        alt: "Le parchemin du testament, rempli",
+      },
+      {
+        title: "Envoyer des signes de vie",
+        body: "Après le sceau, un geste suffit : maintenez le bouton avant la fin de chaque intervalle et le vent reste levé. Le lien de la porte, lui, se partage aux héritiers dès maintenant.",
+        alt: "La page d'accueil, connectée, avec le signe de vie",
+      },
+      {
+        title: "La porte reste fermée",
+        body: "Tant que vous donnez signe de vie, personne ne lit rien : ni les héritiers, ni cette page, ni la chaîne. Le compte à rebours est public ; le contenu, jamais.",
+        alt: "La porte fermée et son compte à rebours",
+      },
+      {
+        title: "Le jour venu, le Safe paie",
+        body: "Si le silence dépasse l'intervalle et le délai de grâce, n'importe qui peut ouvrir la porte. Le testament est déchiffré, chaque part est vérifiée on-chain, et le Safe paie exactement ce qui a été écrit.",
+        alt: "La porte ouverte, les parts déchiffrées et payées",
+      },
+    ],
+    cta: "Écrire le vôtre",
+    back: "Revenir à l'entrée",
   },
 
   /** Units for the one remaining-time line. Kept short: this is prose, not a widget. */
@@ -203,6 +249,7 @@ const english: typeof french = {
     lede: "Heirs and shares stay encrypted. You send a sign of life. The day the silence lasts too long, the Safe pays.",
     write: "Write the testament",
     heir: "I am an heir",
+    about: "How it works",
   },
 
   status: {
@@ -210,6 +257,7 @@ const english: typeof french = {
     reading: "Reading the chain…",
     releasedLede: "The wind has fallen. The testament is open and waiting to be executed.",
     goToDoor: "Go to the door",
+    shareDoor: "Your heirs' door, to share with them",
     windFell: "The wind has fallen.",
     windFallsIn: (remaining: string) => `The wind falls in ${remaining}.`,
     safeWillPay: (safe: string) => ({
@@ -258,6 +306,7 @@ const english: typeof french = {
     moduleEnabled: "Module enabled. The passage is open.",
     viewTransaction: "View the transaction on Etherscan",
     connectFirst: "Connect a wallet on Sepolia.",
+    doorLinkLabel: "This testament's door. Share this link with your heirs:",
   },
 
   seal: {
@@ -274,6 +323,11 @@ const english: typeof french = {
     notConfigured: "Contracts are not configured.",
     reading: "Reading the chain…",
     none: "No testament has been sealed here yet.",
+    noLinkTitle: "Every testament has its own door.",
+    noLinkLede:
+      "This page opens through the link a testament's author shares with their heirs. Without that link there is nothing to show: before it opens, a testament reveals nothing, not even to this page.",
+    noLinkHint:
+      "Wrote a testament? Its link appears after the seal, and on the home page while your wallet is connected.",
     revokedTitle: "The door has been walled up.",
     revokedLede: "This testament was revoked by its author. Nothing will open.",
     closedTitle: "The door is closed.",
@@ -299,6 +353,44 @@ const english: typeof french = {
     connectToExecute: "Connect a wallet to trigger the payout.",
     back: "Back to the door",
     viewTransaction: "View the transaction on Etherscan",
+  },
+
+  about: {
+    title: "Understanding Testament",
+    lede: "A confidential will for your Safe. You write who inherits and how much; nobody can read it while you keep showing life. The day the silence lasts too long, it executes on its own.",
+    conceptTitle: "What this house keeps",
+    conceptBody:
+      "The encryption is carried by Nox, iExec's confidential smart contract layer. Heirs and shares live encrypted on-chain: the chain only ever sees pointers, and decryption becomes possible only once the door is open, proof in hand, verified by the contract before a single payment. The Safe itself stays untouched; a module is simply added to it, and it can remove that module at any time.",
+    stepsTitle: "How to use it",
+    steps: [
+      {
+        title: "Connect a wallet",
+        body: "The Connect button lists the wallets detected in your browser. A wallet on Ethereum Sepolia is enough: everything runs on the test network.",
+        alt: "The wallet chooser, open under the plaque",
+      },
+      {
+        title: "Write the testament",
+        body: "Name up to eight heirs and their shares, point to the Safe that will pay, choose the silence you allow. Everything is encrypted in your browser before it leaves, then sealed in one gesture.",
+        alt: "The testament scroll, filled in",
+      },
+      {
+        title: "Send signs of life",
+        body: "After the seal, one gesture is enough: hold the button before each interval ends and the wind stays up. The door's link can be shared with your heirs right away.",
+        alt: "The home page, connected, with the sign of life",
+      },
+      {
+        title: "The door stays closed",
+        body: "As long as you show life, nobody reads a thing: not the heirs, not this page, not the chain. The countdown is public; the content never is.",
+        alt: "The closed door and its countdown",
+      },
+      {
+        title: "When the day comes, the Safe pays",
+        body: "If the silence outlasts the interval and the grace period, anyone can open the door. The testament is decrypted, every share is verified on-chain, and the Safe pays exactly what was written.",
+        alt: "The open door, shares decrypted and paid",
+      },
+    ],
+    cta: "Write your own",
+    back: "Back to the entrance",
   },
 
   duration: {

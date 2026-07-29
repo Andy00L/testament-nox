@@ -3,10 +3,17 @@
 import { ExternalLink } from "@appica/icons-react";
 import { AnimatePresence, motion } from "motion/react";
 
-import { BPS_DENOMINATOR, SLOT_COUNT, describePackFailure, packBequests } from "@testament/shared";
+import {
+  BPS_DENOMINATOR,
+  SLOT_COUNT,
+  describePackFailure,
+  packBequests,
+  testamentRegistryAbi,
+} from "@testament/shared";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isAddress, type Address } from "viem";
-import { usePublicClient, useWalletClient } from "wagmi";
+import { useAccount, usePublicClient, useReadContract, useWalletClient } from "wagmi";
 
 import { SealPress } from "@/components/testament/SealPress";
 import { TextField } from "@/components/ui/TextField";
@@ -56,6 +63,7 @@ function createDraft(): BequestDraft {
 export function WritePanel() {
   const deployment = readDeployment();
   const publicClient = usePublicClient();
+  const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
   const { rippleAt } = useCurtain();
   const { playChime } = useSound();
@@ -81,6 +89,19 @@ export function WritePanel() {
   const [moduleTransaction, setModuleTransaction] = useState<string | null>(null);
 
   const addButtonRef = useRef<HTMLButtonElement>(null);
+
+  // The freshly sealed testament's id, so the owner leaves with the door link in hand.
+  const sealedIdQuery = useReadContract({
+    address: deployment.isDeployed ? deployment.addresses.registry : undefined,
+    abi: testamentRegistryAbi,
+    functionName: "activeTestamentOf",
+    args: address === undefined ? undefined : [address],
+    query: { enabled: deployment.isDeployed && address !== undefined && stage === "sealed" },
+  });
+  const sealedId =
+    typeof sealedIdQuery.data === "bigint" && sealedIdQuery.data !== 0n
+      ? sealedIdQuery.data
+      : null;
 
   const totalPercent = drafts.reduce(
     (runningTotal, draft) => runningTotal + (Number(draft.sharePercent) || 0),
@@ -378,6 +399,17 @@ export function WritePanel() {
 
       {stage === "sealed" ? (
         <section className="flex flex-col gap-4 border-0 pt-2">
+          {sealedId !== null ? (
+            <p className="type-small text-ink-muted">
+              {copy.write.doorLinkLabel}{" "}
+              <Link
+                href={`/porte?id=${sealedId}`}
+                className="type-numeric text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-bronze-deep"
+              >
+                /porte?id={String(sealedId)}
+              </Link>
+            </p>
+          ) : null}
           <h2 className="type-display-lg">{copy.write.openPassageTitle}</h2>
           <p className="type-body text-ink-muted">{copy.write.openPassageLede}</p>
           {isModuleEnabled === true ? (

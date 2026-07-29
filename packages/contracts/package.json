@@ -12,7 +12,8 @@
     "enable-module:sepolia": "hardhat run scripts/enable-module.ts --network sepolia",
     "e2e:sepolia": "hardhat run scripts/e2e-sepolia.ts --network sepolia",
     "typecheck": "tsc --noEmit",
-    "create-safe:sepolia": "hardhat run scripts/create-safe.ts --network sepolia"
+    "create-safe:sepolia": "hardhat run scripts/create-safe.ts --network sepolia",
+    "write-demo:sepolia": "hardhat run scripts/write-demo.ts --network sepolia"
   },
   "dependencies": {
     "@iexec-nox/nox-protocol-contracts": "^0.2.4",

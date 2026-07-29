@@ -8,8 +8,9 @@ import { DoorScene } from "@/components/testament/DoorScene";
 /**
  * The beneficiary's side of the doorway.
  *
- * `?id=` selects a testament; without it the page shows the most recent one, which is what
- * a demo needs and what a beneficiary following a shared link gets.
+ * `?id=` selects a testament, and comes from the link its author shared. Without it the
+ * page explains itself instead of guessing: showing the registry's most recent testament
+ * to whoever walks by would be someone else's affairs on the doorstep.
  *
  * The transmission illustration stands to the right, behind the curtain layer, so the
  * strands hang between the visitor and the two figures: the elder passing the sword is

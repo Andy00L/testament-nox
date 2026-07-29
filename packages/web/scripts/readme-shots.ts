@@ -52,8 +52,9 @@ await page.mouse.move(1200, 500);
 await page.waitForTimeout(1500);
 await capture(page, "02-write");
 
-// The door reading a real executed testament off Sepolia, no wallet connected.
-await page.goto(`${BASE_URL}/porte`, { waitUntil: "networkidle" });
+// The door reading a real executed testament off Sepolia, no wallet connected. The id is
+// explicit now: without a link the door explains itself instead of showing anything.
+await page.goto(`${BASE_URL}/porte?id=1`, { waitUntil: "networkidle" });
 await page.getByText("La porte est ouverte.").waitFor({ timeout: 30_000 });
 await page.waitForTimeout(1500);
 await capture(page, "03-door");

@@ -10,7 +10,8 @@
     "shots": "bun run scripts/shoot.ts",
     "lint": "eslint .",
     "readme-shots": "bun run scripts/readme-shots.ts",
-    "verify-ui": "bun run scripts/verify-ui.ts"
+    "verify-ui": "bun run scripts/verify-ui.ts",
+    "about-shots": "bun run scripts/about-shots.ts"
   },
   "dependencies": {
     "@appica/icons-react": "^1.0.0",

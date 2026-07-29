@@ -29,6 +29,7 @@ export function TestamentStatus() {
   const { copy } = useTranslation();
 
   const summary = testament.status === "found" ? testament.summary : null;
+  const testamentId = testament.status === "found" ? testament.testamentId : null;
   const silence =
     summary === null || nowSeconds === null ? 0 : computeSilenceProgress(summary, nowSeconds);
   const isReleased =
@@ -62,7 +63,7 @@ export function TestamentStatus() {
       <div className="flex flex-col gap-3">
         <p className="type-body text-ink">{copy.status.releasedLede}</p>
         <Link
-          href="/porte"
+          href={testamentId === null ? "/porte" : `/porte?id=${testamentId}`}
           className="type-small text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
         >
           {copy.status.goToDoor}
@@ -94,6 +95,16 @@ export function TestamentStatus() {
       </p>
 
       <HeartbeatControl testamentId={testament.testamentId} onSent={testament.refetch} />
+
+      {/* The link an heir will need one day is shared while its author is alive. */}
+      {testamentId !== null ? (
+        <Link
+          href={`/porte?id=${testamentId}`}
+          className="type-small text-ink-faint transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+        >
+          {copy.status.shareDoor}
+        </Link>
+      ) : null}
     </div>
   );
 }

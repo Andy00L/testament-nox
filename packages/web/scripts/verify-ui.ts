@@ -265,6 +265,35 @@ check(
   "closed",
 );
 
+// ---- The door without a link explains itself instead of showing someone's will --------
+
+console.log("\ndoor privacy");
+await page.goto(`${BASE_URL}/porte`, { waitUntil: "networkidle" });
+await page.waitForTimeout(900);
+check(
+  "the door without an id shows the explanation",
+  await page.getByText("Chaque testament a sa porte.").isVisible(),
+  "no stranger's testament on the doorstep",
+);
+check(
+  "no testament content leaks on the linkless door",
+  !(await page.getByText("La porte est ouverte.").isVisible()),
+  "nothing to read",
+);
+
+// ---- The about page tells the five gestures with their photographs --------------------
+
+console.log("\nabout page");
+await page.goto(`${BASE_URL}/apropos`, { waitUntil: "networkidle" });
+await page.waitForTimeout(900);
+check(
+  "the about page renders on the scroll",
+  await page.getByText("Comprendre Testament").first().isVisible(),
+  "title on the parchment",
+);
+const stepImageCount = await page.locator("img[src*='about']").count();
+check("all five step photographs are mounted", stepImageCount === 5, `${stepImageCount} images`);
+
 // ---- Language ------------------------------------------------------------------------
 
 console.log("\nlanguage");

@@ -45,6 +45,9 @@ export function SceneHero() {
           <PassageLink href="/porte" tone="quiet">
             {copy.scene.heir}
           </PassageLink>
+          <PassageLink href="/apropos" tone="quiet">
+            {copy.scene.about}
+          </PassageLink>
         </div>
       </div>
     </div>

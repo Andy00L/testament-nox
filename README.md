@@ -57,6 +57,13 @@ nobody puts a real succession plan on chain.
   exact same transaction.
 - **The Safe is never modified.** It enables one module, once. The registry holds no funds
   and cannot be repointed: both addresses are `immutable`.
+- **Every testament has its own door.** An heir reaches `/porte?id=N` through the link the
+  owner shares, surfaced after the seal and on the home page while connected. Without a
+  link the door explains itself instead of showing the registry's latest testament, so
+  nobody's affairs sit on a public doorstep.
+- **The house explains itself.** [`/apropos`](packages/web/src/components/about/AboutScreen.tsx)
+  walks the five gestures on the same parchment, each illustrated with a capture of the
+  real screen against the rehearsal wallets on Sepolia.
 - **The curtain is the countdown.** No DAYS/HRS/MIN widget exists in this product. The
   strands are warm bronze under a live breeze while the heartbeat is recent, cool toward
   pale iron as the silence runs on, and detach and fall once the will is released. Passing

@@ -119,21 +119,6 @@ export function useTestamentById(testamentId: bigint | undefined) {
   };
 }
 
-/** The id of the most recently written testament, so the door can find something to show. */
-export function useLastTestamentId(): bigint | undefined {
-  const deployment = readDeployment();
-  const registryAddress = deployment.isDeployed ? deployment.addresses.registry : undefined;
-
-  const query = useReadContract({
-    address: registryAddress,
-    abi: testamentRegistryAbi,
-    functionName: "lastTestamentId",
-    query: { enabled: registryAddress !== undefined },
-  });
-
-  return typeof query.data === "bigint" ? query.data : undefined;
-}
-
 function toTestamentSummary(record: TestamentRecord): TestamentSummary {
   const [owner, safe, interval, grace, lastHeartbeat, state] = record;
   return {

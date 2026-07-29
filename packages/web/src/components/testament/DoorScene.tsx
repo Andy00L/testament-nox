@@ -16,7 +16,7 @@ import { useCurtain } from "@/components/scene/CurtainStage";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { buildAddressUrl, buildTransactionUrl, readDeployment, shortenAddress } from "@/lib/chain";
 import { formatRemaining } from "@/lib/i18n";
-import { useLastTestamentId, useNowSeconds, useTestamentById } from "@/lib/testament-read";
+import { useNowSeconds, useTestamentById } from "@/lib/testament-read";
 import {
   describeWriteFailure,
   executeTestament,
@@ -34,11 +34,14 @@ import {
  *
  * Once released the will is public by design, so the page reads it in clear and shows the
  * visitor their line if there is one.
+ *
+ * Without an `?id=` there is nothing to look up on purpose: an heir arrives through the
+ * link the author shared, and defaulting to "the most recent testament on the registry"
+ * would put a stranger's affairs on the doorstep.
  */
 export function DoorScene({ requestedId }: { requestedId?: bigint }) {
   const deployment = readDeployment();
-  const lastTestamentId = useLastTestamentId();
-  const testamentId = requestedId ?? lastTestamentId;
+  const testamentId = requestedId;
 
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
@@ -91,7 +94,18 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
     return <p className="type-body text-ink-faint">{copy.door.notConfigured}</p>;
   }
 
-  if (isPending || summary === undefined || testamentId === undefined) {
+  // No link, no lookup: the explanation is the whole page.
+  if (testamentId === undefined) {
+    return (
+      <div key="no-link" className="anim-rise flex flex-col gap-6">
+        <h1 className="type-display-hero">{copy.door.noLinkTitle}</h1>
+        <p className="type-body text-ink-muted">{copy.door.noLinkLede}</p>
+        <p className="type-small text-ink-faint">{copy.door.noLinkHint}</p>
+      </div>
+    );
+  }
+
+  if (isPending || summary === undefined) {
     return <p className="type-body text-ink-faint">{copy.door.reading}</p>;
   }
 
