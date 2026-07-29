@@ -15,7 +15,7 @@ Built for the iExec WTF Hackathon, Summer Edition.
 ![confidentiality](https://img.shields.io/badge/confidentiality-iExec%20Nox%20(Intel%20TDX)-9E2B25)
 ![custody](https://img.shields.io/badge/custody-Safe%20v1.4.1%20module-56524C)
 ![contracts](https://img.shields.io/badge/contracts-verified%20on%20Etherscan-C9A227)
-![tests](https://img.shields.io/badge/tests-67%20contract%20%2B%2021%20unit-56524C)
+![tests](https://img.shields.io/badge/tests-78%20contract%20%2B%2021%20unit-56524C)
 ![license](https://img.shields.io/badge/license-MIT-56524C)
 [![CI](https://github.com/Andy00L/testament-nox/actions/workflows/ci.yml/badge.svg)](https://github.com/Andy00L/testament-nox/actions/workflows/ci.yml)
 
@@ -120,9 +120,10 @@ What the diagram cannot show is the failure paths, which are most of the design.
 one is refusal: `write()` reverts unless the Safe named this exact caller, and the module
 refuses again at payout unless the mandate still stands at the same nonce, so a will can
 never outlive the authority it was drawn under and one Safe backs at most one live will. A
-beneficiary that cannot accept ETH does not abort the payout: the module emits
-`DistributionRefused` and keeps going, because a testament gets exactly one execution and
-one bad recipient must not strand everyone else's inheritance. An empty Safe makes
+beneficiary that cannot accept ETH does not abort the payout: the module records the refusal
+and keeps going, because one bad recipient must not strand everyone else's inheritance, and
+the refused share becomes a debt the will carries in `PartiallyExecuted` until anyone retries
+that one slot. An empty Safe makes
 `execute()` revert on purpose, leaving the testament released so it can be retried after
 funding rather than burning its single execution. Shares that sum to more than 100% are
 capped against a running budget instead of reverting, so a malformed will under-distributes
@@ -131,49 +132,81 @@ are never made publicly decryptable.
 
 ### The state machine
 
-| State      | Set by                       | `heartbeat` | `revoke` | `release`     | `execute` |
-| ---------- | ---------------------------- | ----------- | -------- | ------------- | --------- |
-| `Active`   | `write()`                    | owner only  | owner    | once expired  | no        |
-| `Released` | `release()`, permissionless  | no          | no       | no            | anyone    |
-| `Executed` | `execute()`, permissionless  | no          | no       | no            | no        |
-| `Revoked`  | `revoke()`, owner only       | no          | no       | never         | no        |
+| State               | Set by                           | `heartbeat` | `revoke` | `release`    | `execute` | `retryPayment` |
+| ------------------- | -------------------------------- | ----------- | -------- | ------------ | --------- | -------------- |
+| `Active`            | `write()`                        | owner only  | owner    | once expired | no        | no             |
+| `Released`          | `release()`, permissionless      | no          | no       | no           | anyone    | no             |
+| `PartiallyExecuted` | `execute()`, an heir refused ETH | no          | no       | no           | no        | anyone         |
+| `Executed`          | every heir paid                  | no          | no       | no           | no        | no             |
+| `Revoked`           | `revoke()`, owner only           | no          | no       | never        | no        | no             |
+
+A will only reaches `Executed` when every heir it named has actually been paid. If one
+refuses ETH the rest still land, the refused share stays in the Safe, and the will waits in
+`PartiallyExecuted` for anyone at all to call `retryPayment(id, slot)`. It never moves
+backwards, and it keeps its hold on the Safe until it is finished, so a second will can never
+be drawn on an estate that still owes money to the first.
 
 ## 🔗 Live on Sepolia
 
-> **Superseded, redeploy pending.** The pair below is the version that was audited, and it
-> carries a critical flaw: `write()` accepted any Safe address from any caller, so anyone
-> could name a module-enabled Safe as the estate paying their own will and drain it one
-> minute later. The contracts in this repository fix it (`authorizeWriter`, a per-Safe
-> mandate, a rotation nonce re-checked inside the module at payout, one live will per Safe).
-> The registry and module hold each other's address as `immutable`, so the fix cannot be
-> applied in place: the pair has to be redeployed and this table and its evidence replaced.
-> The exact command sequence is under [Reproduce it](#-reproduce-it). Until it has run, read
-> this section as the record of what was audited, not as a deployment to trust.
-
 | Artifact            | Address                                      | Link                                                                                             |
 | ------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `TestamentRegistry` | `0x53485D9B64032a085c0D3E61A32ffB47639c106C` | [verified](https://sepolia.etherscan.io/address/0x53485D9B64032a085c0D3E61A32ffB47639c106C#code) |
-| `TestamentModule`   | `0x8106384a2eD13C727878FA5c401FD1B72965faC8` | [verified](https://sepolia.etherscan.io/address/0x8106384a2eD13C727878FA5c401FD1B72965faC8#code) |
+| `TestamentRegistry` | `0x9a5A342Dd767211FE1BC9B54a045D04ccee9535D` | [verified](https://sepolia.etherscan.io/address/0x9a5A342Dd767211FE1BC9B54a045D04ccee9535D#code) |
+| `TestamentModule`   | `0x2155261245106e2E797f51edA79f552DDE38898a` | [verified](https://sepolia.etherscan.io/address/0x2155261245106e2E797f51edA79f552DDE38898a#code) |
 | Demo Safe (1-of-1)  | `0x4c67A14075e451651B81D2E6f2038a7d1d007192` | [Safe](https://sepolia.etherscan.io/address/0x4c67A14075e451651B81D2E6f2038a7d1d007192)          |
 
-Evidence, a full life cycle run end to end against those addresses:
+An earlier pair is deprecated and its module has been disabled on this Safe. The addresses,
+and the flaw that retired them, are in [SECURITY.md](SECURITY.md).
 
-- **The will goes on chain encrypted.** `write()`, 1,019,109 gas, 8 encrypted slots and
-  their proofs:
-  [`0x3256fb27`](https://sepolia.etherscan.io/tx/0x3256fb279a7a70021dcb44e3ffcbefb78a169a074e13626467e00dbbe96ff58a)
+### The Safe consents, and it is the Safe that does it
+
+- **The old module is off.** Removing it is the part that actually retires a deployment: an
+  enabled module keeps unrestricted spending authority for as long as it stays enabled.
+  [`0x96f5a5e8`](https://sepolia.etherscan.io/tx/0x96f5a5e84c1c098240e7423b99df0655060ec84d9035528ac48c81dd184a0012)
+- **The Safe enables the new module:**
+  [`0x49ef8478`](https://sepolia.etherscan.io/tx/0x49ef8478f8830feab2d8b12c7b79628d34466ebe364521fcb3f560cecfba28bb)
+- **The Safe names its writer.** `authorizeWriter`, reached through a Safe transaction, which
+  is what makes every testament below legitimate and what a stranger cannot forge:
+  [`0x7477230d`](https://sepolia.etherscan.io/tx/0x7477230df768357c5703300c945c2006eb80249185efdfbbf6a8a0ee757ca7f0)
+
+### A full life cycle, testament #2
+
+- **A new mandate, because the first was already spent.** One authorization buys one will:
+  [`0x214015b1`](https://sepolia.etherscan.io/tx/0x214015b1358f6a2e8d43401686f571758f2439e8f3b9edfce5db786ba159a338)
+- **The will goes on chain encrypted.** `write()`, 1,064,532 gas, 8 encrypted slots and their
+  proofs:
+  [`0x625d1345`](https://sepolia.etherscan.io/tx/0x625d1345c0d20017e5dbb1552531305437c26509a07b252f4da37d749342018f)
 - **The heartbeat resets the clock:**
-  [`0xfcb467d7`](https://sepolia.etherscan.io/tx/0xfcb467d7ea0c58d04aa3fb9ee383e0c47cdd9f144f3093748b027124b319b608)
-- **The silence runs out and the will is opened.** `release()`, 279,543 gas, eight slots
-  marked publicly decryptable:
-  [`0xde5265c0`](https://sepolia.etherscan.io/tx/0xde5265c0ae26b6bfdb55145b0b7b6b9043f36c88046000dc2aba38af36365e44)
-- **The estate pays out.** `execute()`, 185,400 gas, eight decryption proofs verified
-  on-chain, two `Distributed` events, Safe drained to zero:
-  [`0x09817a84`](https://sepolia.etherscan.io/tx/0x09817a84c81a6ea6594d70c92855dd2e80d905bd33ac07ed528a702b54771d85)
-- **The negative proof: the system says no to a forged decryption.** The test
-  `rejects a forged decryption proof` flips one byte of a gateway signature and asserts the
-  transaction reverts. That single test is what makes `execute()` safe to leave open to
-  strangers.
-  [`testament-registry.test.ts`](packages/contracts/test/testament-registry.test.ts)
+  [`0xdef4780e`](https://sepolia.etherscan.io/tx/0xdef4780ec8fe08d4fffb6fb8ba8320a4470ae4677b732324af0b46b6c790a993)
+- **The silence runs out and the will is opened.** `release()`, 279,632 gas:
+  [`0x30c7da8f`](https://sepolia.etherscan.io/tx/0x30c7da8f2ea18e38ec663c8be2d7e967e3bb877021162eb07904ed66727d6253)
+- **The estate pays out.** `execute()`, 338,237 gas, eight decryption proofs verified on-chain,
+  both heirs paid to the wei, Safe drained to zero:
+  [`0xc2f47dfe`](https://sepolia.etherscan.io/tx/0xc2f47dfe8df682ba03def31750fc1f21131cbb880a77235521cc245725f71483)
+
+### An heir who could not be paid, and then was, testament #3
+
+The harder promise, run for real rather than described. Slot 1 is a contract that rejects
+ETH, holding 60% of the estate.
+
+- **The will is written and opened:**
+  [`0x90e71aa4`](https://sepolia.etherscan.io/tx/0x90e71aa408ffe3569a1eccb54188240be9a7340e3030507c3076ff491be9d782)
+  then
+  [`0xac25f6b8`](https://sepolia.etherscan.io/tx/0xac25f6b867b42c44b8f5fac90ef0e99b567d404b28f77a10d8f2531c48167e41)
+- **One heir is paid, one refuses.** `execute()`, 338,141 gas. The estate does not abort and
+  does not pretend to be finished: it lands in `PartiallyExecuted`, the unpaid bitmap reads
+  `2` (slot 1), and the refused 0.012 ETH stays in the Safe:
+  [`0x88d4546c`](https://sepolia.etherscan.io/tx/0x88d4546cd02d4e05cf8100e2be50b22fa60c4a76643377e7e33f4483e9887d37)
+- **The debt is settled later.** The heir fixes their wallet, and `retryPayment(3, 1)` pays
+  exactly what was owed, 94,903 gas, moving the will to `Executed`. The caller supplies only
+  an id and a slot, so nothing about the payment can be bent:
+  [`0x364ae5fd`](https://sepolia.etherscan.io/tx/0x364ae5fde145c9e5c2ff26f3e378cf540682bae18053fbddfb678ec078aed236)
+
+### The negative proof
+
+The system says no to a forged decryption. The test `rejects a forged decryption proof` flips
+one byte of a gateway signature and asserts the transaction reverts. That single test is what
+makes `execute()` safe to leave open to strangers.
+[`testament-registry.test.ts`](packages/contracts/test/testament-registry.test.ts)
 
 ## 🧪 Reproduce it
 
@@ -194,7 +227,7 @@ bun run --cwd packages/contracts test
 bun run --cwd packages/shared test
 ```
 
-Success is `67 passing` from the contract suite and `21 pass, 0 fail` from the codec suite.
+Success is `78 passing` from the contract suite and `21 pass, 0 fail` from the codec suite.
 Both exit non-zero on any failure. Twenty of those contract tests are the authorization
 boundary on its own: an outsider is refused, an unnamed owner is refused, a withdrawn or
 rotated mandate cannot pay out, a mandate does not survive a redeployment, and one Safe never
@@ -215,6 +248,7 @@ bun run create-safe:sepolia     # creates and funds a 1-of-1 Safe you own
 bun run enable-module:sepolia   # the Safe opens the passage
 bun run authorize-writer:sepolia # the Safe names the deployer as its writer
 bun run e2e:sepolia             # write, heartbeat, wait out the silence, release, execute
+bun run demo-retry:sepolia      # the same, with one heir refusing ETH and a later retry
 ```
 
 `enable-module` and `authorize-writer` are two separate Safe transactions on purpose, and
@@ -258,13 +292,19 @@ completes its handshake and the page then never hydrates, which leaves the canva
   and it is written up in [feedback.md](feedback.md).
 - **After release the will is public, by construction.** Paying plain addresses is a public
   act. An ERC-7984 confidential payout would fix this and is not built.
-- **A beneficiary contract that burns all the gas can still block the batch.**
+- **A beneficiary contract that burns all the gas can still block the first pass.**
   `execTransactionFromModule` offers no gas cap, so this is inherent to the Safe module
-  interface. A recipient that merely *reverts* is handled (see `DistributionRefused`).
-- **A refused payment is reported honestly, and is not recoverable.** `TestamentExecuted`
-  carries planned, paid and failed amounts separately, so the record never counts a refused
-  share as delivered. But a testament gets one execution, so that share simply stays in the
-  Safe with no retry path. A claim-based payout contract would fix this and is not built.
+  interface. A recipient that merely *reverts* is handled and becomes a retryable debt, and
+  because a retry pays one slot per transaction the whole gas budget goes to one recipient,
+  which routes around a griefer for everyone else. What is not solved is the first `execute`
+  itself: a griefing contract in the batch can still make that one transaction run out of
+  gas, and it has to succeed once before any slot can be retried.
+- **A refused payment is a debt, not a loss.** `TestamentExecuted` carries planned, paid and
+  failed amounts separately, so the record never counts a refused share as delivered, and the
+  will stays `PartiallyExecuted` rather than claiming to be done. The share stays in the Safe
+  and `retryPayment(id, slot)` is open to anyone, the heir included. The retry takes nothing
+  but an id and a slot: who is owed and how much were settled and written down at execution,
+  so whoever pushes it cannot redirect it, resize it, or pay a slot twice.
 - **Release can be front-run.** A late heartbeat and a `release()` can sit in the mempool
   together and the release can win, making the plan public even though the owner was alive.
   A two-phase release with a challenge window would fix this and is not built.

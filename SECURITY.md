@@ -76,8 +76,11 @@ Move the funds out first if the Safe holds anything you care about.
   welded to one module at construction, so a new pair starts every Safe at no mandate.
 - **Nobody is trusted to decrypt honestly.** `execute()` verifies every gateway decryption
   proof on-chain, so whoever sends the transaction is a courier and not an authority.
-- **A refused payment is reported as refused.** The execution event carries planned, paid and
-  failed amounts separately.
+- **A refused payment is a debt, not a loss.** The execution event carries planned, paid and
+  failed amounts separately, the will stays `PartiallyExecuted` rather than claiming to be
+  finished, the share stays in the Safe, and `retryPayment(id, slot)` is open to anyone. The
+  retry takes only an id and a slot, so whoever pushes it cannot redirect the payment, resize
+  it, or pay a slot twice.
 
 ## Known limitations
 
@@ -86,13 +89,12 @@ These are real and unfixed. They are design gaps, not oversights waiting to be d
 - **A mandate is trust in a person, not a spending cap.** Safe's module interface offers no
   limit, so an enabled module can move the Safe's entire native balance. The mandate decides
   whose will it acts on and nothing else. The named writer chooses the heirs and the shares.
-- **A failed payment is not recoverable.** A beneficiary that cannot accept ETH is recorded
-  and skipped so the rest of the estate still moves, but a testament gets one execution and
-  their share simply stays in the Safe with no retry path. A claim-based payout contract
-  would fix this and is not built.
-- **A beneficiary that burns all the gas can still block the batch.**
+- **A beneficiary that burns all the gas can still block the first execution.**
   `execTransactionFromModule` offers no gas cap, so this is inherent to the interface. A
-  recipient that merely reverts is handled.
+  recipient that merely reverts is handled and becomes a retryable debt, and a retry pays one
+  slot per transaction so the whole gas budget goes to one recipient. What is not solved is
+  the first `execute`: a griefing contract in that batch can make the transaction run out of
+  gas, and it has to succeed once before any slot becomes retryable.
 - **Release can be front-run.** A late heartbeat and a `release()` can sit in the mempool
   together, and the release can win. The plan then becomes public even though the owner was
   alive. A two-phase release with a challenge window would fix this and is not built.
