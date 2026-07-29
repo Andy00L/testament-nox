@@ -62,7 +62,7 @@ export function TestamentStatus() {
         </p>
         <Link
           href="/porte"
-          className="type-small text-ink-muted underline-offset-4 transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+          className="type-small text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
         >
           Aller à la porte
         </Link>

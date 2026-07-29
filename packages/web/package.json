@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "shots": "bun run scripts/shoot.ts",
     "lint": "eslint .",
-    "readme-shots": "bun run scripts/readme-shots.ts"
+    "readme-shots": "bun run scripts/readme-shots.ts",
+    "verify-ui": "bun run scripts/verify-ui.ts"
   },
   "dependencies": {
     "@iexec-nox/handle": "^0.1.0-beta.13",

@@ -198,7 +198,7 @@ export function WritePanel() {
   const isBusy = stage === "encrypting" || stage === "signing" || stage === "confirming";
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-14">
       <section className="flex flex-col gap-6">
         <div className="flex flex-col gap-2">
           <h2 className="type-display-lg">Les héritiers</h2>
@@ -313,7 +313,7 @@ export function WritePanel() {
         </div>
       </section>
 
-      <section className="flex flex-col gap-6 border-t border-[rgba(234,224,206,0.08)] pt-8">
+      <section className="flex flex-col gap-6 pt-6">
         <SealPress
           onPress={() => void handleSeal()}
           isStamped={stage === "sealed"}
@@ -341,7 +341,7 @@ export function WritePanel() {
       </section>
 
       {stage === "sealed" ? (
-        <section className="flex flex-col gap-4 border-t border-[rgba(234,224,206,0.08)] pt-8">
+        <section className="flex flex-col gap-4 pt-6">
           <h2 className="type-display-lg">Ouvrir le passage</h2>
           <p className="type-body text-ink-muted">
             Le registre ne détient aucun fonds. Pour qu&apos;il puisse faire payer le Safe le

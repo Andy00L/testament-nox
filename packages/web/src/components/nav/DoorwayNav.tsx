@@ -25,7 +25,12 @@ export function DoorwayNav() {
           <Seal size={18} />
           <span className="type-title leading-none">Testament</span>
         </Link>
-        <span aria-hidden="true" className="h-4 w-px bg-[rgba(234,224,206,0.12)]" />
+        {/*
+          A cut in the plaque, not a drawn line: the divider is the field showing through,
+          the way a bracket set is separated by shadow. A light hairline here would be an
+          ornamental rule, which is its own tell.
+        */}
+        <span aria-hidden="true" className="-my-2.5 w-0.5 self-stretch bg-field sm:-my-2.5" />
         <WalletControl />
       </nav>
     </header>
