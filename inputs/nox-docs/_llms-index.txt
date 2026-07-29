@@ -1,0 +1,358 @@
+# Nox Documentation
+
+> Build decentralized applications that combine ownership, privacy, and monetization.
+
+## Table of Contents
+
+### Get Started
+
+- [Welcome](/getting-started/welcome.md): Welcome to Nox Protocol - Composable Privacy for DeFi
+- [Hello World](/getting-started/hello-world.md): Build your first confidential smart contract with Nox
+- [Networks](/getting-started/networks.md): Supported chains, NoxCompute contract addresses, RPCs, explorers and faucets.
+- [Use Cases](/getting-started/use-cases.md): Live demos and reference projects built with Nox, and the broader space of confidential applications you can build.
+- [Use AI to build on NOX](/getting-started/use-ai.md): Load the NOX documentation into your AI assistant to get accurate, context-aware help when building confidential smart contracts.
+- [Status](/getting-started/status.md): Current status and health of Nox services
+
+#### Use Cases
+
+- [Confidential Vault: Encrypted Strategy](/getting-started/use-cases/confidential-vault-encrypted-strategy.md): A vault that keeps the manager's strategy encrypted end to end. Allocation weights, rebalancing triggers, and per-vault intents stay private; only aggregate net orders hit the chain, while NAV, TVL, and APY stay public.
+- [Confidential Vault: Encrypted Positions](/getting-started/use-cases/confidential-vault.md): A yield vault that encrypts balances and LP positions at the protocol level using Nox cTokens, with selective read access on demand.
+- [DeFi Capital Allocator](/getting-started/use-cases/defi-allocator.md): Deploy treasury strategies across DeFi without broadcasting position size or exposing strategy to front-running.
+- [RWA Issuance & Distribution](/getting-started/use-cases/rwa.md): Privacy-first tokenized securities with hidden allocations and confidential distributions, layered on ERC-3643 compliance.
+
+### Guides
+
+- [Introduction](/guides/build-confidential-smart-contracts/intro.md): Introduction to building confidential smart contracts
+- [Introduction](/guides/build-confidential-tokens/intro.md): Introduction to building confidential tokens with Nox
+- [Accepting Private User Inputs](/guides/accept-user-inputs.md): How to pass a user-provided value into a confidential smart contract without exposing it on-chain
+- [Introduction](/guides/manage-handle-access/intro.md): Learn how to manage viewers, admins, and public decryption for encrypted data handles in Nox
+
+#### Build Confidential Smart Contracts
+
+- [Hardhat](/guides/build-confidential-smart-contracts/hardhat.md): Build and test confidential smart contracts with the Nox Hardhat plugin
+- [Foundry](/guides/build-confidential-smart-contracts/foundry.md): Build confidential smart contracts with Foundry
+
+#### Build Confidential Token
+
+- [ERC-7984 Token](/guides/build-confidential-tokens/erc7984-token.md): Build a confidential fungible token with ERC-7984
+- [ERC-20 to ERC-7984 Wrapper](/guides/build-confidential-tokens/erc20-to-erc7984-wrapper.md): Wrap existing ERC-20 tokens into confidential ERC-7984 tokens
+- [Live Demo](/guides/build-confidential-tokens/demo.md): Explore a live application showcasing confidential tokens in action
+
+#### Manage Handle Access
+
+- [Transient Access](/guides/manage-handle-access/transient-access.md): Understanding default transient handle access and how to persist it with allowThis and allowTransient
+- [Managing Viewers](/guides/manage-handle-access/viewers.md): Managing handles viewers with Nox
+- [Managing Admins](/guides/manage-handle-access/admins.md): Managing handles admins with Nox
+- [Managing Public Decryption](/guides/manage-handle-access/public-decryption.md): Managing public decryption of handles with Nox
+
+### References
+
+- [JS SDK](/references/js-sdk.md): JavaScript SDK for Nox
+- [Solidity Library](/references/solidity-library.md): Nox Solidity library for building confidential smart contracts with encrypted types and TEE-backed computation
+
+#### JS SDK
+
+- [Getting Started](/references/js-sdk/getting-started.md): Getting started with Nox JS SDK
+- [Advanced Configuration](/references/js-sdk/advanced-configuration.md): Advanced configuration for Nox JS SDK
+
+##### Methods
+
+- [encryptInput](/references/js-sdk/methods/encryptInput.md): Encrypt a value and create an on-chain handle
+- [decrypt](/references/js-sdk/methods/decrypt.md): Retrieve the plaintext value from an encrypted handle
+- [publicDecrypt](/references/js-sdk/methods/publicDecrypt.md): Decrypt a publicly decryptable handle and get a verifiable proof
+- [viewACL](/references/js-sdk/methods/viewACL.md): View the Access Control List of a handle
+
+#### Solidity Library
+
+- [Getting Started](/references/solidity-library/getting-started.md): Install and configure the Nox Solidity library for confidential smart contracts
+
+##### Core Primitives
+
+- [Wrap as Public Handle](/references/solidity-library/methods/core-primitives/wrap-as-public-handle.md): Convert plaintext values to encrypted handles
+- [fromExternal](/references/solidity-library/methods/core-primitives/fromExternal.md): Validate encrypted handles submitted by users via the JS SDK
+- [Arithmetic](/references/solidity-library/methods/core-primitives/arithmetic.md): Encrypted arithmetic operations with wrapping semantics
+- [Safe Arithmetic](/references/solidity-library/methods/core-primitives/safe-arithmetic.md): Encrypted arithmetic with overflow and underflow detection
+- [Comparisons](/references/solidity-library/methods/core-primitives/comparisons.md): Compare two encrypted values and return an encrypted boolean
+- [select](/references/solidity-library/methods/core-primitives/select.md): Encrypted conditional branching
+- [Access Control](/references/solidity-library/methods/core-primitives/access-control.md): Manage permissions on encrypted handles, control who can compute and decrypt
+
+##### Advanced Functions
+
+- [Token Operations](/references/solidity-library/methods/advanced/token-operations.md): High-level confidential token operations with all-or-nothing semantics
+
+### Protocol
+
+- [Global Architecture Overview](/protocol/global-architecture-overview.md): High-level overview of Nox protocol architecture, components, data flows, and how they interact to enable confidential computation on encrypted data
+- [Protocol Vision](/protocol/protocol-vision.md): Long-term architecture of Nox, including distributed KMS, omnichain support, decentralized operations, multi-privacy technologies, DeFi composability, and open computation primitives
+- [Chain of Trust](/protocol/chain-of-trust.md): How Nox establishes a verifiable chain of trust from Intel TDX hardware to running workloads, through boot-time attestation.
+- [Nox Smart Contracts](/protocol/nox-smart-contracts.md): On-chain contracts for confidential computation, access control and component registry
+- [Ingestor](/protocol/ingestor.md): Blockchain monitoring service that bridges on-chain events to the off-chain computation pipeline
+- [Runner](/protocol/runner.md): Off-chain computation engine for confidential operations on encrypted data
+- [Handle Gateway](/protocol/handle-gateway.md): Handle Gateway for encryption, storage and access to encrypted data
+- [KMS](/protocol/kms.md): Key Management Service for protocol encryption and decryption delegation
+
+### Get Started
+
+- [Welcome](/getting-started/welcome.md): Welcome to Nox Protocol - Composable Privacy for DeFi
+- [Hello World](/getting-started/hello-world.md): Build your first confidential smart contract with Nox
+- [Networks](/getting-started/networks.md): Supported chains, NoxCompute contract addresses, RPCs, explorers and faucets.
+- [Use Cases](/getting-started/use-cases.md): Live demos and reference projects built with Nox, and the broader space of confidential applications you can build.
+- [Use AI to build on NOX](/getting-started/use-ai.md): Load the NOX documentation into your AI assistant to get accurate, context-aware help when building confidential smart contracts.
+- [Status](/getting-started/status.md): Current status and health of Nox services
+
+#### Use Cases
+
+- [Confidential Vault: Encrypted Strategy](/getting-started/use-cases/confidential-vault-encrypted-strategy.md): A vault that keeps the manager's strategy encrypted end to end. Allocation weights, rebalancing triggers, and per-vault intents stay private; only aggregate net orders hit the chain, while NAV, TVL, and APY stay public.
+- [Confidential Vault: Encrypted Positions](/getting-started/use-cases/confidential-vault.md): A yield vault that encrypts balances and LP positions at the protocol level using Nox cTokens, with selective read access on demand.
+- [DeFi Capital Allocator](/getting-started/use-cases/defi-allocator.md): Deploy treasury strategies across DeFi without broadcasting position size or exposing strategy to front-running.
+- [RWA Issuance & Distribution](/getting-started/use-cases/rwa.md): Privacy-first tokenized securities with hidden allocations and confidential distributions, layered on ERC-3643 compliance.
+
+### Guides
+
+- [Introduction](/guides/build-confidential-smart-contracts/intro.md): Introduction to building confidential smart contracts
+- [Introduction](/guides/build-confidential-tokens/intro.md): Introduction to building confidential tokens with Nox
+- [Accepting Private User Inputs](/guides/accept-user-inputs.md): How to pass a user-provided value into a confidential smart contract without exposing it on-chain
+- [Introduction](/guides/manage-handle-access/intro.md): Learn how to manage viewers, admins, and public decryption for encrypted data handles in Nox
+
+#### Build Confidential Smart Contracts
+
+- [Hardhat](/guides/build-confidential-smart-contracts/hardhat.md): Build and test confidential smart contracts with the Nox Hardhat plugin
+- [Foundry](/guides/build-confidential-smart-contracts/foundry.md): Build confidential smart contracts with Foundry
+
+#### Build Confidential Token
+
+- [ERC-7984 Token](/guides/build-confidential-tokens/erc7984-token.md): Build a confidential fungible token with ERC-7984
+- [ERC-20 to ERC-7984 Wrapper](/guides/build-confidential-tokens/erc20-to-erc7984-wrapper.md): Wrap existing ERC-20 tokens into confidential ERC-7984 tokens
+- [Live Demo](/guides/build-confidential-tokens/demo.md): Explore a live application showcasing confidential tokens in action
+
+#### Manage Handle Access
+
+- [Transient Access](/guides/manage-handle-access/transient-access.md): Understanding default transient handle access and how to persist it with allowThis and allowTransient
+- [Managing Viewers](/guides/manage-handle-access/viewers.md): Managing handles viewers with Nox
+- [Managing Admins](/guides/manage-handle-access/admins.md): Managing handles admins with Nox
+- [Managing Public Decryption](/guides/manage-handle-access/public-decryption.md): Managing public decryption of handles with Nox
+
+### References
+
+- [JS SDK](/references/js-sdk.md): JavaScript SDK for Nox
+- [Solidity Library](/references/solidity-library.md): Nox Solidity library for building confidential smart contracts with encrypted types and TEE-backed computation
+
+#### JS SDK
+
+- [Getting Started](/references/js-sdk/getting-started.md): Getting started with Nox JS SDK
+- [Advanced Configuration](/references/js-sdk/advanced-configuration.md): Advanced configuration for Nox JS SDK
+
+##### Methods
+
+- [encryptInput](/references/js-sdk/methods/encryptInput.md): Encrypt a value and create an on-chain handle
+- [decrypt](/references/js-sdk/methods/decrypt.md): Retrieve the plaintext value from an encrypted handle
+- [publicDecrypt](/references/js-sdk/methods/publicDecrypt.md): Decrypt a publicly decryptable handle and get a verifiable proof
+- [viewACL](/references/js-sdk/methods/viewACL.md): View the Access Control List of a handle
+
+#### Solidity Library
+
+- [Getting Started](/references/solidity-library/getting-started.md): Install and configure the Nox Solidity library for confidential smart contracts
+
+##### Core Primitives
+
+- [Wrap as Public Handle](/references/solidity-library/methods/core-primitives/wrap-as-public-handle.md): Convert plaintext values to encrypted handles
+- [fromExternal](/references/solidity-library/methods/core-primitives/fromExternal.md): Validate encrypted handles submitted by users via the JS SDK
+- [Arithmetic](/references/solidity-library/methods/core-primitives/arithmetic.md): Encrypted arithmetic operations with wrapping semantics
+- [Safe Arithmetic](/references/solidity-library/methods/core-primitives/safe-arithmetic.md): Encrypted arithmetic with overflow and underflow detection
+- [Comparisons](/references/solidity-library/methods/core-primitives/comparisons.md): Compare two encrypted values and return an encrypted boolean
+- [select](/references/solidity-library/methods/core-primitives/select.md): Encrypted conditional branching
+- [Access Control](/references/solidity-library/methods/core-primitives/access-control.md): Manage permissions on encrypted handles, control who can compute and decrypt
+
+##### Advanced Functions
+
+- [Token Operations](/references/solidity-library/methods/advanced/token-operations.md): High-level confidential token operations with all-or-nothing semantics
+
+### Protocol
+
+- [Global Architecture Overview](/protocol/global-architecture-overview.md): High-level overview of Nox protocol architecture, components, data flows, and how they interact to enable confidential computation on encrypted data
+- [Protocol Vision](/protocol/protocol-vision.md): Long-term architecture of Nox, including distributed KMS, omnichain support, decentralized operations, multi-privacy technologies, DeFi composability, and open computation primitives
+- [Chain of Trust](/protocol/chain-of-trust.md): How Nox establishes a verifiable chain of trust from Intel TDX hardware to running workloads, through boot-time attestation.
+- [Nox Smart Contracts](/protocol/nox-smart-contracts.md): On-chain contracts for confidential computation, access control and component registry
+- [Ingestor](/protocol/ingestor.md): Blockchain monitoring service that bridges on-chain events to the off-chain computation pipeline
+- [Runner](/protocol/runner.md): Off-chain computation engine for confidential operations on encrypted data
+- [Handle Gateway](/protocol/handle-gateway.md): Handle Gateway for encryption, storage and access to encrypted data
+- [KMS](/protocol/kms.md): Key Management Service for protocol encryption and decryption delegation
+
+### Get Started
+
+- [Welcome](/getting-started/welcome.md): Welcome to Nox Protocol - Composable Privacy for DeFi
+- [Hello World](/getting-started/hello-world.md): Build your first confidential smart contract with Nox
+- [Networks](/getting-started/networks.md): Supported chains, NoxCompute contract addresses, RPCs, explorers and faucets.
+- [Use Cases](/getting-started/use-cases.md): Live demos and reference projects built with Nox, and the broader space of confidential applications you can build.
+- [Use AI to build on NOX](/getting-started/use-ai.md): Load the NOX documentation into your AI assistant to get accurate, context-aware help when building confidential smart contracts.
+- [Status](/getting-started/status.md): Current status and health of Nox services
+
+#### Use Cases
+
+- [Confidential Vault: Encrypted Strategy](/getting-started/use-cases/confidential-vault-encrypted-strategy.md): A vault that keeps the manager's strategy encrypted end to end. Allocation weights, rebalancing triggers, and per-vault intents stay private; only aggregate net orders hit the chain, while NAV, TVL, and APY stay public.
+- [Confidential Vault: Encrypted Positions](/getting-started/use-cases/confidential-vault.md): A yield vault that encrypts balances and LP positions at the protocol level using Nox cTokens, with selective read access on demand.
+- [DeFi Capital Allocator](/getting-started/use-cases/defi-allocator.md): Deploy treasury strategies across DeFi without broadcasting position size or exposing strategy to front-running.
+- [RWA Issuance & Distribution](/getting-started/use-cases/rwa.md): Privacy-first tokenized securities with hidden allocations and confidential distributions, layered on ERC-3643 compliance.
+
+### Guides
+
+- [Introduction](/guides/build-confidential-smart-contracts/intro.md): Introduction to building confidential smart contracts
+- [Introduction](/guides/build-confidential-tokens/intro.md): Introduction to building confidential tokens with Nox
+- [Accepting Private User Inputs](/guides/accept-user-inputs.md): How to pass a user-provided value into a confidential smart contract without exposing it on-chain
+- [Introduction](/guides/manage-handle-access/intro.md): Learn how to manage viewers, admins, and public decryption for encrypted data handles in Nox
+
+#### Build Confidential Smart Contracts
+
+- [Hardhat](/guides/build-confidential-smart-contracts/hardhat.md): Build and test confidential smart contracts with the Nox Hardhat plugin
+- [Foundry](/guides/build-confidential-smart-contracts/foundry.md): Build confidential smart contracts with Foundry
+
+#### Build Confidential Token
+
+- [ERC-7984 Token](/guides/build-confidential-tokens/erc7984-token.md): Build a confidential fungible token with ERC-7984
+- [ERC-20 to ERC-7984 Wrapper](/guides/build-confidential-tokens/erc20-to-erc7984-wrapper.md): Wrap existing ERC-20 tokens into confidential ERC-7984 tokens
+- [Live Demo](/guides/build-confidential-tokens/demo.md): Explore a live application showcasing confidential tokens in action
+
+#### Manage Handle Access
+
+- [Transient Access](/guides/manage-handle-access/transient-access.md): Understanding default transient handle access and how to persist it with allowThis and allowTransient
+- [Managing Viewers](/guides/manage-handle-access/viewers.md): Managing handles viewers with Nox
+- [Managing Admins](/guides/manage-handle-access/admins.md): Managing handles admins with Nox
+- [Managing Public Decryption](/guides/manage-handle-access/public-decryption.md): Managing public decryption of handles with Nox
+
+### References
+
+- [JS SDK](/references/js-sdk.md): JavaScript SDK for Nox
+- [Solidity Library](/references/solidity-library.md): Nox Solidity library for building confidential smart contracts with encrypted types and TEE-backed computation
+
+#### JS SDK
+
+- [Getting Started](/references/js-sdk/getting-started.md): Getting started with Nox JS SDK
+- [Advanced Configuration](/references/js-sdk/advanced-configuration.md): Advanced configuration for Nox JS SDK
+
+##### Methods
+
+- [encryptInput](/references/js-sdk/methods/encryptInput.md): Encrypt a value and create an on-chain handle
+- [decrypt](/references/js-sdk/methods/decrypt.md): Retrieve the plaintext value from an encrypted handle
+- [publicDecrypt](/references/js-sdk/methods/publicDecrypt.md): Decrypt a publicly decryptable handle and get a verifiable proof
+- [viewACL](/references/js-sdk/methods/viewACL.md): View the Access Control List of a handle
+
+#### Solidity Library
+
+- [Getting Started](/references/solidity-library/getting-started.md): Install and configure the Nox Solidity library for confidential smart contracts
+
+##### Core Primitives
+
+- [Wrap as Public Handle](/references/solidity-library/methods/core-primitives/wrap-as-public-handle.md): Convert plaintext values to encrypted handles
+- [fromExternal](/references/solidity-library/methods/core-primitives/fromExternal.md): Validate encrypted handles submitted by users via the JS SDK
+- [Arithmetic](/references/solidity-library/methods/core-primitives/arithmetic.md): Encrypted arithmetic operations with wrapping semantics
+- [Safe Arithmetic](/references/solidity-library/methods/core-primitives/safe-arithmetic.md): Encrypted arithmetic with overflow and underflow detection
+- [Comparisons](/references/solidity-library/methods/core-primitives/comparisons.md): Compare two encrypted values and return an encrypted boolean
+- [select](/references/solidity-library/methods/core-primitives/select.md): Encrypted conditional branching
+- [Access Control](/references/solidity-library/methods/core-primitives/access-control.md): Manage permissions on encrypted handles, control who can compute and decrypt
+
+##### Advanced Functions
+
+- [Token Operations](/references/solidity-library/methods/advanced/token-operations.md): High-level confidential token operations with all-or-nothing semantics
+
+### Protocol
+
+- [Global Architecture Overview](/protocol/global-architecture-overview.md): High-level overview of Nox protocol architecture, components, data flows, and how they interact to enable confidential computation on encrypted data
+- [Protocol Vision](/protocol/protocol-vision.md): Long-term architecture of Nox, including distributed KMS, omnichain support, decentralized operations, multi-privacy technologies, DeFi composability, and open computation primitives
+- [Chain of Trust](/protocol/chain-of-trust.md): How Nox establishes a verifiable chain of trust from Intel TDX hardware to running workloads, through boot-time attestation.
+- [Nox Smart Contracts](/protocol/nox-smart-contracts.md): On-chain contracts for confidential computation, access control and component registry
+- [Ingestor](/protocol/ingestor.md): Blockchain monitoring service that bridges on-chain events to the off-chain computation pipeline
+- [Runner](/protocol/runner.md): Off-chain computation engine for confidential operations on encrypted data
+- [Handle Gateway](/protocol/handle-gateway.md): Handle Gateway for encryption, storage and access to encrypted data
+- [KMS](/protocol/kms.md): Key Management Service for protocol encryption and decryption delegation
+
+### Get Started
+
+- [Welcome](/getting-started/welcome.md): Welcome to Nox Protocol - Composable Privacy for DeFi
+- [Hello World](/getting-started/hello-world.md): Build your first confidential smart contract with Nox
+- [Networks](/getting-started/networks.md): Supported chains, NoxCompute contract addresses, RPCs, explorers and faucets.
+- [Use Cases](/getting-started/use-cases.md): Live demos and reference projects built with Nox, and the broader space of confidential applications you can build.
+- [Use AI to build on NOX](/getting-started/use-ai.md): Load the NOX documentation into your AI assistant to get accurate, context-aware help when building confidential smart contracts.
+- [Status](/getting-started/status.md): Current status and health of Nox services
+
+#### Use Cases
+
+- [Confidential Vault: Encrypted Strategy](/getting-started/use-cases/confidential-vault-encrypted-strategy.md): A vault that keeps the manager's strategy encrypted end to end. Allocation weights, rebalancing triggers, and per-vault intents stay private; only aggregate net orders hit the chain, while NAV, TVL, and APY stay public.
+- [Confidential Vault: Encrypted Positions](/getting-started/use-cases/confidential-vault.md): A yield vault that encrypts balances and LP positions at the protocol level using Nox cTokens, with selective read access on demand.
+- [DeFi Capital Allocator](/getting-started/use-cases/defi-allocator.md): Deploy treasury strategies across DeFi without broadcasting position size or exposing strategy to front-running.
+- [RWA Issuance & Distribution](/getting-started/use-cases/rwa.md): Privacy-first tokenized securities with hidden allocations and confidential distributions, layered on ERC-3643 compliance.
+
+### Guides
+
+- [Introduction](/guides/build-confidential-smart-contracts/intro.md): Introduction to building confidential smart contracts
+- [Introduction](/guides/build-confidential-tokens/intro.md): Introduction to building confidential tokens with Nox
+- [Accepting Private User Inputs](/guides/accept-user-inputs.md): How to pass a user-provided value into a confidential smart contract without exposing it on-chain
+- [Introduction](/guides/manage-handle-access/intro.md): Learn how to manage viewers, admins, and public decryption for encrypted data handles in Nox
+
+#### Build Confidential Smart Contracts
+
+- [Hardhat](/guides/build-confidential-smart-contracts/hardhat.md): Build and test confidential smart contracts with the Nox Hardhat plugin
+- [Foundry](/guides/build-confidential-smart-contracts/foundry.md): Build confidential smart contracts with Foundry
+
+#### Build Confidential Token
+
+- [ERC-7984 Token](/guides/build-confidential-tokens/erc7984-token.md): Build a confidential fungible token with ERC-7984
+- [ERC-20 to ERC-7984 Wrapper](/guides/build-confidential-tokens/erc20-to-erc7984-wrapper.md): Wrap existing ERC-20 tokens into confidential ERC-7984 tokens
+- [Live Demo](/guides/build-confidential-tokens/demo.md): Explore a live application showcasing confidential tokens in action
+
+#### Manage Handle Access
+
+- [Transient Access](/guides/manage-handle-access/transient-access.md): Understanding default transient handle access and how to persist it with allowThis and allowTransient
+- [Managing Viewers](/guides/manage-handle-access/viewers.md): Managing handles viewers with Nox
+- [Managing Admins](/guides/manage-handle-access/admins.md): Managing handles admins with Nox
+- [Managing Public Decryption](/guides/manage-handle-access/public-decryption.md): Managing public decryption of handles with Nox
+
+### References
+
+- [JS SDK](/references/js-sdk.md): JavaScript SDK for Nox
+- [Solidity Library](/references/solidity-library.md): Nox Solidity library for building confidential smart contracts with encrypted types and TEE-backed computation
+
+#### JS SDK
+
+- [Getting Started](/references/js-sdk/getting-started.md): Getting started with Nox JS SDK
+- [Advanced Configuration](/references/js-sdk/advanced-configuration.md): Advanced configuration for Nox JS SDK
+
+##### Methods
+
+- [encryptInput](/references/js-sdk/methods/encryptInput.md): Encrypt a value and create an on-chain handle
+- [decrypt](/references/js-sdk/methods/decrypt.md): Retrieve the plaintext value from an encrypted handle
+- [publicDecrypt](/references/js-sdk/methods/publicDecrypt.md): Decrypt a publicly decryptable handle and get a verifiable proof
+- [viewACL](/references/js-sdk/methods/viewACL.md): View the Access Control List of a handle
+
+#### Solidity Library
+
+- [Getting Started](/references/solidity-library/getting-started.md): Install and configure the Nox Solidity library for confidential smart contracts
+
+##### Core Primitives
+
+- [Wrap as Public Handle](/references/solidity-library/methods/core-primitives/wrap-as-public-handle.md): Convert plaintext values to encrypted handles
+- [fromExternal](/references/solidity-library/methods/core-primitives/fromExternal.md): Validate encrypted handles submitted by users via the JS SDK
+- [Arithmetic](/references/solidity-library/methods/core-primitives/arithmetic.md): Encrypted arithmetic operations with wrapping semantics
+- [Safe Arithmetic](/references/solidity-library/methods/core-primitives/safe-arithmetic.md): Encrypted arithmetic with overflow and underflow detection
+- [Comparisons](/references/solidity-library/methods/core-primitives/comparisons.md): Compare two encrypted values and return an encrypted boolean
+- [select](/references/solidity-library/methods/core-primitives/select.md): Encrypted conditional branching
+- [Access Control](/references/solidity-library/methods/core-primitives/access-control.md): Manage permissions on encrypted handles, control who can compute and decrypt
+
+##### Advanced Functions
+
+- [Token Operations](/references/solidity-library/methods/advanced/token-operations.md): High-level confidential token operations with all-or-nothing semantics
+
+### Protocol
+
+- [Global Architecture Overview](/protocol/global-architecture-overview.md): High-level overview of Nox protocol architecture, components, data flows, and how they interact to enable confidential computation on encrypted data
+- [Protocol Vision](/protocol/protocol-vision.md): Long-term architecture of Nox, including distributed KMS, omnichain support, decentralized operations, multi-privacy technologies, DeFi composability, and open computation primitives
+- [Chain of Trust](/protocol/chain-of-trust.md): How Nox establishes a verifiable chain of trust from Intel TDX hardware to running workloads, through boot-time attestation.
+- [Nox Smart Contracts](/protocol/nox-smart-contracts.md): On-chain contracts for confidential computation, access control and component registry
+- [Ingestor](/protocol/ingestor.md): Blockchain monitoring service that bridges on-chain events to the off-chain computation pipeline
+- [Runner](/protocol/runner.md): Off-chain computation engine for confidential operations on encrypted data
+- [Handle Gateway](/protocol/handle-gateway.md): Handle Gateway for encryption, storage and access to encrypted data
+- [KMS](/protocol/kms.md): Key Management Service for protocol encryption and decryption delegation
+
+### Other
+
+- [Glossary](/references/glossary.md): Glossary of terms used in the Nox protocol
+- [Guides](/guides/welcome.md): Step-by-step guides for building with Nox

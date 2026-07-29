@@ -1,0 +1,21 @@
+{
+  "extends": "@tsconfig/node22/tsconfig.json",
+  "compilerOptions": {
+    // Nothing here is ever emitted: Hardhat runs the TypeScript directly, and the only
+    // build output is Solidity artifacts. `noEmit` is also what lets the whole monorepo
+    // import with explicit .ts extensions.
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "moduleResolution": "bundler",
+    "module": "esnext",
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitOverride": true,
+    "noUncheckedSideEffectImports": true,
+    "skipDefaultLibCheck": true,
+    "isolatedModules": true,
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "types": ["node"]
+  },
+  "include": ["hardhat.config.ts", "lib/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"]
+}

@@ -1,0 +1,15 @@
+{
+  "extends": "@tsconfig/node22/tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitOverride": true,
+    "isolatedModules": true,
+    "moduleResolution": "bundler",
+    "module": "esnext",
+    "allowImportingTsExtensions": true,
+    "strict": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": ["src/**/*.ts"]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "testament",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Confidential on-chain will for a Safe, powered by iExec Nox.",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build:contracts": "bun run --cwd packages/contracts build",
+    "test:contracts": "bun run --cwd packages/contracts test",
+    "deploy:sepolia": "bun run --cwd packages/contracts deploy:sepolia",
+    "e2e:sepolia": "bun run --cwd packages/contracts e2e:sepolia",
+    "keeper": "bun run --cwd packages/keeper start",
+    "dev": "bun run --cwd packages/web dev",
+    "typecheck": "bun run --cwd packages/shared typecheck && bun run --cwd packages/contracts typecheck && bun run --cwd packages/keeper typecheck && bun run --cwd packages/web typecheck"
+  }
+}

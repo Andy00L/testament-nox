@@ -1,0 +1,44 @@
+{
+  "name": "@testament/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "shots": "bun run scripts/shoot.ts",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@iexec-nox/handle": "^0.1.0-beta.13",
+    "@tanstack/react-query": "^5.101.4",
+    "motion": "^12.43.0",
+    "next": "16.2.12",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "viem": "^2.55.10",
+    "wagmi": "^3.7.4",
+    "@testament/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.12",
+    "playwright": "^1.62.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  },
+  "ignoreScripts": [
+    "sharp",
+    "unrs-resolver"
+  ],
+  "trustedDependencies": [
+    "sharp",
+    "unrs-resolver"
+  ],
+  "description": "The Testament front end: the curtain, the ritual, and the door."
+}

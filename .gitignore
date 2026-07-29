@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Secrets. Only .env.example is committed.
+.env
+.env.local
+.env.*.local
+
+# Hardhat
+packages/contracts/artifacts/
+packages/contracts/cache/
+packages/contracts/types/
+packages/contracts/dist/
+offchain-services.log
+
+# Next.js
+packages/web/.next/
+packages/web/out/
+packages/web/next-env.d.ts
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Agent scratch space: probes, one-off scripts, throwaway output
+.scratch/
+
+# Design loop workspace, exports are not part of the deliverable
+ui-design/
+
+# Windows Zone.Identifier files created by WSL when copying from Windows
+*:Zone.Identifier
+
+# OS
+.DS_Store
+
+# TypeScript incremental build state
+*.tsbuildinfo

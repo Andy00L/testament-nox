@@ -1,0 +1,23 @@
+{
+  "name": "@testament/keeper",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Permissionless watcher that releases and executes expired testaments.",
+  "license": "MIT",
+  "scripts": {
+    "start": "bun run src/keeper.ts",
+    "once": "bun run src/keeper.ts --once",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@iexec-nox/handle": "^0.1.0-beta.13",
+    "@testament/shared": "workspace:*",
+    "viem": "^2.55.10"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "^22.0.2",
+    "@types/node": "^22.11.0",
+    "typescript": "~5.8.0"
+  }
+}

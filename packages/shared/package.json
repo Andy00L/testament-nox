@@ -1,0 +1,24 @@
+{
+  "name": "@testament/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Slot codec, contract ABIs, and testament state helpers shared by contracts, keeper, and web.",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "viem": "^2.55.10"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "^22.0.2",
+    "@types/bun": "^1.3.14",
+    "@types/node": "^22.11.0",
+    "typescript": "~5.8.0"
+  }
+}
