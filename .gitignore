@@ -36,7 +36,9 @@ ui-design/
 
 # TypeScript incremental build state
 *.tsbuildinfo
-.claude2/
+# The agent standards kit. It travels with the checkout, not with the repository:
+# it is tooling for whoever is editing the project, not part of the project.
+.claude/
 .claude2/
 
 # Scene art sources. The committed deliverables are the WebP files next to them;

@@ -32,6 +32,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# The template the README tells people to copy. It holds no secrets, and without it a fresh
+# clone cannot follow the setup instructions.
+!.env.local.example
 
 # vercel
 .vercel
