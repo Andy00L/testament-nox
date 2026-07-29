@@ -1,5 +1,6 @@
 import { createViemHandleClient } from "@iexec-nox/handle";
 import {
+  SLOT_COUNT,
   collectDecryptionProofs,
   retryAsync,
   sleep,
@@ -18,7 +19,8 @@ import { sepolia } from "viem/chains";
 
 /**
  * Watches TestamentRegistry and finishes what silence started: releases testaments whose
- * deadline has passed, then pays out the ones already released.
+ * deadline has passed, pays out the ones already released, and pushes again at any heir a
+ * payout could not reach the first time.
  *
  * The keeper has no authority. `release` is permissionless once expired, and `execute`
  * verifies every decryption proof on-chain, so a keeper that lies, stalls, or disappears
@@ -80,7 +82,9 @@ function withoutPadding(ids: readonly bigint[]): bigint[] {
  * Paged rather than one huge call, because a single view over thousands of ids eventually
  * exceeds the node's gas cap for an `eth_call` and starts returning nothing at all.
  */
-async function scanIds(viewName: "releasableIds" | "executableIds"): Promise<bigint[]> {
+async function scanIds(
+  viewName: "releasableIds" | "executableIds" | "retryableIds",
+): Promise<bigint[]> {
   const lastTestamentId = await publicClient.readContract({
     address: registryAddress,
     abi: testamentRegistryAbi,
@@ -163,9 +167,53 @@ async function executeReleasedTestaments(): Promise<void> {
   }
 }
 
+/**
+ * Pushes the heirs a settled will still owes.
+ *
+ * An heir whose wallet refused the transfer keeps their share in the Safe, and the debt stays
+ * open until someone pays the gas to try again. Nothing here can change who is owed or how
+ * much: the registry settled that when the will was executed, and a retry names only a slot.
+ *
+ * A recipient that refuses for good is retried on every pass, which costs the keeper a failed
+ * transaction each time. Acceptable for a demo; a long-running keeper would back off.
+ */
+async function settleOutstandingHeirs(): Promise<void> {
+  const candidates = await scanIds("retryableIds");
+
+  for (const testamentId of candidates) {
+    const outstanding = await publicClient.readContract({
+      address: registryAddress,
+      abi: testamentRegistryAbi,
+      functionName: "unpaidSlots",
+      args: [testamentId],
+    });
+
+    for (let slot = 0; slot < SLOT_COUNT; slot += 1) {
+      if ((outstanding & (1 << slot)) === 0) {
+        continue;
+      }
+      try {
+        const transactionHash = await walletClient.writeContract({
+          address: registryAddress,
+          abi: testamentRegistryAbi,
+          functionName: "retryPayment",
+          args: [testamentId, slot],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: transactionHash });
+        console.log(`[keeper] settled #${testamentId} slot ${slot} ${transactionHash}`);
+      } catch (error) {
+        console.warn(
+          `[keeper] retry #${testamentId} slot ${slot} failed: ${describeError(error)}`,
+        );
+      }
+    }
+  }
+}
+
 async function runOnePass(): Promise<void> {
   await releaseExpiredTestaments();
   await executeReleasedTestaments();
+  await settleOutstandingHeirs();
 }
 
 function describeError(thrown: unknown): string {

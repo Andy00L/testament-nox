@@ -2,6 +2,7 @@ import { createViemHandleClient } from "@iexec-nox/handle";
 import {
   SLOT_COUNT,
   TESTAMENT_STATE,
+  buildAuthorizeWriterTransaction,
   collectDecryptionProofs,
   computePayout,
   describePackFailure,
@@ -57,8 +58,14 @@ const graceSeconds = requireEnvSeconds("DEMO_GRACE");
 const SHARE_A_BPS = 6000;
 const SHARE_B_BPS = 4000;
 
-/** Slack added to the on-chain deadline before calling release. Unit: seconds. */
-const RELEASE_MARGIN_SECONDS = 5;
+/**
+ * Slack added to the on-chain deadline before calling release. Unit: seconds.
+ *
+ * `release` needs `block.timestamp > deadline` strictly, and a Sepolia block's timestamp can
+ * sit several seconds behind real time, so a tight margin lands the transaction in a block
+ * stamped exactly on the deadline and reverts by one second. Two block times is comfortable.
+ */
+const RELEASE_MARGIN_SECONDS = 24;
 
 /** Below this the Safe is topped up before the run. Unit: wei. */
 const MINIMUM_ESTATE_WEI = 5_000_000_000_000_000n; // 0.005 ETH
@@ -153,6 +160,23 @@ if (safeHeldId !== 0n) {
   throw new Error(
     `[e2e] testament #${safeHeldId} is still active against ${safeAddress} and belongs to someone else. Its owner has to revoke it, or the Safe has to rotate its mandate.`,
   );
+}
+
+// A mandate buys one will. A previous run spent this one, so the Safe grants another before
+// the rehearsal can write again. This is exactly what the app asks a user to do.
+const consumedNonce = await publicClient.readContract({
+  address: registryAddress,
+  abi: testamentRegistryAbi,
+  functionName: "consumedAuthNonce",
+  args: [safeAddress],
+});
+if (mandateNonce <= consumedNonce) {
+  console.log(`[e2e] mandate ${mandateNonce} already spent, asking the Safe for a new one`);
+  const authorizeHash = await ownerWallet.writeContract(
+    buildAuthorizeWriterTransaction(safeAddress, moduleAddress, ownerAddress, ownerAddress),
+  );
+  await publicClient.waitForTransactionReceipt({ hash: authorizeHash });
+  console.log(`[e2e] authorize ${authorizeHash}`);
 }
 
 // ---- Write --------------------------------------------------------------------------
