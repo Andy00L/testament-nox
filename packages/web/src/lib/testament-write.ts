@@ -14,6 +14,8 @@ import {
 } from "@testament/shared";
 import type { Address, Hex, PublicClient, WalletClient } from "viem";
 
+import { createReadOnlyHandleClient } from "@/lib/nox-client";
+
 /**
  * Every write the app makes. Each one reports its outcome as a value rather than throwing,
  * so the interface can render a real error state instead of an unhandled rejection.
@@ -327,16 +329,19 @@ export async function executeTestament({
   }
 }
 
-/** Reads a released will in clear. Only ever succeeds once the slots are publicly decryptable. */
+/**
+ * Reads a released will in clear. Only ever succeeds once the slots are publicly decryptable.
+ *
+ * Takes no wallet: an opened testament is public by construction, so a visitor should be
+ * able to read it before deciding whether to connect anything.
+ */
 export async function readReleasedWill({
-  walletClient,
   slotHandles,
 }: {
-  walletClient: WalletClient;
   slotHandles: readonly Hex[];
 }): Promise<WriteResult<Bequest[]>> {
   try {
-    const handleClient = await createViemHandleClient(walletClient);
+    const handleClient = await createReadOnlyHandleClient();
     const decrypted = await Promise.all(
       slotHandles.map(async (slotHandle) => {
         const attempt = await retryAsync(() => handleClient.publicDecrypt(slotHandle));

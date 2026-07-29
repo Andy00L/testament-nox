@@ -63,11 +63,11 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
   // External system: the Handle Gateway. Once a will is public, its plaintext is fetched
   // over the network, which React does not own.
   useEffect(() => {
-    if (!isReleased || slotHandles === undefined || walletClient === undefined || will !== null) {
+    if (!isReleased || slotHandles === undefined || will !== null) {
       return;
     }
     let isCurrent = true;
-    void readReleasedWill({ walletClient, slotHandles }).then((result) => {
+    void readReleasedWill({ slotHandles }).then((result) => {
       if (!isCurrent) {
         return;
       }
@@ -80,7 +80,7 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
     return () => {
       isCurrent = false;
     };
-  }, [isReleased, slotHandles, walletClient, will]);
+  }, [isReleased, slotHandles, will]);
 
   if (!deployment.isDeployed) {
     return <p className="type-body text-ink-faint">Contrats non configurés.</p>;
@@ -205,11 +205,7 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
       </div>
 
       {will === null ? (
-        <p className="type-small text-ink-faint">
-          {walletClient === undefined
-            ? "Connectez un portefeuille pour lire le testament ouvert."
-            : "Déchiffrement…"}
-        </p>
+        <p className="type-small text-ink-faint">Déchiffrement du testament ouvert…</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {will.map((bequest) => {

@@ -59,6 +59,12 @@ const SHARE_B_BPS = 4000;
 /** Slack added to the on-chain deadline before calling release. Unit: seconds. */
 const RELEASE_MARGIN_SECONDS = 5;
 
+/** Below this the Safe is topped up before the run. Unit: wei. */
+const MINIMUM_ESTATE_WEI = 5_000_000_000_000_000n; // 0.005 ETH
+
+/** What the Safe is topped up to. Unit: wei. */
+const TOP_UP_ESTATE_WEI = 20_000_000_000_000_000n; // 0.02 ETH
+
 const connection = await hre.network.getOrCreate();
 const { viem, networkName } = connection;
 
@@ -88,11 +94,18 @@ if (!moduleEnabled) {
   );
 }
 
-const estateValueWei = await publicClient.getBalance({ address: safeAddress });
-console.log(`[e2e] estate   ${formatEther(estateValueWei)} ETH`);
-if (estateValueWei === 0n) {
-  throw new Error(`[e2e] the Safe holds nothing, fund ${safeAddress} before running this`);
+let estateValueWei = await publicClient.getBalance({ address: safeAddress });
+if (estateValueWei < MINIMUM_ESTATE_WEI) {
+  // A previous run drained it. Top it back up so the rehearsal is repeatable.
+  console.log(`[e2e] refilling the Safe to ${formatEther(TOP_UP_ESTATE_WEI)} ETH`);
+  const topUpHash = await ownerWallet.sendTransaction({
+    to: safeAddress,
+    value: TOP_UP_ESTATE_WEI - estateValueWei,
+  });
+  await publicClient.waitForTransactionReceipt({ hash: topUpHash });
+  estateValueWei = await publicClient.getBalance({ address: safeAddress });
 }
+console.log(`[e2e] estate   ${formatEther(estateValueWei)} ETH`);
 
 // A previous run may have left an active testament behind.
 const existingId = await publicClient.readContract({
@@ -225,11 +238,6 @@ for (const [slotIndex, slotHandle] of slotHandles.entries()) {
 
 // ---- Execute ------------------------------------------------------------------------
 
-const balancesBefore = await Promise.all([
-  publicClient.getBalance({ address: beneficiaryA }),
-  publicClient.getBalance({ address: beneficiaryB }),
-]);
-
 const executeHash = await ownerWallet.writeContract({
   address: registryAddress,
   abi: testamentRegistryAbi,
@@ -239,15 +247,30 @@ const executeHash = await ownerWallet.writeContract({
 const executeReceipt = await publicClient.waitForTransactionReceipt({ hash: executeHash });
 console.log(`[e2e] execute   ${executeHash} (gas ${executeReceipt.gasUsed})`);
 
-const balancesAfter = await Promise.all([
-  publicClient.getBalance({ address: beneficiaryA }),
-  publicClient.getBalance({ address: beneficiaryB }),
-]);
+/**
+ * Balances are read at pinned block numbers, never at "latest".
+ *
+ * A public RPC endpoint is usually a load balancer over many nodes, so two consecutive
+ * "latest" reads can land on nodes at different heights: the first run of this script
+ * reported one heir as unpaid while the transaction receipt showed both Distributed events
+ * and the Safe drained to zero. Pinning the block makes the check deterministic.
+ */
+const blockBeforeExecute = executeReceipt.blockNumber - 1n;
+const [balanceABefore, balanceBBefore, balanceAAfter, balanceBAfter, estateAtExecution] =
+  await Promise.all([
+    publicClient.getBalance({ address: beneficiaryA, blockNumber: blockBeforeExecute }),
+    publicClient.getBalance({ address: beneficiaryB, blockNumber: blockBeforeExecute }),
+    publicClient.getBalance({ address: beneficiaryA, blockNumber: executeReceipt.blockNumber }),
+    publicClient.getBalance({ address: beneficiaryB, blockNumber: executeReceipt.blockNumber }),
+    publicClient.getBalance({ address: safeAddress, blockNumber: blockBeforeExecute }),
+  ]);
 
-const receivedA = (balancesAfter[0] ?? 0n) - (balancesBefore[0] ?? 0n);
-const receivedB = (balancesAfter[1] ?? 0n) - (balancesBefore[1] ?? 0n);
-const expectedA = computePayout(estateValueWei, SHARE_A_BPS);
-const expectedB = computePayout(estateValueWei, SHARE_B_BPS);
+const receivedA = balanceAAfter - balanceABefore;
+const receivedB = balanceBAfter - balanceBBefore;
+// The contract snapshots the Safe balance inside execute, so the expectation is computed
+// against the balance one block earlier, not against the balance the script saw at startup.
+const expectedA = computePayout(estateAtExecution, SHARE_A_BPS);
+const expectedB = computePayout(estateAtExecution, SHARE_B_BPS);
 
 console.log(`[e2e] ${beneficiaryA} received ${formatEther(receivedA)} ETH, expected ${formatEther(expectedA)}`);
 console.log(`[e2e] ${beneficiaryB} received ${formatEther(receivedB)} ETH, expected ${formatEther(expectedB)}`);

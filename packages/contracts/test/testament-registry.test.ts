@@ -9,7 +9,7 @@ import {
   packBequest,
   unpackBequest,
 } from "@testament/shared";
-import { parseEther, zeroAddress, type Hex } from "viem";
+import { getAddress, parseEther, zeroAddress, type Hex } from "viem";
 
 import {
   DEFAULT_ESTATE_WEI,
@@ -140,7 +140,7 @@ describe("TestamentRegistry", () => {
         if (beneficiaryA === undefined) throw new Error("missing beneficiary wallet");
 
         const testamentId = await writeTestament(fixture, {
-          bequests: [{ beneficiary: beneficiaryA.account.address, shareBps: 7500 }],
+          bequests: [{ beneficiary: beneficiaryA.account.address, shareBps: 10_000 }],
         });
 
         const slotHandles = await readSlotHandles(fixture, testamentId);
@@ -151,9 +151,10 @@ describe("TestamentRegistry", () => {
         if (firstSlot === undefined) throw new Error("missing slot handle");
         const { value } = await nox.decrypt(firstSlot);
         assert.equal(typeof value, "bigint");
+        // unpackBequest returns a checksummed address, so the expectation is checksummed too.
         assert.deepEqual(unpackBequest(value as bigint), {
-          beneficiary: beneficiaryA.account.address,
-          shareBps: 7500,
+          beneficiary: getAddress(beneficiaryA.account.address),
+          shareBps: 10_000,
         });
 
         // Before release the plan must not be public, whatever anyone tries.
@@ -401,11 +402,11 @@ describe("TestamentRegistry", () => {
       );
 
       assert.deepEqual(decrypted[0], {
-        beneficiary: beneficiaryA.account.address,
+        beneficiary: getAddress(beneficiaryA.account.address),
         shareBps: 6000,
       });
       assert.deepEqual(decrypted[1], {
-        beneficiary: beneficiaryB.account.address,
+        beneficiary: getAddress(beneficiaryB.account.address),
         shareBps: 4000,
       });
       for (const paddedSlot of decrypted.slice(2)) {

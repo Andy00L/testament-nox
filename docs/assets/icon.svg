@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="Testament icon">
+  <title>Testament</title>
+  <!--
+    The seal, the product's own mark: a carved stone pressed in cinnabar, with the edges
+    left uneven the way a real impression is. Two colours, both from the app palette
+    (docs/UI_DESIGN_SYSTEM.md): lacquer #171210 and cinnabar #9E2B25. Readable at 32px.
+  -->
+  <rect width="96" height="96" rx="10" fill="#171210" />
+  <path
+    d="M22 18.5 C40 16.6 58 16.4 74.6 17.8 C77.4 18 78.6 19.6 78.9 22.3 C80.4 40 80.7 58 79.2 75.6 C78.9 78.5 77.4 79.8 74.3 80.1 C56.6 81.7 38.6 81.9 20.9 80.3 C18 80 16.6 78.6 16.3 75.6 C14.8 57.8 14.9 39.6 16.6 22 C16.9 19.8 18.1 19 22 18.5 Z"
+    fill="#9E2B25"
+  />
+  <!--
+    A doorway cut out of the block: two jambs and a lintel, with the curtain hanging in the
+    opening. The product in one glyph.
+  -->
+  <path d="M34 34 H62 V40 H34 Z" fill="#171210" />
+  <path d="M34 34 H40 V74 H34 Z" fill="#171210" />
+  <path d="M56 34 H62 V74 H56 Z" fill="#171210" />
+  <g fill="#171210">
+    <rect x="43.5" y="44" width="2" height="24" rx="1" />
+    <rect x="50.5" y="44" width="2" height="21" rx="1" />
+    <circle cx="44.5" cy="55" r="2.4" />
+    <circle cx="51.5" cy="50" r="2.4" />
+    <circle cx="44.5" cy="65" r="2.4" />
+  </g>
+</svg>

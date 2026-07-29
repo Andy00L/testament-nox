@@ -36,3 +36,4 @@ ui-design/
 
 # TypeScript incremental build state
 *.tsbuildinfo
+.claude2/

@@ -8,7 +8,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "shots": "bun run scripts/shoot.ts",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "readme-shots": "bun run scripts/readme-shots.ts"
   },
   "dependencies": {
     "@iexec-nox/handle": "^0.1.0-beta.13",
