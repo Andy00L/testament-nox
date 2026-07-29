@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "shots": "bun run scripts/shoot.ts",
     "lint": "eslint .",
     "readme-shots": "bun run scripts/readme-shots.ts",
