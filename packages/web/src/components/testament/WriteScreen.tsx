@@ -19,12 +19,14 @@ export function WriteScreen() {
   return (
     <div className="mx-auto w-full max-w-[1120px] px-6 pb-8 pt-[max(7.75rem,19vh)] sm:px-10">
       <div className="mx-auto mb-4 flex max-w-[44rem] flex-col items-center gap-3 text-center">
-        <h1 className="type-display-lg">{copy.write.title}</h1>
-        <p className="type-small max-w-[64ch] text-ink-muted">{copy.write.lede}</p>
+        <h1 className="anim-rise anim-d-1 type-display-lg">{copy.write.title}</h1>
+        <p className="anim-rise anim-d-2 type-small max-w-[64ch] text-ink-muted">{copy.write.lede}</p>
       </div>
 
-      <div className="scroll-sheet mx-auto w-full max-w-[70rem] p-2 sm:p-4">
-        <WritePanel />
+      <div className="anim-unroll scroll-sheet mx-auto w-full max-w-[70rem] p-2 sm:p-4">
+        <div className="anim-rise anim-d-4">
+          <WritePanel />
+        </div>
       </div>
 
       <p className="mt-4 text-center">

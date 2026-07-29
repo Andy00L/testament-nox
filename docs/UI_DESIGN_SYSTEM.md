@@ -162,6 +162,13 @@ never crosses text or a control.
 
 ## 5. Motion tokens
 
+Two layers. The interaction layer (hover, focus, colour) keeps the original house
+tokens; the choreography layer (entrances, dropdown, swaps, shake) adopts the
+transitions.dev scale wholesale, so every recipe from that library drops in without
+translation.
+
+Interaction layer:
+
 | Token | Value | Job |
 | --- | --- | --- |
 | `--dur-micro` | 90ms | Colour and opacity state changes |
@@ -172,6 +179,28 @@ never crosses text or a control.
 | `--ease-exit` | `cubic-bezier(0.4, 0, 1, 1)` | Anything leaving, one step shorter |
 | `--ease-standard` | `cubic-bezier(0.4, 0, 0.2, 1)` | On-screen moves |
 | `--stagger` | 45ms | The one stagger constant, everywhere |
+
+Choreography layer (transitions.dev scale, in `globals.css`):
+
+| Token | Value | Job |
+| --- | --- | --- |
+| `--duration-stagger` | 40ms | Per-item offset in list staggers |
+| `--duration-micro` | 80ms | Entrance stagger steps (`.anim-d-1` to `.anim-d-6`) |
+| `--duration-quick` | 150ms | Closes, exits, text swaps |
+| `--duration-fast` | 250ms | Opens, list-row entrances |
+| `--duration-medium` | 350ms | Section entrances (`rise-in`) |
+| `--duration-slow` | 400ms | Roof settle |
+| `--duration-very-slow` | 500ms | Plaque drop |
+| `--ease-smooth-out` | `cubic-bezier(0.22, 1, 0.36, 1)` | Every choreography move |
+| `--distance-*` | 4 / 6 / 8 / 12 / 30px | Travel per element size |
+| `--scale-tiny` / `--scale-medium` | 0.99 / 0.97 | Pre-scales for pops and panels |
+| `--blur-small` / `--blur-medium` | 2 / 3px | Entrance blur on text swaps |
+
+Rules carried over from that scale: open and close are asymmetric (open 250ms, close
+150ms, and a close is never delayed); hover-out may run shorter than hover-in; the
+scroll unroll (700ms clip-path) is the single budgeted exception above `--duration-very-slow`.
+Entrances are pure CSS keyframes with `animation-fill-mode: both`, so content is present
+without JavaScript and `prefers-reduced-motion` kills all of it globally.
 
 Press scale 0.98, never lower. One overshoot budget, spent only on the seal landing.
 Enters decelerate, exits accelerate and run about 20% shorter. No bare crossfade: every

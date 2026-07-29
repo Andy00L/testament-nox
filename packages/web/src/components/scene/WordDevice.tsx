@@ -13,7 +13,8 @@ export function WordDevice() {
   const { copy } = useTranslation();
 
   return (
-    <div className="pointer-events-none flex flex-col items-end gap-5">
+    <div className="anim-rise anim-d-5 pointer-events-none flex flex-col items-end gap-5">
+      <div className="anim-hang flex flex-col items-end gap-5">
       <p
         aria-hidden="true"
         className="font-(family-name:--font-hanzi) text-ink"
@@ -33,6 +34,7 @@ export function WordDevice() {
           {copy.word.pinyin}
         </p>
         <p className="type-small text-ink-muted">{copy.word.gloss}</p>
+      </div>
       </div>
     </div>
   );

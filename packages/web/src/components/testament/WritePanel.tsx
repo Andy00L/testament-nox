@@ -1,5 +1,8 @@
 "use client";
 
+import { ExternalLink } from "@appica/icons-react";
+import { AnimatePresence, motion } from "motion/react";
+
 import { BPS_DENOMINATOR, SLOT_COUNT, describePackFailure, packBequests } from "@testament/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isAddress, type Address } from "viem";
@@ -216,8 +219,16 @@ export function WritePanel() {
           </div>
 
           <ul className="flex flex-col gap-3">
+            <AnimatePresence initial={false}>
             {drafts.map((draft, draftIndex) => (
-              <li key={draft.id} className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+              <motion.li
+                key={draft.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, transition: { duration: 0.15, ease: [0.22, 1, 0.36, 1] } }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4"
+              >
                 <div className="flex-1">
                   <TextField
                     label={copy.write.heirLabel(draftIndex + 1)}
@@ -254,8 +265,9 @@ export function WritePanel() {
                     {copy.write.remove}
                   </button>
                 ) : null}
-              </li>
+              </motion.li>
             ))}
+            </AnimatePresence>
           </ul>
 
           <button
@@ -283,7 +295,8 @@ export function WritePanel() {
               />
             </div>
             <p
-              className="type-small type-numeric shrink-0"
+              key={totalPercent === 100 ? "complete" : "counting"}
+              className={`type-small type-numeric shrink-0 ${totalPercent === 100 ? "anim-count-pop" : ""}`}
               style={{ color: totalPercent === 100 ? "var(--color-bronze-deep)" : "var(--color-ink-muted)" }}
             >
               {copy.write.allocated(totalPercent)}
@@ -344,7 +357,7 @@ export function WritePanel() {
             />
 
             {errorMessage !== null ? (
-              <p role="alert" className="type-small text-cinnabar">
+              <p key={errorMessage} role="alert" className="anim-shake type-small text-cinnabar">
                 {errorMessage}
               </p>
             ) : null}
@@ -384,9 +397,14 @@ export function WritePanel() {
               href={buildTransactionUrl(moduleTransaction)}
               target="_blank"
               rel="noreferrer"
-              className="type-small type-numeric text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+              className="type-small type-numeric group/tx inline-flex items-center gap-1.5 text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
             >
               {copy.write.viewTransaction}
+              <ExternalLink
+                size={13}
+                strokeWidth={1.5}
+                className="transition-transform duration-(--duration-fast) ease-(--ease-smooth-out) group-hover/tx:-translate-y-0.5 group-hover/tx:translate-x-0.5"
+              />
             </a>
           ) : null}
         </section>

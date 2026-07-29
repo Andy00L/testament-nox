@@ -30,16 +30,17 @@ export function SceneHero() {
 
       <div className="mt-auto flex max-w-[34rem] flex-col gap-6 pb-16 pt-[34vh] sm:gap-7 sm:pb-20">
         <h1 className="type-display-hero">
-          {copy.scene.headlineFirst}
-          <br />
-          {copy.scene.headlineSecond}
+          <span className="anim-rise anim-d-2 block">{copy.scene.headlineFirst}</span>
+          <span className="anim-rise anim-d-3 block">{copy.scene.headlineSecond}</span>
         </h1>
 
-        <p className="type-body max-w-[46ch] text-ink-muted">{copy.scene.lede}</p>
+        <p className="anim-rise anim-d-4 type-body max-w-[46ch] text-ink-muted">
+          {copy.scene.lede}
+        </p>
 
         <TestamentStatus />
 
-        <div className="flex flex-wrap items-baseline gap-x-10 gap-y-4">
+        <div className="anim-rise anim-d-5 flex flex-wrap items-baseline gap-x-10 gap-y-4">
           <PassageLink href="/ecrire">{copy.scene.write}</PassageLink>
           <PassageLink href="/porte" tone="quiet">
             {copy.scene.heir}

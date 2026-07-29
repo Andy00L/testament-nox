@@ -56,6 +56,7 @@
       "name": "@testament/web",
       "version": "0.1.0",
       "dependencies": {
+        "@appica/icons-react": "^1.0.0",
         "@iexec-nox/handle": "^0.1.0-beta.13",
         "@tanstack/react-query": "^5.101.4",
         "@testament/shared": "workspace:*",
@@ -96,6 +97,8 @@
     "@adraffy/ens-normalize": ["@adraffy/ens-normalize@1.11.1", "", {}, "sha512-nhCBV3quEgesuf7c7KYfperqSS14T8bYuvJ8PcLJp6znkZpFc0AuW4qBtr8eKVyPPe/8RSr7sglCWPU5eaxwKQ=="],
 
     "@alloc/quick-lru": ["@alloc/quick-lru@5.2.0", "", {}, "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="],
+
+    "@appica/icons-react": ["@appica/icons-react@1.0.0", "", { "peerDependencies": { "@types/react": "^19.0.0", "react": "^19.0.0" }, "optionalPeers": ["@types/react"] }, "sha512-g0/qrEyklCkiFBXFuBUg8xy/qYii1uhUGHKz1TXf47YF3KTvZCyOIGY82AGqO2ol8wHNsTwVXYCq68fAXvdqkg=="],
 
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
 

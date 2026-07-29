@@ -11,6 +11,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { Volume, VolumeOff } from "@appica/icons-react";
+
 import { createChimeVoice, type ChimeVoice } from "@/scene/chime";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 
@@ -93,8 +95,13 @@ export function SoundToggle() {
       type="button"
       onClick={toggle}
       aria-pressed={isEnabled}
-      className="type-small text-ink-faint transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+      className="type-small flex items-center gap-2 text-ink-faint transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
     >
+      {/* The icon-swap recipe: both marks share one cell and trade places on toggle. */}
+      <span className="icon-swap" data-state={isEnabled ? "a" : "b"} aria-hidden="true">
+        <Volume size={15} strokeWidth={1.5} data-icon="a" />
+        <VolumeOff size={15} strokeWidth={1.5} data-icon="b" />
+      </span>
       {isEnabled ? copy.sound.disable : copy.sound.enable}
     </button>
   );

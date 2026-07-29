@@ -27,7 +27,7 @@ export function Eave() {
       style={{ zIndex: "var(--layer-roof)", height: ROOF_BAND }}
     >
       <div
-        className="relative left-1/2 h-full -translate-x-1/2"
+        className="anim-roof relative left-1/2 h-full -translate-x-1/2"
         style={{ width: `${ROOF_OVERHANG * 100}%`, minWidth: 820 }}
       >
         <Image

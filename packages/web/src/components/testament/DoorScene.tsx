@@ -1,5 +1,6 @@
 "use client";
 
+import { ExternalLink } from "@appica/icons-react";
 import {
   TESTAMENT_STATE,
   computeDeadline,
@@ -160,7 +161,7 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
   // ---- Closed. The same words for every visitor, connected or not. ----
   if (summary.state === TESTAMENT_STATE.Active && !isExpired) {
     return (
-      <div className="flex flex-col gap-6">
+      <div key="closed" className="anim-rise flex flex-col gap-6">
         <h1 className="type-display-hero">{copy.door.closedTitle}</h1>
         <p className="type-body text-ink-muted">{copy.door.closedLede}</p>
         <p className="type-small text-ink-faint">
@@ -175,7 +176,7 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
   // ---- Expired, still closed. Anyone may push it open. ----
   if (summary.state === TESTAMENT_STATE.Active && isExpired) {
     return (
-      <div className="flex flex-col gap-6">
+      <div key="expired" className="anim-rise flex flex-col gap-6">
         <h1 className="type-display-hero">{copy.door.expiredTitle}</h1>
         <p className="type-body text-ink-muted">
 {copy.door.expiredLede}
@@ -195,7 +196,7 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
   const isPaid = summary.state === TESTAMENT_STATE.Executed;
 
   return (
-    <div className="flex flex-col gap-8">
+    <div key="open" className="anim-rise flex flex-col gap-8">
       <div className="flex flex-col gap-4">
         <h1 className="type-display-hero">{isPaid ? copy.door.openedTitle : copy.door.openingTitle}</h1>
         <p className="type-body text-ink-muted">
@@ -207,13 +208,14 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
         <p className="type-small text-ink-faint">{copy.door.decrypting}</p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {will.map((bequest) => {
+          {will.map((bequest, bequestIndex) => {
             const isVisitor =
               address !== undefined && bequest.beneficiary.toLowerCase() === address.toLowerCase();
             return (
               <li
                 key={bequest.beneficiary}
-                className="panel-well flex flex-wrap items-baseline justify-between gap-3 px-4 py-3"
+                className="anim-rise panel-well flex flex-wrap items-baseline justify-between gap-3 px-4 py-3"
+                style={{ "--anim-delay": `${80 * bequestIndex}ms` } as React.CSSProperties}
               >
                 <a
                   href={buildAddressUrl(bequest.beneficiary)}
@@ -304,9 +306,14 @@ function Feedback({
           href={buildTransactionUrl(transactionHash)}
           target="_blank"
           rel="noreferrer"
-          className="type-small type-numeric text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+          className="type-small type-numeric group/tx inline-flex items-center gap-1.5 text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
         >
           {feedbackCopy.viewTransaction}
+          <ExternalLink
+            size={13}
+            strokeWidth={1.5}
+            className="transition-transform duration-(--duration-fast) ease-(--ease-smooth-out) group-hover/tx:-translate-y-0.5 group-hover/tx:translate-x-0.5"
+          />
         </a>
       ) : null}
     </div>

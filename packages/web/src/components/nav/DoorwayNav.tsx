@@ -22,7 +22,7 @@ export function DoorwayNav() {
       className="pointer-events-none fixed inset-x-0 top-[max(5rem,13vh)] flex justify-center px-6"
       style={{ zIndex: "var(--layer-nav)" }}
     >
-      <nav className="panel pointer-events-auto flex items-center gap-4 px-4 py-2.5 sm:gap-5 sm:px-5">
+      <nav className="anim-plaque panel pointer-events-auto flex items-center gap-4 px-4 py-2.5 sm:gap-5 sm:px-5">
         <Link
           href="/"
           className="flex items-center gap-2.5 transition-opacity duration-(--dur-small) ease-(--ease-standard) hover:opacity-80"

@@ -10,6 +10,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { AnimatePresence, motion } from "motion/react";
+
 import { COPY, type Copy, type Language } from "@/lib/i18n";
 
 /**
@@ -79,9 +81,21 @@ export function LanguageToggle() {
       type="button"
       onClick={toggleLanguage}
       title={copy.switchTo}
-      className="type-small text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+      className="type-small relative overflow-hidden text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
     >
-      {copy.otherLanguageName}
+      {/* The text-swap recipe: the leaving name slips up 4px as the next slips in. */}
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.span
+          key={copy.otherLanguageName}
+          className="block"
+          initial={{ opacity: 0, y: 4, filter: "blur(2px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          exit={{ opacity: 0, y: -4, filter: "blur(2px)" }}
+          transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {copy.otherLanguageName}
+        </motion.span>
+      </AnimatePresence>
     </button>
   );
 }

@@ -1,6 +1,9 @@
 "use client";
 
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+
+import { ChevronDown } from "@appica/icons-react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 
 import { shortenAddress } from "@/lib/chain";
@@ -115,16 +118,28 @@ export function WalletControl() {
         onClick={toggleOpen}
         aria-haspopup="true"
         aria-expanded={isOpen}
-        className="type-small px-1 text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+        className="type-small group flex items-center gap-1.5 px-1 text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
       >
         {copy.wallet.connect}
+        <ChevronDown
+          size={14}
+          strokeWidth={1.5}
+          className="transition-transform duration-(--duration-fast) ease-(--ease-smooth-out)"
+          style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+        />
       </button>
 
+      <AnimatePresence>
       {isOpen ? (
-        <div
+        <motion.div
           role="dialog"
           aria-label={copy.wallet.choose}
           className="panel absolute right-0 top-[calc(100%+0.875rem)] w-64 p-2"
+          style={{ transformOrigin: "top right" }}
+          initial={{ opacity: 0, scale: 0.97 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.99, transition: { duration: 0.15, ease: [0.22, 1, 0.36, 1] } }}
+          transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         >
           <p className="type-small px-2 pb-1.5 pt-1 text-ink-faint">{copy.wallet.choose}</p>
 
@@ -132,10 +147,19 @@ export function WalletControl() {
             <p className="type-small px-2 pb-2 text-ink-muted">{copy.wallet.none}</p>
           ) : (
             <ul className="flex flex-col">
-              {visibleConnectors.map((connector) => {
+              {visibleConnectors.map((connector, connectorIndex) => {
                 const isConnecting = isPending && variables?.connector === connector;
                 return (
-                  <li key={connector.uid}>
+                  <motion.li
+                    key={connector.uid}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      duration: 0.25,
+                      ease: [0.22, 1, 0.36, 1],
+                      delay: 0.04 * connectorIndex,
+                    }}
+                  >
                     <button
                       type="button"
                       disabled={isPending}
@@ -157,7 +181,7 @@ export function WalletControl() {
                             : connector.name}
                       </span>
                     </button>
-                  </li>
+                  </motion.li>
                 );
               })}
             </ul>
@@ -168,8 +192,9 @@ export function WalletControl() {
               {copy.wallet.failed}
             </p>
           ) : null}
-        </div>
+        </motion.div>
       ) : null}
+      </AnimatePresence>
     </div>
   );
 }

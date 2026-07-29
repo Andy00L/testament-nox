@@ -51,6 +51,31 @@
   --stagger: 45ms;
 
   /*
+   * The transitions.dev motion-token scale (transitions-polish/_root.css), adopted as
+   * this product's second-generation motion tokens. The legacy --dur-* ladder above stays
+   * for existing rules; new choreography references these. Same discipline either way:
+   * every duration, distance, scale and blur resolves to a token.
+   */
+  --duration-stagger: 40ms;
+  --duration-micro: 80ms;
+  --duration-quick: 150ms;
+  --duration-fast: 250ms;
+  --duration-medium: 350ms;
+  --duration-slow: 400ms;
+  --duration-very-slow: 500ms;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --distance-micro: 4px;
+  --distance-small: 6px;
+  --distance-base: 8px;
+  --distance-medium: 12px;
+  --distance-large: 30px;
+  --scale-medium: 0.97;
+  --scale-tiny: 0.99;
+  --blur-small: 2px;
+  --blur-medium: 3px;
+
+  /*
    * One material: paper resting on the mat. One light source, from above and slightly
    * front, so every shadow agrees and every lip catches the same highlight.
    */
@@ -228,6 +253,152 @@ body {
 ::selection {
   background: var(--color-bronze-sunk);
   color: var(--color-ink);
+}
+
+/*
+ * Entrance choreography.
+ *
+ * Every entrance is a pure CSS keyframe with fill-mode both, never a JS-driven class flip:
+ * if scripting or the animation engine never runs, the rule is simply ignored and the
+ * content stands at its final state. Content is visible by default; motion is a courtesy.
+ *
+ * The recipe is the transitions.dev "texts reveal": rise from --distance-medium through
+ * --blur-medium, on --ease-smooth-out. Delays step in 80ms beats (the large-stagger token)
+ * so a page reads top to bottom, one thing leading at a time.
+ */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--distance-medium));
+    filter: blur(var(--blur-medium));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.anim-rise {
+  animation: rise-in var(--duration-very-slow) var(--ease-smooth-out) both;
+  animation-delay: var(--anim-delay, 0ms);
+}
+
+.anim-d-1 { --anim-delay: 80ms; }
+.anim-d-2 { --anim-delay: 160ms; }
+.anim-d-3 { --anim-delay: 240ms; }
+.anim-d-4 { --anim-delay: 320ms; }
+.anim-d-5 { --anim-delay: 400ms; }
+.anim-d-6 { --anim-delay: 480ms; }
+
+/* The roof settles into place first: the building is there before anything under it. */
+@keyframes roof-settle {
+  from { transform: translateY(-14%); }
+  to { transform: translateY(0); }
+}
+
+.anim-roof {
+  animation: roof-settle var(--duration-very-slow) var(--ease-smooth-out) both;
+}
+
+/* The plaque drops from under the roof, one beat later. */
+@keyframes plaque-drop {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--distance-base) * -1));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.anim-plaque {
+  animation: plaque-drop var(--duration-slow) var(--ease-smooth-out) both;
+  animation-delay: 160ms;
+}
+
+/*
+ * The write sheet unrolls. Clip-path rather than a scale, so the 9-slice never distorts:
+ * the brocade head shows first and the paper follows down, the way a hanging scroll is
+ * actually opened. The content inside carries its own staggered rise, one beat behind.
+ */
+@keyframes scroll-unroll {
+  from { clip-path: inset(0 0 96% 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+.anim-unroll {
+  animation: scroll-unroll 700ms var(--ease-smooth-out) both;
+  animation-delay: 120ms;
+}
+
+/*
+ * The hanging scroll breathes. Ambient life on a marketing surface only: transform-only,
+ * a long cycle, and an amplitude under conscious notice.
+ */
+@keyframes hang-drift {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(6px) rotate(0.4deg); }
+}
+
+.anim-hang {
+  animation: hang-drift 9s ease-in-out infinite;
+  transform-origin: top center;
+}
+
+/*
+ * The error shake, from the transitions.dev recipe: two hard segments and an overshoot,
+ * used only when a validation message appears. Announced text does the real work; the
+ * shake is the paper flinching.
+ */
+@keyframes error-shake {
+  0% { transform: translateX(0); }
+  28.57% { transform: translateX(var(--distance-base)); }
+  57.14% { transform: translateX(calc(var(--distance-small) * -1)); }
+  78.57% { transform: translateX(3px); }
+  100% { transform: translateX(0); }
+}
+
+.anim-shake {
+  animation: error-shake calc(var(--duration-micro) * 3.5) linear both;
+}
+
+/*
+ * Icon swap, from the transitions.dev recipe: both marks share one grid cell and trade
+ * places through opacity, a small blur and a quarter turn. State lives on data-state.
+ */
+.icon-swap {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+
+.icon-swap > * {
+  grid-area: 1 / 1;
+  transition:
+    opacity var(--duration-fast) var(--ease-smooth-out),
+    filter var(--duration-fast) var(--ease-smooth-out),
+    transform var(--duration-fast) var(--ease-smooth-out);
+}
+
+.icon-swap[data-state="a"] > [data-icon="b"],
+.icon-swap[data-state="b"] > [data-icon="a"] {
+  opacity: 0;
+  filter: blur(var(--blur-small));
+  transform: rotate(-45deg) scale(0.8);
+  pointer-events: none;
+}
+
+/* The allocation count pops once when the estate reaches exactly 100%. */
+@keyframes count-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+.anim-count-pop {
+  animation: count-pop var(--duration-fast) var(--ease-bounce) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
