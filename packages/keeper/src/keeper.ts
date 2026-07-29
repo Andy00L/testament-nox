@@ -137,7 +137,9 @@ async function executeReleasedTestaments(): Promise<void> {
       await publicClient.waitForTransactionReceipt({ hash: transactionHash });
       console.log(`[keeper] executed #${testamentId} ${transactionHash}`);
     } catch (error) {
-      // An unfunded Safe reverts on purpose so the payout stays retryable.
+      // Two reverts are expected rather than exceptional here, and both are the system
+      // working: an unfunded Safe reverts so the payout stays retryable, and a Safe that
+      // withdrew or reassigned its mandate reverts so a stale will can never be settled.
       console.warn(`[keeper] execute #${testamentId} failed: ${describeError(error)}`);
     }
   }

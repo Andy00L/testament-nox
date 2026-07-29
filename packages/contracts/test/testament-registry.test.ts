@@ -15,9 +15,11 @@ import {
   DEFAULT_ESTATE_WEI,
   TEST_GRACE_SECONDS,
   TEST_INTERVAL_SECONDS,
+  authorizeWriterOnSafe,
   deployTestamentFixture,
   fetchSlotProofs,
   padRawSlots,
+  revokeWriterOnSafe,
   writeTestament,
   type TestamentFixture,
 } from "./utils/testament-fixture.ts";
@@ -36,6 +38,7 @@ type TestamentRecord = readonly [
   grace: number,
   lastHeartbeat: bigint,
   state: number,
+  authNonce: number,
 ];
 
 async function readTestament(
@@ -221,6 +224,182 @@ describe("TestamentRegistry", () => {
       const bequests = [{ beneficiary: beneficiaryA.account.address, shareBps: 10_000 }];
       await writeTestament(fixture, { bequests });
       await assert.rejects(writeTestament(fixture, { bequests }));
+    });
+  });
+
+  /**
+   * The mandate is the whole authorization boundary. Enabling a Safe module hands it
+   * unrestricted spending authority over that Safe, so every case below is a drained estate
+   * if it ever regresses.
+   */
+  describe("authorization", () => {
+    it(
+      "refuses a writer the Safe never authorized, and leaves the estate untouched",
+      { timeout: TEST_TIMEOUT_MS },
+      async () => {
+        const fixture = await deployTestamentFixture();
+        const [, outsider] = fixture.walletClients;
+        if (outsider === undefined) throw new Error("missing outsider wallet");
+
+        const estateBefore = await fixture.publicClient.getBalance({
+          address: fixture.safe.address,
+        });
+
+        // The reported attack in one call: name a Safe you do not own but which has the
+        // module enabled, put yourself down for all of it, wait out the minimum interval.
+        await assert.rejects(
+          writeTestament(fixture, {
+            bequests: [{ beneficiary: outsider.account.address, shareBps: 10_000 }],
+            account: outsider.account,
+          }),
+          /WriterNotAuthorized/,
+        );
+
+        assert.equal(
+          await fixture.publicClient.getBalance({ address: fixture.safe.address }),
+          estateBefore,
+        );
+        assert.equal(await fixture.registry.read.lastTestamentId(), 0n);
+      },
+    );
+
+    it(
+      "refuses even the Safe's own owner when no mandate was granted",
+      { timeout: TEST_TIMEOUT_MS },
+      async () => {
+        const fixture = await deployTestamentFixture({ authorizeOwner: false });
+        const [, beneficiaryA] = fixture.walletClients;
+        if (beneficiaryA === undefined) throw new Error("missing beneficiary wallet");
+
+        // Enabling the module is not consent to any particular will, and being an owner is
+        // not the same as being named by a Safe transaction that cleared the threshold.
+        await assert.rejects(
+          writeTestament(fixture, {
+            bequests: [{ beneficiary: beneficiaryA.account.address, shareBps: 10_000 }],
+          }),
+          /WriterNotAuthorized/,
+        );
+      },
+    );
+
+    it("refuses a writer whose mandate was withdrawn", { timeout: TEST_TIMEOUT_MS }, async () => {
+      const fixture = await deployTestamentFixture();
+      const [, beneficiaryA] = fixture.walletClients;
+      if (beneficiaryA === undefined) throw new Error("missing beneficiary wallet");
+
+      await revokeWriterOnSafe(fixture);
+
+      await assert.rejects(
+        writeTestament(fixture, {
+          bequests: [{ beneficiary: beneficiaryA.account.address, shareBps: 10_000 }],
+        }),
+        /WriterNotAuthorized/,
+      );
+    });
+
+    it("records the will against its Safe and its mandate", { timeout: TEST_TIMEOUT_MS }, async () => {
+      const fixture = await deployTestamentFixture();
+      const [, beneficiaryA] = fixture.walletClients;
+      if (beneficiaryA === undefined) throw new Error("missing beneficiary wallet");
+
+      const testamentId = await writeTestament(fixture, {
+        bequests: [{ beneficiary: beneficiaryA.account.address, shareBps: 10_000 }],
+      });
+
+      assert.equal(
+        await fixture.registry.read.activeTestamentOfSafe([fixture.safe.address]),
+        testamentId,
+      );
+      const [, , , , , , authNonce] = await readTestament(fixture, testamentId);
+      assert.equal(authNonce, 1);
+    });
+
+    it(
+      "refuses a second will on the same Safe, even from a newly mandated writer",
+      { timeout: TEST_TIMEOUT_MS },
+      async () => {
+        const fixture = await deployTestamentFixture();
+        const [, beneficiaryA, secondWriter] = fixture.walletClients;
+        if (beneficiaryA === undefined || secondWriter === undefined) {
+          throw new Error("missing wallet clients");
+        }
+
+        await writeTestament(fixture, {
+          bequests: [{ beneficiary: beneficiaryA.account.address, shareBps: 10_000 }],
+        });
+
+        // Handing the mandate on does not clear the will already drawn against the estate.
+        // Keyed by Safe, so two live wills can never compete over one balance.
+        await authorizeWriterOnSafe(fixture, secondWriter.account.address);
+
+        await assert.rejects(
+          writeTestament(fixture, {
+            bequests: [{ beneficiary: beneficiaryA.account.address, shareBps: 10_000 }],
+            account: secondWriter.account,
+          }),
+          /SafeAlreadyHasTestament/,
+        );
+      },
+    );
+
+    it(
+      "stops a released will paying out once the Safe withdraws the mandate",
+      { timeout: TEST_TIMEOUT_MS },
+      async () => {
+        const fixture = await deployTestamentFixture();
+        const { testamentId, slotHandles } = await releaseDefaultTestament(fixture);
+        const proofs = await fetchSlotProofs(slotHandles);
+
+        await revokeWriterOnSafe(fixture);
+
+        // Checking the mandate only at write time would leave this will armed. The module
+        // re-checks against the Safe's state right now, which is what closes that window.
+        await assert.rejects(
+          fixture.registry.write.execute([testamentId, proofs]),
+          /WriterNotAuthorized/,
+        );
+        assert.equal(
+          await fixture.publicClient.getBalance({ address: fixture.safe.address }),
+          DEFAULT_ESTATE_WEI,
+        );
+      },
+    );
+
+    it(
+      "stops a released will paying out once the mandate is reissued to the same writer",
+      { timeout: TEST_TIMEOUT_MS },
+      async () => {
+        const fixture = await deployTestamentFixture();
+        const { testamentId, slotHandles } = await releaseDefaultTestament(fixture);
+        const proofs = await fetchSlotProofs(slotHandles);
+
+        // Same address, new mandate. The nonce moved, so the old will is spent paper and
+        // cannot be replayed against the estate.
+        await authorizeWriterOnSafe(fixture, fixture.ownerWallet.account.address);
+
+        await assert.rejects(
+          fixture.registry.write.execute([testamentId, proofs]),
+          /AuthorizationRotated/,
+        );
+      },
+    );
+
+    it("frees the Safe again once the owner revokes", { timeout: TEST_TIMEOUT_MS }, async () => {
+      const fixture = await deployTestamentFixture();
+      const [, beneficiaryA] = fixture.walletClients;
+      if (beneficiaryA === undefined) throw new Error("missing beneficiary wallet");
+
+      const bequests = [{ beneficiary: beneficiaryA.account.address, shareBps: 10_000 }];
+      const firstId = await writeTestament(fixture, { bequests });
+
+      const revokeHash = await fixture.registry.write.revoke([firstId]);
+      await fixture.publicClient.waitForTransactionReceipt({ hash: revokeHash });
+
+      // Both the per-owner and the per-Safe slot have to clear, or the estate stays locked
+      // out of ever having a will again.
+      assert.equal(await fixture.registry.read.activeTestamentOfSafe([fixture.safe.address]), 0n);
+      const secondId = await writeTestament(fixture, { bequests });
+      assert.equal(secondId, firstId + 1n);
     });
   });
 
@@ -616,12 +795,32 @@ describe("TestamentRegistry", () => {
       },
     );
 
-    it("fails loudly when the Safe never enabled the module", { timeout: TEST_TIMEOUT_MS }, async () => {
-      const fixture = await deployTestamentFixture({ enableModule: false });
+    it(
+      "fails loudly when the Safe disabled the module after the will was written",
+      { timeout: TEST_TIMEOUT_MS },
+      async () => {
+        const fixture = await deployTestamentFixture();
+        const { testamentId, slotHandles } = await releaseDefaultTestament(fixture);
+
+        // A Safe can always walk away. Safe answers a disabled module with GS104, and that
+        // has to abort the payout rather than read as one heir refusing their share.
+        const disableHash = await fixture.safe.write.disableModule([fixture.module.address]);
+        await fixture.publicClient.waitForTransactionReceipt({ hash: disableHash });
+
+        const proofs = await fetchSlotProofs(slotHandles);
+        await assert.rejects(fixture.registry.write.execute([testamentId, proofs]));
+      },
+    );
+
+    it("clears the Safe's slot once the estate is paid", { timeout: TEST_TIMEOUT_MS }, async () => {
+      const fixture = await deployTestamentFixture();
       const { testamentId, slotHandles } = await releaseDefaultTestament(fixture);
 
       const proofs = await fetchSlotProofs(slotHandles);
-      await assert.rejects(fixture.registry.write.execute([testamentId, proofs]));
+      const executeHash = await fixture.registry.write.execute([testamentId, proofs]);
+      await fixture.publicClient.waitForTransactionReceipt({ hash: executeHash });
+
+      assert.equal(await fixture.registry.read.activeTestamentOfSafe([fixture.safe.address]), 0n);
     });
   });
 

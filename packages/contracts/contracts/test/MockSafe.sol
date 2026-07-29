@@ -28,6 +28,20 @@ contract MockSafe {
         return _enabledModules[module];
     }
 
+    /**
+     * @notice Performs a call with the Safe as `msg.sender`, the way `execTransaction` does
+     *         once it has collected enough owner signatures.
+     * @dev Tests need this to reach `TestamentModule.authorizeWriter`, which reads the Safe
+     *      out of `msg.sender`. The real Safe gets here through threshold checking; the mock
+     *      skips straight to the call, since what is under test is the module's reaction to
+     *      a Safe-originated call and not Safe's own signature logic.
+     */
+    function executeAsSafe(address to, bytes calldata data) external returns (bytes memory returnData) {
+        bool success;
+        (success, returnData) = to.call(data);
+        require(success, "MockSafe: inner call reverted");
+    }
+
     function execTransactionFromModule(
         address to,
         uint256 value,

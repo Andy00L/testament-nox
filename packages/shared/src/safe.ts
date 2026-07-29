@@ -1,5 +1,7 @@
 import { concat, encodeFunctionData, pad, zeroAddress, type Address, type Hex } from "viem";
 
+import { testamentModuleAbi } from "./generated/abis.ts";
+
 /**
  * The Safe entry points Testament drives from off-chain, to enable the module and to read
  * a Safe's configuration before letting an owner sign a will.
@@ -22,6 +24,29 @@ export const safeManagementAbi = [
     inputs: [{ internalType: "address", name: "module", type: "address" }],
     name: "isModuleEnabled",
     outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "prevModule", type: "address" },
+      { internalType: "address", name: "module", type: "address" },
+    ],
+    name: "disableModule",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "start", type: "address" },
+      { internalType: "uint256", name: "pageSize", type: "uint256" },
+    ],
+    name: "getModulesPaginated",
+    outputs: [
+      { internalType: "address[]", name: "array", type: "address[]" },
+      { internalType: "address", name: "next", type: "address" },
+    ],
     stateMutability: "view",
     type: "function",
   },
@@ -117,3 +142,85 @@ export function buildEnableModuleTransaction(
     ],
   } as const;
 }
+
+/**
+ * The full `execTransaction` argument tuple that names the writer allowed to draw a will on
+ * this Safe.
+ *
+ * Unlike enabling a module, this is not a Safe self-call: the target is the module, because
+ * the module reads the Safe out of `msg.sender`. Going through `execTransaction` is the
+ * whole point, since that is what proves the Safe's threshold approved the mandate rather
+ * than a single owner asserting it.
+ */
+export function buildAuthorizeWriterTransaction(
+  safeAddress: Address,
+  moduleAddress: Address,
+  writerAddress: Address,
+  ownerAddress: Address,
+) {
+  return {
+    address: safeAddress,
+    abi: safeManagementAbi,
+    functionName: "execTransaction",
+    args: [
+      moduleAddress,
+      0n,
+      encodeFunctionData({
+        abi: testamentModuleAbi,
+        functionName: "authorizeWriter",
+        args: [writerAddress],
+      }),
+      SAFE_OPERATION_CALL,
+      0n,
+      0n,
+      0n,
+      zeroAddress,
+      zeroAddress,
+      encodePrevalidatedSignature(ownerAddress),
+    ],
+  } as const;
+}
+
+/**
+ * The sentinel that heads Safe's linked list of enabled modules.
+ * sourceRef: safe-smart-account v1.4.1 contracts/base/ModuleManager.sol, SENTINEL_MODULES.
+ */
+export const SAFE_SENTINEL_MODULES: Address = "0x0000000000000000000000000000000000000001";
+
+/**
+ * The `execTransaction` tuple that turns a module off.
+ *
+ * Safe keeps modules in a linked list, so removing one needs the entry that points at it.
+ * Read the list with `getModulesPaginated` and pass the preceding address, or
+ * `SAFE_SENTINEL_MODULES` when the module is first in the list.
+ * sourceRef: safe-smart-account v1.4.1 contracts/base/ModuleManager.sol, disableModule.
+ */
+export function buildDisableModuleTransaction(
+  safeAddress: Address,
+  previousModuleAddress: Address,
+  moduleAddress: Address,
+  ownerAddress: Address,
+) {
+  return {
+    address: safeAddress,
+    abi: safeManagementAbi,
+    functionName: "execTransaction",
+    args: [
+      safeAddress,
+      0n,
+      encodeFunctionData({
+        abi: safeManagementAbi,
+        functionName: "disableModule",
+        args: [previousModuleAddress, moduleAddress],
+      }),
+      SAFE_OPERATION_CALL,
+      0n,
+      0n,
+      0n,
+      zeroAddress,
+      zeroAddress,
+      encodePrevalidatedSignature(ownerAddress),
+    ],
+  } as const;
+}
+
