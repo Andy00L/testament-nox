@@ -114,6 +114,40 @@ const french = {
     doorLinkLabel: "La porte de ce testament. Partagez ce lien à vos héritiers :",
   },
 
+  /**
+   * Every failure the interface can show. The chain helpers return reasons, never prose, so
+   * an error state reads in the language the rest of the page is in.
+   */
+  errors: {
+    notConnected: "Connectez un portefeuille sur Sepolia.",
+    encryptionFailedSlot: (slot: number, detail: string) =>
+      `Le chiffrement a échoué à l'emplacement ${slot} : ${detail}`,
+    encryptionFailed: (detail: string) => `Le chiffrement a échoué : ${detail}`,
+    safeRejectedEnable:
+      "Le Safe a rejeté l'activation. Vérifiez que le portefeuille connecté est propriétaire du Safe et que le seuil est de 1.",
+    safeRejectedAuthorize:
+      "Le Safe a rejeté la désignation. Vérifiez que le module est activé, que le portefeuille connecté est propriétaire du Safe et que le seuil est de 1.",
+    sealRejected: "La transaction a été rejetée.",
+    releaseRejected: "L'ouverture a été rejetée.",
+    executeRejected: "Le paiement a été rejeté.",
+    safeAddressRequired: "Renseignez l'adresse du Safe.",
+    intervalTooShort: (minimum: number) =>
+      `L'intervalle doit valoir au moins ${minimum} secondes.`,
+    graceInvalid: "Le délai de grâce doit être un nombre de secondes.",
+    willNoBequests: "Un testament a besoin d'au moins un héritier.",
+    willTooManyBequests: (maximum: number, count: number) =>
+      `Un testament accueille au plus ${maximum} héritiers, vous en avez nommé ${count}.`,
+    willInvalidAddress: (index: number, value: string) =>
+      `L'héritier ${index} n'a pas une adresse valide : ${value}`,
+    willZeroAddress: (index: number) => `L'héritier ${index} est l'adresse zéro.`,
+    willDuplicate: (index: number, beneficiary: string) =>
+      `L'héritier ${index} (${beneficiary}) apparaît deux fois.`,
+    willInvalidShare: (index: number, maximum: number, shareBps: number) =>
+      `La part ${index} doit être un entier entre 1 et ${maximum} bps, reçu ${shareBps}.`,
+    willSharesDoNotSum: (total: number, expected: number) =>
+      `Les parts totalisent ${total} bps au lieu de ${expected}.`,
+  },
+
   seal: {
     idle: "Presser le sceau",
     sealed: "Testament scellé",
@@ -205,17 +239,6 @@ const french = {
     minutes: "min",
     seconds: "s",
     fallen: "le vent est tombé",
-  },
-
-  errors: {
-    notConnected: "Connectez un portefeuille pour continuer.",
-    encryptionFailed: (detail: string) => `Le chiffrement a échoué : ${detail}`,
-    slotDetail: (index: number, message: string) => `emplacement ${index} : ${message}`,
-    transactionRejected: "La transaction a été rejetée.",
-    releaseRejected: "L'ouverture a été rejetée.",
-    payoutRejected: "Le paiement a été rejeté.",
-    safeRejectedModule:
-      "Le Safe a rejeté l'activation. Vérifiez que le portefeuille connecté est bien propriétaire du Safe et que le seuil est de 1.",
   },
 };
 
@@ -319,6 +342,35 @@ const english: typeof french = {
     doorLinkLabel: "This testament's door. Share this link with your heirs:",
   },
 
+  errors: {
+    notConnected: "Connect a wallet on Sepolia.",
+    encryptionFailedSlot: (slot: number, detail: string) =>
+      `Encryption failed at slot ${slot}: ${detail}`,
+    encryptionFailed: (detail: string) => `Encryption failed: ${detail}`,
+    safeRejectedEnable:
+      "The Safe refused to enable the module. Check that the connected wallet owns the Safe and that its threshold is 1.",
+    safeRejectedAuthorize:
+      "The Safe refused to name this wallet. Check that the module is enabled, that the connected wallet owns the Safe, and that its threshold is 1.",
+    sealRejected: "The transaction was rejected.",
+    releaseRejected: "The opening was rejected.",
+    executeRejected: "The payment was rejected.",
+    safeAddressRequired: "Enter the Safe address.",
+    intervalTooShort: (minimum: number) => `The interval must be at least ${minimum} seconds.`,
+    graceInvalid: "The grace period must be a whole number of seconds.",
+    willNoBequests: "A testament needs at least one heir.",
+    willTooManyBequests: (maximum: number, count: number) =>
+      `A testament holds at most ${maximum} heirs, and you named ${count}.`,
+    willInvalidAddress: (index: number, value: string) =>
+      `Heir ${index} is not a valid address: ${value}`,
+    willZeroAddress: (index: number) => `Heir ${index} is the zero address.`,
+    willDuplicate: (index: number, beneficiary: string) =>
+      `Heir ${index} (${beneficiary}) appears twice.`,
+    willInvalidShare: (index: number, maximum: number, shareBps: number) =>
+      `Share ${index} must be a whole number between 1 and ${maximum} bps, got ${shareBps}.`,
+    willSharesDoNotSum: (total: number, expected: number) =>
+      `The shares total ${total} bps instead of ${expected}.`,
+  },
+
   seal: {
     idle: "Press the seal",
     sealed: "Testament sealed",
@@ -409,17 +461,6 @@ const english: typeof french = {
     minutes: "min",
     seconds: "s",
     fallen: "the wind has fallen",
-  },
-
-  errors: {
-    notConnected: "Connect a wallet to continue.",
-    encryptionFailed: (detail: string) => `Encryption failed: ${detail}`,
-    slotDetail: (index: number, message: string) => `slot ${index}: ${message}`,
-    transactionRejected: "The transaction was rejected.",
-    releaseRejected: "Opening was rejected.",
-    payoutRejected: "The payout was rejected.",
-    safeRejectedModule:
-      "The Safe rejected the activation. Check that the connected wallet owns the Safe and that its threshold is 1.",
   },
 };
 
