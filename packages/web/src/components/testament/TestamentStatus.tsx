@@ -34,7 +34,9 @@ export function TestamentStatus() {
     summary === null || nowSeconds === null ? 0 : computeSilenceProgress(summary, nowSeconds);
   const isReleased =
     summary !== null &&
-    (summary.state === TESTAMENT_STATE.Released || summary.state === TESTAMENT_STATE.Executed);
+    (summary.state === TESTAMENT_STATE.Released ||
+      summary.state === TESTAMENT_STATE.PartiallyExecuted ||
+      summary.state === TESTAMENT_STATE.Executed);
 
   // External system: the canvas scene, which lives outside React and has to be told.
   useEffect(() => {
