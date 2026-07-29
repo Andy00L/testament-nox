@@ -23,9 +23,11 @@ import { useTranslation } from "@/components/i18n/LanguageProvider";
 import type { Copy } from "@/lib/i18n";
 import { buildTransactionUrl, readDeployment } from "@/lib/chain";
 import {
+  authorizeWriterOnSafe,
   describeWriteFailure,
   enableModuleOnSafe,
   readModuleEnabled,
+  readSafeWriter,
   sealTestament,
 } from "@/lib/testament-write";
 
@@ -82,11 +84,14 @@ export function WritePanel() {
    * The answer is cached against the address it was asked about, so a freshly typed Safe
    * reads as unknown by derivation rather than by resetting state inside an effect.
    */
-  const [moduleCheck, setModuleCheck] = useState<{ safeAddress: string; enabled: boolean } | null>(
-    null,
-  );
+  const [safeCheck, setSafeCheck] = useState<{
+    safeAddress: string;
+    moduleEnabled: boolean;
+    writer: Address | null;
+  } | null>(null);
   const [isEnablingModule, setIsEnablingModule] = useState(false);
-  const [moduleTransaction, setModuleTransaction] = useState<string | null>(null);
+  const [isNamingWriter, setIsNamingWriter] = useState(false);
+  const [consentTransaction, setConsentTransaction] = useState<string | null>(null);
 
   const addButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -134,32 +139,53 @@ export function WritePanel() {
   };
 
   // Derived, not stored: an address the check has not answered for yet is simply unknown.
-  const isModuleEnabled =
-    moduleCheck !== null && moduleCheck.safeAddress === safeAddress ? moduleCheck.enabled : null;
+  const safeAnswer = safeCheck !== null && safeCheck.safeAddress === safeAddress ? safeCheck : null;
+  const isModuleEnabled = safeAnswer === null ? null : safeAnswer.moduleEnabled;
+  /**
+   * Being named is per wallet, not per Safe: a Safe that named someone else has a mandate,
+   * just not this one, and the registry will refuse this wallet's will either way.
+   */
+  const isWriterNamed =
+    safeAnswer === null || address === undefined
+      ? null
+      : safeAnswer.writer !== null && safeAnswer.writer.toLowerCase() === address.toLowerCase();
 
-  // External system: the Safe contract. Whether the module is already enabled is chain
-  // state that has to be fetched once the address is typed.
+  // External system: the Safe contract and the module. The Safe grants two separate
+  // consents, and both are chain state that has to be fetched once the address is typed.
   useEffect(() => {
     if (!deployment.isDeployed || publicClient === undefined || !isAddress(safeAddress)) {
       return;
     }
     let isCurrent = true;
-    const checkedAddress = safeAddress;
-    void readModuleEnabled({
-      publicClient,
-      safeAddress: checkedAddress as Address,
-      moduleAddress: deployment.addresses.module,
-    }).then((enabled) => {
+    const checkedAddress = safeAddress as Address;
+    const moduleAddress = deployment.addresses.module;
+    void Promise.all([
+      readModuleEnabled({ publicClient, safeAddress: checkedAddress, moduleAddress }),
+      readSafeWriter({ publicClient, safeAddress: checkedAddress, moduleAddress }),
+    ]).then(([moduleEnabled, writer]) => {
       if (isCurrent) {
-        setModuleCheck({ safeAddress: checkedAddress, enabled });
+        setSafeCheck({ safeAddress: checkedAddress, moduleEnabled, writer });
       }
     });
     return () => {
       isCurrent = false;
     };
-  }, [deployment, publicClient, safeAddress, moduleTransaction]);
+  }, [deployment, publicClient, safeAddress, address, consentTransaction]);
 
   const validation = validateDraft({ drafts, safeAddress, intervalSeconds, graceSeconds });
+
+  /**
+   * The Safe's two consents, in the order it grants them. Enabling the module hands the
+   * registry spending authority over the estate; naming the writer says whose will it may
+   * spend on. The registry refuses a testament that has neither, so the seal refuses first
+   * rather than sending a transaction that can only revert.
+   */
+  const mandateBlock =
+    isModuleEnabled === false
+      ? copy.write.sealNeedsModule
+      : isWriterNamed === false
+        ? copy.write.sealNeedsWriter
+        : null;
 
   const handleSeal = async () => {
     if (!deployment.isDeployed || walletClient === undefined || publicClient === undefined) {
@@ -168,6 +194,10 @@ export function WritePanel() {
     }
     if (!validation.ok) {
       setErrorMessage(validation.message);
+      return;
+    }
+    if (mandateBlock !== null) {
+      setErrorMessage(mandateBlock);
       return;
     }
 
@@ -219,8 +249,53 @@ export function WritePanel() {
       setErrorMessage(describeWriteFailure(result.failure));
       return;
     }
-    setModuleTransaction(result.value);
+    setConsentTransaction(result.value);
   };
+
+  const handleNameWriter = async () => {
+    if (!deployment.isDeployed || walletClient === undefined || publicClient === undefined) {
+      return;
+    }
+    if (!isAddress(safeAddress)) {
+      return;
+    }
+
+    setIsNamingWriter(true);
+    setErrorMessage(null);
+
+    const result = await authorizeWriterOnSafe({
+      walletClient,
+      publicClient,
+      safeAddress: safeAddress as Address,
+      moduleAddress: deployment.addresses.module,
+    });
+
+    setIsNamingWriter(false);
+    if (!result.ok) {
+      setErrorMessage(describeWriteFailure(result.failure));
+      return;
+    }
+    setConsentTransaction(result.value);
+  };
+
+  /**
+   * One consent at a time, in the order the Safe grants them. Declared after its handlers
+   * so it reads them rather than the temporal dead zone.
+   */
+  const consentAction =
+    isModuleEnabled === false
+      ? {
+          label: isEnablingModule ? copy.write.enablingModule : copy.write.enableModule,
+          run: handleEnableModule,
+          isBusy: isEnablingModule,
+        }
+      : isWriterNamed === false
+        ? {
+            label: isNamingWriter ? copy.write.authorizingWriter : copy.write.authorizeWriter,
+            run: handleNameWriter,
+            isBusy: isNamingWriter,
+          }
+        : null;
 
   const isBusy = stage === "encrypting" || stage === "signing" || stage === "confirming";
 
@@ -338,13 +413,51 @@ export function WritePanel() {
             autoComplete="off"
             error={safeAddress !== "" && !isAddress(safeAddress) ? copy.write.invalidAddress : null}
             hint={
-              isModuleEnabled === true
-                ? copy.write.safeHintEnabled
-                : isModuleEnabled === false
-                  ? copy.write.safeHintDisabled
-                  : copy.write.safeHintDefault
+              isModuleEnabled === null
+                ? copy.write.safeHintDefault
+                : !isModuleEnabled
+                  ? copy.write.safeHintModuleMissing
+                  : isWriterNamed === true
+                    ? copy.write.safeHintReady
+                    : copy.write.safeHintWriterMissing
             }
           />
+
+          {/*
+            The Safe's consent, asked for where the Safe is named and nowhere else. One
+            action at a time: the module first, then the hand. Once both are granted the
+            button is gone and the hint above carries the state, so a Safe that was prepared
+            earlier costs the ritual no vertical space at all.
+          */}
+          {consentAction !== null || consentTransaction !== null ? (
+            <div className="flex flex-col gap-2">
+              {consentAction !== null ? (
+                <button
+                  type="button"
+                  onClick={() => void consentAction.run()}
+                  disabled={consentAction.isBusy}
+                  className="panel-well type-small min-h-11 w-fit px-5 py-3 text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-bronze-deep disabled:text-ink-faint"
+                >
+                  {consentAction.label}
+                </button>
+              ) : null}
+              {consentTransaction !== null ? (
+                <a
+                  href={buildTransactionUrl(consentTransaction)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="type-small type-numeric group/tx inline-flex w-fit items-center gap-1.5 text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+                >
+                  {copy.write.viewTransaction}
+                  <ExternalLink
+                    size={13}
+                    strokeWidth={1.5}
+                    className="transition-transform duration-(--duration-fast) ease-(--ease-smooth-out) group-hover/tx:-translate-y-0.5 group-hover/tx:translate-x-0.5"
+                  />
+                </a>
+              ) : null}
+            </div>
+          ) : null}
           <div className="flex flex-col gap-4 sm:flex-row">
             <div className="flex-1">
               <TextField
@@ -374,7 +487,7 @@ export function WritePanel() {
               isStamped={stage === "sealed"}
               isBusy={isBusy}
               busyLabel={resolveBusyLabel(stage, copy)}
-              disabledReason={validation.ok ? null : validation.message}
+              disabledReason={validation.ok ? mandateBlock : validation.message}
             />
 
             {errorMessage !== null ? (
@@ -399,6 +512,8 @@ export function WritePanel() {
 
       {stage === "sealed" ? (
         <section className="flex flex-col gap-4 border-0 pt-2">
+          <h2 className="type-display-lg">{copy.write.doorTitle}</h2>
+          <p className="type-body text-ink-muted">{copy.write.doorLede}</p>
           {sealedId !== null ? (
             <p className="type-small text-ink-muted">
               {copy.write.doorLinkLabel}{" "}
@@ -409,35 +524,6 @@ export function WritePanel() {
                 /porte?id={String(sealedId)}
               </Link>
             </p>
-          ) : null}
-          <h2 className="type-display-lg">{copy.write.openPassageTitle}</h2>
-          <p className="type-body text-ink-muted">{copy.write.openPassageLede}</p>
-          {isModuleEnabled === true ? (
-            <p className="type-small text-bronze-deep">{copy.write.moduleEnabled}</p>
-          ) : (
-            <button
-              type="button"
-              onClick={() => void handleEnableModule()}
-              disabled={isEnablingModule}
-              className="panel-well type-small min-h-11 w-fit px-5 py-3 text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-bronze-deep disabled:text-ink-faint"
-            >
-              {isEnablingModule ? copy.write.enablingModule : copy.write.enableModule}
-            </button>
-          )}
-          {moduleTransaction !== null ? (
-            <a
-              href={buildTransactionUrl(moduleTransaction)}
-              target="_blank"
-              rel="noreferrer"
-              className="type-small type-numeric group/tx inline-flex items-center gap-1.5 text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
-            >
-              {copy.write.viewTransaction}
-              <ExternalLink
-                size={13}
-                strokeWidth={1.5}
-                className="transition-transform duration-(--duration-fast) ease-(--ease-smooth-out) group-hover/tx:-translate-y-0.5 group-hover/tx:translate-x-0.5"
-              />
-            </a>
           ) : null}
         </section>
       ) : null}

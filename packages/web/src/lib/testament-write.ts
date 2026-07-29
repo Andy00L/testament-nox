@@ -1,5 +1,6 @@
 import { createViemHandleClient } from "@iexec-nox/handle";
 import {
+  buildAuthorizeWriterTransaction,
   buildEnableModuleTransaction,
   collectDecryptionProofs,
   describePackFailure,
@@ -8,11 +9,12 @@ import {
   packBequests,
   retryAsync,
   safeManagementAbi,
+  testamentModuleAbi,
   testamentRegistryAbi,
   unpackBequest,
   type Bequest,
 } from "@testament/shared";
-import type { Address, Hex, PublicClient, WalletClient } from "viem";
+import { zeroAddress, type Address, type Hex, type PublicClient, type WalletClient } from "viem";
 
 import { createReadOnlyHandleClient } from "@/lib/nox-client";
 
@@ -180,6 +182,92 @@ export async function enableModuleOnSafe({
     return { ok: true, value: transactionHash };
   } catch (error) {
     return { ok: false, failure: { reason: "transaction-failed", message: describeError(error) } };
+  }
+}
+
+/**
+ * Has the Safe name this wallet as the one address allowed to draw its will.
+ *
+ * Enabling the module is not consent to any particular testament: it grants the module
+ * unrestricted spending authority over the Safe, so the module asks for a second, narrower
+ * consent naming the writer. That naming can only come from the Safe itself, which is why
+ * this goes through `execTransaction` instead of calling the module directly.
+ *
+ * A 1-of-1 Safe whose owner sends the transaction needs no off-chain signing, the same
+ * pre-validated signature trick `enableModuleOnSafe` uses.
+ */
+export async function authorizeWriterOnSafe({
+  walletClient,
+  publicClient,
+  safeAddress,
+  moduleAddress,
+}: {
+  walletClient: WalletClient;
+  publicClient: PublicClient;
+  safeAddress: Address;
+  moduleAddress: Address;
+}): Promise<WriteResult<Hex>> {
+  const account = walletClient.account;
+  if (account === undefined) {
+    return { ok: false, failure: { reason: "not-connected" } };
+  }
+
+  try {
+    const transaction = buildAuthorizeWriterTransaction(
+      safeAddress,
+      moduleAddress,
+      account.address,
+      account.address,
+    );
+    const transactionHash = await walletClient.writeContract({
+      ...transaction,
+      account,
+      chain: walletClient.chain,
+    });
+
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: transactionHash });
+    if (receipt.status !== "success") {
+      return {
+        ok: false,
+        failure: {
+          reason: "transaction-failed",
+          message:
+            "Le Safe a rejeté la désignation. Vérifiez que le module est activé, que le portefeuille connecté est propriétaire du Safe et que le seuil est de 1.",
+        },
+      };
+    }
+    return { ok: true, value: transactionHash };
+  } catch (error) {
+    return { ok: false, failure: { reason: "transaction-failed", message: describeError(error) } };
+  }
+}
+
+/**
+ * The address the Safe has named as its writer, or null if it has named nobody.
+ *
+ * Read as a value: an address that is not a Safe, or a module that has never heard of it,
+ * both answer null rather than throwing, so a mistyped Safe surfaces in the interface as
+ * "not named yet" instead of an unhandled rejection.
+ */
+export async function readSafeWriter({
+  publicClient,
+  safeAddress,
+  moduleAddress,
+}: {
+  publicClient: PublicClient;
+  safeAddress: Address;
+  moduleAddress: Address;
+}): Promise<Address | null> {
+  try {
+    const [writer] = await publicClient.readContract({
+      address: moduleAddress,
+      abi: testamentModuleAbi,
+      functionName: "authorizationOf",
+      args: [safeAddress],
+    });
+    return writer === zeroAddress ? null : writer;
+  } catch {
+    return null;
   }
 }
 
