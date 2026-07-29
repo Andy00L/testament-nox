@@ -164,8 +164,8 @@ const contrastSamples = await page.evaluate(() => {
     return { color: getComputedStyle(node).color, background };
   };
   return {
-    bodyOnPanel: readPair(".panel .type-body"),
-    labelOnPanel: readPair(".panel .type-label"),
+    bodyOnPanel: readPair(".scroll-sheet .type-body"),
+    labelOnPanel: readPair(".scroll-sheet .type-label"),
     heading: readPair("h1"),
   };
 });
@@ -218,6 +218,26 @@ check("sound toggle changes state", soundLabelBefore !== soundLabelAfter, `${sou
 // The seal must refuse to fire while the will is invalid, and say why rather than sit dead.
 const sealButton = page.getByRole("button", { name: /Presser le sceau/ });
 check("seal is disabled on an invalid will", await sealButton.isDisabled(), "disabled with a stated reason");
+
+// ---- The scroll stretches with its content --------------------------------------------
+
+console.log("\nscroll sheet");
+await page.goto(`${BASE_URL}/ecrire`, { waitUntil: "networkidle" });
+await page.waitForTimeout(800);
+const sheet = page.locator(".scroll-sheet");
+const sheetBefore = await sheet.boundingBox();
+const borderImage = await sheet.evaluate((node) => getComputedStyle(node).borderImageSource);
+check("sheet carries the scroll image", borderImage.includes("scroll.webp"), "border-image set");
+for (let added = 0; added < 5; added += 1) {
+  await page.getByRole("button", { name: "Ajouter un héritier" }).click();
+  await page.waitForTimeout(80);
+}
+const sheetAfter = await sheet.boundingBox();
+check(
+  "adding heirs lengthens the scroll itself",
+  sheetBefore !== null && sheetAfter !== null && sheetAfter.height > sheetBefore.height + 200,
+  `${Math.round(sheetBefore?.height ?? 0)}px to ${Math.round(sheetAfter?.height ?? 0)}px`,
+);
 
 // ---- The wallet chooser opens, says something honest, and closes -----------------------
 

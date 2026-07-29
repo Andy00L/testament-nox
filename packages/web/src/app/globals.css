@@ -186,6 +186,31 @@ body {
   box-shadow: var(--panel-lip), var(--panel-ring), var(--panel-cast);
 }
 
+/*
+ * The write sheet: a handscroll, mid-unroll, drawn by 9-slice. The corner slices hold the
+ * roller knobs untouched, the side slices stretch the rod shafts as the will grows longer,
+ * the top and bottom slices carry the brocade, and the centre fills with the white paper
+ * the heirs are written on. Slice lines are the true paper-field
+ * boundaries, measured on the asset (1800x1038): paper spans x 216..1267 and y 268..847;
+ * everything outside it (rods, brocade, the wide rolled cylinder on the right) lives in
+ * the fixed and edge slices.
+ *
+ * One unit scales every border with the viewport, so the scroll keeps its proportions from
+ * phone to desktop, and content growth simply lengthens the rods.
+ */
+.scroll-sheet {
+  --scroll-unit: clamp(26px, 4.2vw, 56px);
+  border-style: solid;
+  border-color: transparent;
+  border-left-width: var(--scroll-unit);
+  border-right-width: calc(var(--scroll-unit) * 2.46);
+  border-top-width: calc(var(--scroll-unit) * 1.24);
+  border-bottom-width: calc(var(--scroll-unit) * 0.88);
+  border-image: url("/scene/scroll.webp") 268 532 190 216 fill stretch;
+  /* Soft and low: the sheet's silhouette is not a clean rectangle at the knobs. */
+  filter: drop-shadow(0 10px 22px rgba(58, 45, 42, 0.16));
+}
+
 /* A well inside a panel. No cast: the panel already did the depth work. */
 .panel-well {
   background: var(--color-field-sunk);

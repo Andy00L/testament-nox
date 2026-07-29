@@ -31,16 +31,35 @@ const CONVERSIONS = [
  * through near-neutral bright pixels. Anything light that is enclosed by the figures is
  * unreachable from the border and survives.
  */
-async function keyOutCheckerboard(sourcePath: string, outputPath: string): Promise<void> {
+async function keyOutCheckerboard(
+  sourcePath: string,
+  outputPath: string,
+  targetWidth: number,
+): Promise<void> {
+  // The generator stamps a small watermark in the extreme bottom-right, outside the
+  // subject. Cropped before keying, or its dark glyphs survive as opaque specks that the
+  // trim then dutifully keeps.
+  const sourceMeta = await sharp(sourcePath).metadata();
   const { data, info } = await sharp(sourcePath)
+    .extract({
+      left: 0,
+      top: 0,
+      width: Math.floor((sourceMeta.width ?? 0) * 0.985),
+      height: Math.floor((sourceMeta.height ?? 0) * 0.975),
+    })
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
   const { width, height, channels } = info;
 
-  /** Checkerboard squares are neutral (r=g=b within a hair) and bright. Unit: 0-255. */
-  const KEY_BRIGHTNESS_FLOOR = 172;
-  const KEY_NEUTRALITY = 10;
+  /**
+   * Checkerboard squares are neutral (r=g=b within a hair) and bright. The floor sits low
+   * enough to also catch squares dimmed by the source's own baked drop shadow; the wood,
+   * silk and robes are all strongly non-neutral, so neutrality is what protects them.
+   * Unit: 0-255.
+   */
+  const KEY_BRIGHTNESS_FLOOR = 118;
+  const KEY_NEUTRALITY = 9;
 
   const isKeyColour = (offset: number): boolean => {
     const red = data[offset] ?? 0;
@@ -86,7 +105,7 @@ async function keyOutCheckerboard(sourcePath: string, outputPath: string): Promi
 
   await sharp(data, { raw: { width, height, channels: 4 } })
     .trim()
-    .resize({ width: 1100, withoutEnlargement: true })
+    .resize({ width: targetWidth, withoutEnlargement: true })
     .webp({ quality: 82, effort: 6 })
     .toFile(outputPath);
   console.log(`[optimiseSceneAssets] checkerboard keyed out -> ${outputPath}`);
@@ -95,6 +114,15 @@ async function keyOutCheckerboard(sourcePath: string, outputPath: string): Promi
 await keyOutCheckerboard(
   resolve(SCENE_DIR, "transmission-source.png"),
   resolve(SCENE_DIR, "transmission.webp"),
+  1100,
+);
+
+// The write sheet's handscroll. Rendered via CSS border-image 9-slice, so it is kept
+// wide enough to stay sharp at 2x on the widest panel the layout allows.
+await keyOutCheckerboard(
+  resolve(SCENE_DIR, "scroll-source.png"),
+  resolve(SCENE_DIR, "scroll.webp"),
+  1800,
 );
 
 for (const conversion of CONVERSIONS) {

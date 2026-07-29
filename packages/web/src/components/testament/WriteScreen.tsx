@@ -17,17 +17,17 @@ export function WriteScreen() {
   const { copy } = useTranslation();
 
   return (
-    <div className="mx-auto w-full max-w-[1120px] px-6 pb-10 pt-[max(7.75rem,18.5vh)] sm:px-10">
-      <div className="mx-auto mb-6 flex max-w-[44rem] flex-col items-center gap-3 text-center">
+    <div className="mx-auto w-full max-w-[1120px] px-6 pb-8 pt-[max(7.75rem,19vh)] sm:px-10">
+      <div className="mx-auto mb-4 flex max-w-[44rem] flex-col items-center gap-3 text-center">
         <h1 className="type-display-lg">{copy.write.title}</h1>
-        <p className="type-small max-w-[58ch] text-ink-muted">{copy.write.lede}</p>
+        <p className="type-small max-w-[64ch] text-ink-muted">{copy.write.lede}</p>
       </div>
 
-      <div className="panel mx-auto w-full max-w-[62rem] p-6 sm:p-7">
+      <div className="scroll-sheet mx-auto w-full max-w-[70rem] p-2 sm:p-4">
         <WritePanel />
       </div>
 
-      <p className="mt-5 text-center">
+      <p className="mt-4 text-center">
         <Link
           href="/"
           className="type-small text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
