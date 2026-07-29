@@ -5,12 +5,12 @@ import {
   TESTAMENT_STATE,
   computeDeadline,
   computePayout,
-  type Bequest,
+  testamentRegistryAbi,
 } from "@testament/shared";
 import type { Copy } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { formatEther } from "viem";
-import { useAccount, useBalance, usePublicClient, useWalletClient } from "wagmi";
+import { useAccount, useBalance, usePublicClient, useReadContract, useWalletClient } from "wagmi";
 
 import { useCurtain } from "@/components/scene/CurtainStage";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
@@ -22,6 +22,8 @@ import {
   executeTestament,
   readReleasedWill,
   releaseTestament,
+  retryHeirPayment,
+  type ReleasedBequest,
 } from "@/lib/testament-write";
 
 /**
@@ -53,14 +55,27 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
   const { summary, slotHandles, isPending, refetch } = useTestamentById(testamentId);
   const estate = useBalance({ address: summary?.safe });
 
-  const [will, setWill] = useState<Bequest[] | null>(null);
+  const [will, setWill] = useState<ReleasedBequest[] | null>(null);
   const [isWorking, setIsWorking] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [actionTransaction, setActionTransaction] = useState<string | null>(null);
 
+  // Once a will is open it stays open, whether it has finished paying or not.
   const isReleased =
     summary !== undefined &&
-    (summary.state === TESTAMENT_STATE.Released || summary.state === TESTAMENT_STATE.Executed);
+    (summary.state === TESTAMENT_STATE.Released ||
+      summary.state === TESTAMENT_STATE.PartiallyExecuted ||
+      summary.state === TESTAMENT_STATE.Executed);
+
+  // Which heirs the estate has actually reached. Bit `i` is slot `i`.
+  const paidSlotsQuery = useReadContract({
+    address: deployment.isDeployed ? deployment.addresses.registry : undefined,
+    abi: testamentRegistryAbi,
+    functionName: "paidSlots",
+    args: testamentId === undefined ? undefined : [testamentId],
+    query: { enabled: deployment.isDeployed && testamentId !== undefined },
+  });
+  const paidMask = typeof paidSlotsQuery.data === "number" ? paidSlotsQuery.data : 0;
 
   // External system: the canvas. The curtain falling is the door opening; there is no
   // second illustration of a door anywhere in this product.
@@ -152,6 +167,30 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
     }
   };
 
+  const runRetry = async (slot: number) => {
+    if (walletClient === undefined || publicClient === undefined) {
+      setErrorMessage(copy.door.connectToExecute);
+      return;
+    }
+    setIsWorking(true);
+    setErrorMessage(null);
+    const result = await retryHeirPayment({
+      walletClient,
+      publicClient,
+      registryAddress: deployment.addresses.registry,
+      testamentId,
+      slot,
+    });
+    setIsWorking(false);
+    if (result.ok) {
+      setActionTransaction(result.value);
+      refetch();
+      void paidSlotsQuery.refetch();
+    } else {
+      setErrorMessage(describeWriteFailure(result.failure, copy));
+    }
+  };
+
   const runExecute = async () => {
     if (walletClient === undefined || publicClient === undefined || slotHandles === undefined) {
       setErrorMessage(copy.door.connectToExecute);
@@ -210,12 +249,15 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
       ? null
       : (will.find((bequest) => bequest.beneficiary.toLowerCase() === address.toLowerCase()) ?? null);
   const estateWei = estate.data?.value ?? 0n;
-  const isPaid = summary.state === TESTAMENT_STATE.Executed;
+  const isSettled = summary.state === TESTAMENT_STATE.Executed;
+  const isPartlySettled = summary.state === TESTAMENT_STATE.PartiallyExecuted;
+  const hasBeenExecuted = isSettled || isPartlySettled;
+  const paidCount = will === null ? 0 : will.filter((b) => (paidMask & (1 << b.slot)) !== 0).length;
 
   return (
     <div key="open" className="anim-rise flex flex-col gap-8">
       <div className="flex flex-col gap-4">
-        <h1 className="type-display-hero">{isPaid ? copy.door.openedTitle : copy.door.openingTitle}</h1>
+        <h1 className="type-display-hero">{isSettled ? copy.door.openedTitle : copy.door.openingTitle}</h1>
         <p className="type-body text-ink-muted">
 {copy.door.openedLede}
         </p>
@@ -245,11 +287,32 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
                   {shortenAddress(bequest.beneficiary)}
                   {isVisitor ? copy.door.you : ""}
                 </a>
-                <span className="type-small type-numeric text-ink">
-                  {bequest.shareBps / 100} %
-                  {estateWei > 0n
-                    ? ` · ${formatEther(computePayout(estateWei, bequest.shareBps))} ETH`
-                    : ""}
+                <span className="flex items-baseline gap-3">
+                  <span className="type-small type-numeric text-ink">
+                    {bequest.shareBps / 100} %
+                    {estateWei > 0n
+                      ? ` · ${formatEther(computePayout(estateWei, bequest.shareBps))} ETH`
+                      : ""}
+                  </span>
+                  {/*
+                    Settlement is per heir, so the door says so per heir. An heir whose wallet
+                    refused the transfer is owed, not forgotten: the money is still in the Safe
+                    and anyone at all can push it again.
+                  */}
+                  {hasBeenExecuted ? (
+                    (paidMask & (1 << bequest.slot)) !== 0 ? (
+                      <span className="type-small text-bronze-deep">{copy.door.heirPaid}</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void runRetry(bequest.slot)}
+                        disabled={isWorking}
+                        className="type-small text-cinnabar transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink disabled:text-ink-faint"
+                      >
+                        {isWorking ? copy.door.heirRetrying : copy.door.heirRetry}
+                      </button>
+                    )
+                  ) : null}
                 </span>
               </li>
             );
@@ -257,19 +320,23 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
         </ul>
       )}
 
-      {visitorShare !== null && !isPaid ? (
+      {visitorShare !== null && !hasBeenExecuted ? (
         <p className="type-body text-ink">
 {copy.door.yourShare(visitorShare.shareBps / 100)}
         </p>
       ) : null}
 
-      {!isPaid ? (
+      {!hasBeenExecuted ? (
         <ActionButton
           onPress={() => void runExecute()}
           isWorking={isWorking}
           label={copy.door.execute}
           workingLabel={copy.door.executing}
         />
+      ) : isPartlySettled ? (
+        <p className="type-body text-ink">
+          {copy.door.partiallyPaid(paidCount, will?.length ?? 0)}
+        </p>
       ) : (
         <p className="type-body text-bronze">{copy.door.paid}</p>
       )}

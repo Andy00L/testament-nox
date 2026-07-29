@@ -27,6 +27,7 @@ export function describeWriteFailure(failure: WriteFailure, copy: Copy): string 
         "authorize-writer": copy.errors.safeRejectedAuthorize,
         release: copy.errors.releaseRejected,
         execute: copy.errors.executeRejected,
+        retry: copy.errors.retryRejected,
       };
       return byStep[failure.step];
     }

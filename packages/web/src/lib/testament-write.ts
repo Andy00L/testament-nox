@@ -28,7 +28,13 @@ import { createReadOnlyHandleClient } from "@/lib/nox-client";
  */
 
 /** The on-chain gesture a failure belongs to, so the interface can name what went wrong. */
-export type WriteStep = "seal" | "enable-module" | "authorize-writer" | "release" | "execute";
+export type WriteStep =
+  | "seal"
+  | "enable-module"
+  | "authorize-writer"
+  | "release"
+  | "execute"
+  | "retry";
 
 /**
  * Failures carry reasons and raw detail, never finished sentences.
@@ -410,6 +416,58 @@ export async function executeTestament({
 }
 
 /**
+ * An heir from a released will, carrying the slot it came from.
+ *
+ * The slot is what ties a name to its settlement: payment is tracked per slot on-chain, and
+ * a retry addresses a slot rather than an address, so dropping the index here would leave the
+ * interface unable to say which heir is still owed.
+ */
+export type ReleasedBequest = Bequest & { slot: number };
+
+/**
+ * Pays one heir a settled will still owes. Anyone may call this, including the heir.
+ *
+ * The registry takes nothing but the id and the slot: who is owed and how much were settled
+ * and written down when the will was executed, so this cannot redirect or resize a payment.
+ */
+export async function retryHeirPayment({
+  walletClient,
+  publicClient,
+  registryAddress,
+  testamentId,
+  slot,
+}: {
+  walletClient: WalletClient;
+  publicClient: PublicClient;
+  registryAddress: Address;
+  testamentId: bigint;
+  slot: number;
+}): Promise<WriteResult<Hex>> {
+  const account = walletClient.account;
+  if (account === undefined) {
+    return { ok: false, failure: { reason: "not-connected" } };
+  }
+
+  try {
+    const transactionHash = await walletClient.writeContract({
+      account,
+      chain: walletClient.chain,
+      address: registryAddress,
+      abi: testamentRegistryAbi,
+      functionName: "retryPayment",
+      args: [testamentId, slot],
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: transactionHash });
+    if (receipt.status !== "success") {
+      return { ok: false, failure: { reason: "rejected", step: "retry" } };
+    }
+    return { ok: true, value: transactionHash };
+  } catch (error) {
+    return { ok: false, failure: { reason: "transaction-failed", detail: describeError(error) } };
+  }
+}
+
+/**
  * Reads a released will in clear. Only ever succeeds once the slots are publicly decryptable.
  *
  * Takes no wallet: an opened testament is public by construction, so a visitor should be
@@ -419,16 +477,16 @@ export async function readReleasedWill({
   slotHandles,
 }: {
   slotHandles: readonly Hex[];
-}): Promise<WriteResult<Bequest[]>> {
+}): Promise<WriteResult<ReleasedBequest[]>> {
   try {
     const handleClient = await createReadOnlyHandleClient();
     const decrypted = await Promise.all(
-      slotHandles.map(async (slotHandle) => {
+      slotHandles.map(async (slotHandle, slot) => {
         const attempt = await retryAsync(() => handleClient.publicDecrypt(slotHandle));
         if (!attempt.ok) {
           throw attempt.lastError;
         }
-        return unpackBequest(attempt.value.value as bigint);
+        return { slot, ...unpackBequest(attempt.value.value as bigint) };
       }),
     );
     return { ok: true, value: decrypted.filter((bequest) => !isPaddedBequest(bequest)) };
