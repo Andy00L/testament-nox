@@ -85,6 +85,28 @@ export const testamentRegistryAbi = [
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "safe",
+        "type": "address"
+      }
+    ],
+    "name": "ModuleNotEnabled",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "testamentId",
+        "type": "uint256"
+      }
+    ],
+    "name": "NoValidBequests",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "testamentId",
         "type": "uint256"
@@ -289,7 +311,19 @@ export const testamentRegistryAbi = [
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "totalDistributed",
+        "name": "plannedAmount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "paidAmount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "failedAmount",
         "type": "uint256"
       }
     ],
@@ -545,6 +579,40 @@ export const testamentRegistryAbi = [
     "name": "execute",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "testamentId",
+        "type": "uint256"
+      }
+    ],
+    "name": "executionReadiness",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "moduleEnabled",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "writerAuthorized",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "safeFunded",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "executable",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1071,7 +1139,35 @@ export const testamentModuleAbi = [
       }
     ],
     "name": "distribute",
-    "outputs": [],
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "amountPaid",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "amountFailed",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "successfulTransfers",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "failedTransfers",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct TestamentModule.DistributionResult",
+        "name": "result",
+        "type": "tuple"
+      }
+    ],
     "stateMutability": "nonpayable",
     "type": "function"
   },

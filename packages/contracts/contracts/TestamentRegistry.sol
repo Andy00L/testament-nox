@@ -124,6 +124,8 @@ contract TestamentRegistry is ReentrancyGuard {
     error UnexpectedState(uint256 testamentId, TestamentState actual, TestamentState expected);
     error NotExpiredYet(uint256 testamentId, uint64 deadline, uint64 nowTimestamp);
     error NothingToDistribute(uint256 testamentId, address safe);
+    error NoValidBequests(uint256 testamentId);
+    error ModuleNotEnabled(address safe);
     error InvalidRange(uint256 fromId, uint256 toId);
 
     // ============ Events ============
@@ -139,7 +141,18 @@ contract TestamentRegistry is ReentrancyGuard {
     event Heartbeat(uint256 indexed testamentId, address indexed owner, uint64 occurredAt);
     event TestamentRevoked(uint256 indexed testamentId, address indexed owner);
     event TestamentReleased(uint256 indexed testamentId, address indexed releasedBy, uint64 occurredAt);
-    event TestamentExecuted(uint256 indexed testamentId, address indexed executedBy, uint256 totalDistributed);
+    /**
+     * @dev Three numbers, not one. A beneficiary that refuses ETH does not abort the payout,
+     *      so what the will allocated and what the Safe actually moved can differ, and the
+     *      record has to say which is which.
+     */
+    event TestamentExecuted(
+        uint256 indexed testamentId,
+        address indexed executedBy,
+        uint256 plannedAmount,
+        uint256 paidAmount,
+        uint256 failedAmount
+    );
 
     // ============ Constructor ============
 
@@ -198,6 +211,11 @@ contract TestamentRegistry is ReentrancyGuard {
 
         uint256 existingSafeId = activeTestamentOfSafe[safe];
         require(existingSafeId == 0, SafeAlreadyHasTestament(safe, existingSafeId));
+
+        // A Safe can grant a mandate and later disable the module. Catching that here keeps
+        // wills that could never be paid out of the registry, instead of letting the owner
+        // find out years after they stopped being able to do anything about it.
+        require(module.isEnabledOn(safe), ModuleNotEnabled(safe));
 
         // The Safe's own mandate, granted by a Safe transaction that cleared its threshold.
         // Enabling a module hands it unrestricted spending authority, so without this check
@@ -330,7 +348,7 @@ contract TestamentRegistry is ReentrancyGuard {
         address[] memory recipients = new address[](SLOTS);
         uint256[] memory amounts = new uint256[](SLOTS);
         uint256 remainingBps = BPS_DENOMINATOR;
-        uint256 totalDistributed;
+        uint256 totalPlanned;
 
         for (uint256 index; index < SLOTS; ++index) {
             uint256 packedSlot = Nox.publicDecrypt(testament.slots[index], decryptionProofs[index]);
@@ -352,8 +370,13 @@ contract TestamentRegistry is ReentrancyGuard {
             uint256 amount = (estateValue * shareBps) / BPS_DENOMINATOR;
             recipients[index] = beneficiary;
             amounts[index] = amount;
-            totalDistributed += amount;
+            totalPlanned += amount;
         }
+
+        // Eight encrypted zeros, or eight zero shares, decrypt to a will that pays nobody.
+        // Spending the single execution on that would record a payout that never happened
+        // and leave a funded Safe behind a spent testament, so it refuses instead.
+        require(totalPlanned > 0, NoValidBequests(testamentId));
 
         // Effects before interactions: beneficiaries can be contracts, and the Safe calls
         // them during distribute.
@@ -362,10 +385,23 @@ contract TestamentRegistry is ReentrancyGuard {
         delete activeTestamentOfSafe[safe];
 
         // The module checks the mandate again, against the Safe's state right now, and
-        // reverts if it has been withdrawn or reassigned since this will was written.
-        module.distribute(safe, testament.owner, testament.authNonce, recipients, amounts);
+        // reverts if it has been withdrawn or reassigned since this will was written. What
+        // comes back is what the Safe actually moved, which is not always what was planned.
+        TestamentModule.DistributionResult memory result = module.distribute(
+            safe,
+            testament.owner,
+            testament.authNonce,
+            recipients,
+            amounts
+        );
 
-        emit TestamentExecuted(testamentId, msg.sender, totalDistributed);
+        emit TestamentExecuted(
+            testamentId,
+            msg.sender,
+            totalPlanned,
+            result.amountPaid,
+            result.amountFailed
+        );
     }
 
     // ============ Views ============
@@ -373,6 +409,37 @@ contract TestamentRegistry is ReentrancyGuard {
     /// @notice Timestamp after which `release` is allowed. Unit: seconds since epoch.
     function deadlineOf(uint256 testamentId) external view returns (uint64) {
         return _deadlineOf(_testaments[testamentId]);
+    }
+
+    /**
+     * @notice Everything standing between a released will and its payout, as four booleans.
+     * @dev The Safe can walk away at any time, by disabling the module or withdrawing the
+     *      mandate, and a will written before that keeps sitting in the registry looking
+     *      alive. The interface and the keeper need to be able to say which of those is
+     *      wrong without simulating a transaction and reading the revert.
+     */
+    function executionReadiness(
+        uint256 testamentId
+    )
+        external
+        view
+        returns (bool moduleEnabled, bool writerAuthorized, bool safeFunded, bool executable)
+    {
+        Testament storage testament = _testaments[testamentId];
+        address safe = testament.safe;
+        if (safe == address(0)) {
+            return (false, false, false, false);
+        }
+
+        moduleEnabled = module.isEnabledOn(safe);
+        (address writer, uint32 nonce) = module.authorizationOf(safe);
+        writerAuthorized = writer == testament.owner && nonce == testament.authNonce;
+        safeFunded = safe.balance > 0;
+        executable =
+            testament.state == TestamentState.Released &&
+            moduleEnabled &&
+            writerAuthorized &&
+            safeFunded;
     }
 
     /// @notice Whether the silence has already outlasted interval + grace.

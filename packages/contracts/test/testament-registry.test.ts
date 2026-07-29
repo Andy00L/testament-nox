@@ -11,6 +11,8 @@ import {
 } from "@testament/shared";
 import { getAddress, parseEther, zeroAddress, type Hex } from "viem";
 
+import { deployTestamentSystem } from "../lib/deployment.ts";
+
 import {
   DEFAULT_ESTATE_WEI,
   TEST_GRACE_SECONDS,
@@ -381,6 +383,57 @@ describe("TestamentRegistry", () => {
           fixture.registry.write.execute([testamentId, proofs]),
           /AuthorizationRotated/,
         );
+      },
+    );
+
+    it(
+      "refuses a will once the Safe has disabled the module",
+      { timeout: TEST_TIMEOUT_MS },
+      async () => {
+        const fixture = await deployTestamentFixture();
+        const [, beneficiaryA] = fixture.walletClients;
+        if (beneficiaryA === undefined) throw new Error("missing beneficiary wallet");
+
+        const disableHash = await fixture.safe.write.disableModule([fixture.module.address]);
+        await fixture.publicClient.waitForTransactionReceipt({ hash: disableHash });
+
+        // The mandate survives a disabled module, but a will written now could never be
+        // paid, so it is refused at the door rather than years after the owner is gone.
+        await assert.rejects(
+          writeTestament(fixture, {
+            bequests: [{ beneficiary: beneficiaryA.account.address, shareBps: 10_000 }],
+          }),
+          /ModuleNotEnabled/,
+        );
+      },
+    );
+
+    it(
+      "does not carry a mandate over to a freshly deployed pair",
+      { timeout: TEST_TIMEOUT_MS },
+      async () => {
+        const fixture = await deployTestamentFixture();
+
+        // A mandate lives on one module, and each registry is welded to one module at
+        // construction. Redeploying the pair therefore starts every Safe back at no mandate,
+        // which is what stops an authorization outliving the code it was granted against.
+        const second = await deployTestamentSystem(
+          fixture.viem,
+          fixture.publicClient,
+          fixture.ownerWallet.account.address,
+        );
+        if (!second.ok) throw new Error(`second deployment failed: ${second.failure.reason}`);
+
+        const secondModule = await fixture.viem.getContractAt(
+          "TestamentModule",
+          second.deployment.moduleAddress,
+        );
+        const [writer, nonce] = (await secondModule.read.authorizationOf([
+          fixture.safe.address,
+        ])) as readonly [string, number];
+
+        assert.equal(writer, zeroAddress);
+        assert.equal(nonce, 0);
       },
     );
 
@@ -821,6 +874,135 @@ describe("TestamentRegistry", () => {
       await fixture.publicClient.waitForTransactionReceipt({ hash: executeHash });
 
       assert.equal(await fixture.registry.read.activeTestamentOfSafe([fixture.safe.address]), 0n);
+    });
+
+    it(
+      "records what the Safe actually paid, not what the will planned",
+      { timeout: TEST_TIMEOUT_MS },
+      async () => {
+        const fixture = await deployTestamentFixture();
+        const [, beneficiaryA] = fixture.walletClients;
+        if (beneficiaryA === undefined) throw new Error("missing beneficiary wallet");
+
+        const rejectingReceiver = await fixture.viem.deployContract("RejectingReceiver", []);
+
+        const testamentId = await writeTestament(fixture, {
+          rawSlots: padRawSlots([
+            packBequest({ beneficiary: beneficiaryA.account.address, shareBps: 6000 }),
+            packBequest({ beneficiary: rejectingReceiver.address, shareBps: 4000 }),
+          ]),
+        });
+
+        await fixture.networkHelpers.time.increase(PAST_DEADLINE_SECONDS);
+        const releaseHash = await fixture.registry.write.release([testamentId]);
+        await fixture.publicClient.waitForTransactionReceipt({ hash: releaseHash });
+
+        const slotHandles = await readSlotHandles(fixture, testamentId);
+        await waitForHandlesResolved(slotHandles);
+        const proofs = await fetchSlotProofs(slotHandles);
+
+        const executeHash = await fixture.registry.write.execute([testamentId, proofs]);
+        const receipt = await fixture.publicClient.waitForTransactionReceipt({ hash: executeHash });
+
+        const [executed] = await fixture.publicClient.getLogs({
+          address: fixture.registry.address,
+          event: {
+            type: "event",
+            name: "TestamentExecuted",
+            inputs: [
+              { name: "testamentId", type: "uint256", indexed: true },
+              { name: "executedBy", type: "address", indexed: true },
+              { name: "plannedAmount", type: "uint256", indexed: false },
+              { name: "paidAmount", type: "uint256", indexed: false },
+              { name: "failedAmount", type: "uint256", indexed: false },
+            ],
+          },
+          fromBlock: receipt.blockNumber,
+          toBlock: receipt.blockNumber,
+        });
+        if (executed === undefined) throw new Error("missing TestamentExecuted event");
+
+        // The refusing heir's share is reported as failed and never folded into the paid
+        // total. A will that reached three heirs out of four must not go on record as four.
+        assert.equal(executed.args.plannedAmount, DEFAULT_ESTATE_WEI);
+        assert.equal(executed.args.paidAmount, computePayout(DEFAULT_ESTATE_WEI, 6000));
+        assert.equal(executed.args.failedAmount, computePayout(DEFAULT_ESTATE_WEI, 4000));
+      },
+    );
+
+    it("refuses a will that pays nobody", { timeout: TEST_TIMEOUT_MS }, async () => {
+      const fixture = await deployTestamentFixture();
+
+      // Eight encrypted zeros: a broken client, or a deliberate attempt to spend the one
+      // execution a testament gets and strand a funded Safe behind a spent will.
+      const testamentId = await writeTestament(fixture, { rawSlots: padRawSlots([]) });
+
+      await fixture.networkHelpers.time.increase(PAST_DEADLINE_SECONDS);
+      const releaseHash = await fixture.registry.write.release([testamentId]);
+      await fixture.publicClient.waitForTransactionReceipt({ hash: releaseHash });
+
+      const slotHandles = await readSlotHandles(fixture, testamentId);
+      await waitForHandlesResolved(slotHandles);
+      const proofs = await fetchSlotProofs(slotHandles);
+
+      await assert.rejects(
+        fixture.registry.write.execute([testamentId, proofs]),
+        /NoValidBequests/,
+      );
+      assert.equal(
+        await fixture.publicClient.getBalance({ address: fixture.safe.address }),
+        DEFAULT_ESTATE_WEI,
+      );
+    });
+  });
+
+  describe("executionReadiness", () => {
+    it("reports a released will that is ready to pay", { timeout: TEST_TIMEOUT_MS }, async () => {
+      const fixture = await deployTestamentFixture();
+      const { testamentId } = await releaseDefaultTestament(fixture);
+
+      const readiness = (await fixture.registry.read.executionReadiness([
+        testamentId,
+      ])) as readonly boolean[];
+      assert.deepEqual([...readiness], [true, true, true, true]);
+    });
+
+    it("names the disabled module as the blocker", { timeout: TEST_TIMEOUT_MS }, async () => {
+      const fixture = await deployTestamentFixture();
+      const { testamentId } = await releaseDefaultTestament(fixture);
+
+      const disableHash = await fixture.safe.write.disableModule([fixture.module.address]);
+      await fixture.publicClient.waitForTransactionReceipt({ hash: disableHash });
+
+      const [moduleEnabled, writerAuthorized, , executable] =
+        (await fixture.registry.read.executionReadiness([testamentId])) as readonly boolean[];
+      assert.equal(moduleEnabled, false);
+      assert.equal(writerAuthorized, true);
+      assert.equal(executable, false);
+    });
+
+    it("names the withdrawn mandate as the blocker", { timeout: TEST_TIMEOUT_MS }, async () => {
+      const fixture = await deployTestamentFixture();
+      const { testamentId } = await releaseDefaultTestament(fixture);
+
+      await revokeWriterOnSafe(fixture);
+
+      const [moduleEnabled, writerAuthorized, , executable] =
+        (await fixture.registry.read.executionReadiness([testamentId])) as readonly boolean[];
+      assert.equal(moduleEnabled, true);
+      assert.equal(writerAuthorized, false);
+      assert.equal(executable, false);
+    });
+
+    it("names an empty estate as the blocker", { timeout: TEST_TIMEOUT_MS }, async () => {
+      const fixture = await deployTestamentFixture({ estateWei: 0n });
+      const { testamentId } = await releaseDefaultTestament(fixture);
+
+      const [, , safeFunded, executable] = (await fixture.registry.read.executionReadiness([
+        testamentId,
+      ])) as readonly boolean[];
+      assert.equal(safeFunded, false);
+      assert.equal(executable, false);
     });
   });
 
