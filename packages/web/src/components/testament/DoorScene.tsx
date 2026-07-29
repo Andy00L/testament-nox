@@ -14,11 +14,11 @@ import { useAccount, useBalance, usePublicClient, useWalletClient } from "wagmi"
 
 import { useCurtain } from "@/components/scene/CurtainStage";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
+import { describeWriteFailure } from "@/lib/describe-failure";
 import { buildAddressUrl, buildTransactionUrl, readDeployment, shortenAddress } from "@/lib/chain";
 import { formatRemaining } from "@/lib/i18n";
 import { useNowSeconds, useTestamentById } from "@/lib/testament-read";
 import {
-  describeWriteFailure,
   executeTestament,
   readReleasedWill,
   releaseTestament,
@@ -82,13 +82,16 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
       if (result.ok) {
         setWill(result.value);
       } else {
-        setErrorMessage(describeWriteFailure(result.failure));
+        setErrorMessage(describeWriteFailure(result.failure, copy));
       }
     });
     return () => {
       isCurrent = false;
     };
-  }, [isReleased, slotHandles, will]);
+    // `copy` is a dependency because a failure is rendered in the reader's language: switching
+    // language while an error is showing re-reads it and retranslates. Once the will has
+    // loaded the guard above makes the rerun free.
+  }, [isReleased, slotHandles, will, copy]);
 
   if (!deployment.isDeployed) {
     return <p className="type-body text-ink-faint">{copy.door.notConfigured}</p>;
@@ -145,7 +148,7 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
       setActionTransaction(result.value);
       refetch();
     } else {
-      setErrorMessage(describeWriteFailure(result.failure));
+      setErrorMessage(describeWriteFailure(result.failure, copy));
     }
   };
 
@@ -168,7 +171,7 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
       setActionTransaction(result.value);
       refetch();
     } else {
-      setErrorMessage(describeWriteFailure(result.failure));
+      setErrorMessage(describeWriteFailure(result.failure, copy));
     }
   };
 

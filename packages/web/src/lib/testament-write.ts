@@ -3,7 +3,6 @@ import {
   buildAuthorizeWriterTransaction,
   buildEnableModuleTransaction,
   collectDecryptionProofs,
-  describePackFailure,
   encryptTestamentSlots,
   isPaddedBequest,
   packBequests,
@@ -13,6 +12,7 @@ import {
   testamentRegistryAbi,
   unpackBequest,
   type Bequest,
+  type PackBequestsFailure,
 } from "@testament/shared";
 import { zeroAddress, type Address, type Hex, type PublicClient, type WalletClient } from "viem";
 
@@ -27,26 +27,24 @@ import { createReadOnlyHandleClient } from "@/lib/nox-client";
  * hides the beneficiary count is produced in the same pass as the real slots.
  */
 
+/** The on-chain gesture a failure belongs to, so the interface can name what went wrong. */
+export type WriteStep = "seal" | "enable-module" | "authorize-writer" | "release" | "execute";
+
+/**
+ * Failures carry reasons and raw detail, never finished sentences.
+ *
+ * Copy belongs to the language layer: a message baked in here would arrive in one language
+ * whatever the page is set to, which is exactly the bug this shape prevents. `detail` is the
+ * untranslatable part, a wallet or gateway string quoted verbatim.
+ */
 export type WriteFailure =
   | { reason: "not-connected" }
-  | { reason: "invalid-will"; message: string }
-  | { reason: "encryption-failed"; message: string }
-  | { reason: "transaction-failed"; message: string };
+  | { reason: "invalid-will"; packFailure: PackBequestsFailure }
+  | { reason: "encryption-failed"; slotIndex: number | null; detail: string }
+  | { reason: "rejected"; step: WriteStep }
+  | { reason: "transaction-failed"; detail: string };
 
 export type WriteResult<TValue> = { ok: true; value: TValue } | { ok: false; failure: WriteFailure };
-
-export function describeWriteFailure(failure: WriteFailure): string {
-  switch (failure.reason) {
-    case "not-connected":
-      return "Connectez un portefeuille pour continuer.";
-    case "invalid-will":
-      return failure.message;
-    case "encryption-failed":
-      return `Le chiffrement a échoué : ${failure.message}`;
-    case "transaction-failed":
-      return failure.message;
-  }
-}
 
 /**
  * Encrypts a will slot by slot and seals it on-chain.
@@ -83,7 +81,7 @@ export async function sealTestament({
   if (!packed.ok) {
     return {
       ok: false,
-      failure: { reason: "invalid-will", message: describePackFailure(packed.failure) },
+      failure: { reason: "invalid-will", packFailure: packed.failure },
     };
   }
 
@@ -101,14 +99,15 @@ export async function sealTestament({
         ok: false,
         failure: {
           reason: "encryption-failed",
-          message: `emplacement ${encrypted.failure.slotIndex + 1} : ${encrypted.failure.message}`,
+          slotIndex: encrypted.failure.slotIndex,
+          detail: encrypted.failure.message,
         },
       };
     }
     encryptedHandles = encrypted.encryptions.handles;
     encryptedProofs = encrypted.encryptions.proofs;
   } catch (error) {
-    return { ok: false, failure: { reason: "encryption-failed", message: describeError(error) } };
+    return { ok: false, failure: { reason: "encryption-failed", slotIndex: null, detail: describeError(error) } };
   }
 
   onProgress?.("signing");
@@ -128,12 +127,12 @@ export async function sealTestament({
     if (receipt.status !== "success") {
       return {
         ok: false,
-        failure: { reason: "transaction-failed", message: "La transaction a été rejetée." },
+        failure: { reason: "rejected", step: "seal" },
       };
     }
     return { ok: true, value: transactionHash };
   } catch (error) {
-    return { ok: false, failure: { reason: "transaction-failed", message: describeError(error) } };
+    return { ok: false, failure: { reason: "transaction-failed", detail: describeError(error) } };
   }
 }
 
@@ -172,16 +171,12 @@ export async function enableModuleOnSafe({
     if (receipt.status !== "success") {
       return {
         ok: false,
-        failure: {
-          reason: "transaction-failed",
-          message:
-            "Le Safe a rejeté l'activation. Vérifiez que le portefeuille connecté est bien propriétaire du Safe et que le seuil est de 1.",
-        },
+        failure: { reason: "rejected", step: "enable-module" },
       };
     }
     return { ok: true, value: transactionHash };
   } catch (error) {
-    return { ok: false, failure: { reason: "transaction-failed", message: describeError(error) } };
+    return { ok: false, failure: { reason: "transaction-failed", detail: describeError(error) } };
   }
 }
 
@@ -229,16 +224,12 @@ export async function authorizeWriterOnSafe({
     if (receipt.status !== "success") {
       return {
         ok: false,
-        failure: {
-          reason: "transaction-failed",
-          message:
-            "Le Safe a rejeté la désignation. Vérifiez que le module est activé, que le portefeuille connecté est propriétaire du Safe et que le seuil est de 1.",
-        },
+        failure: { reason: "rejected", step: "authorize-writer" },
       };
     }
     return { ok: true, value: transactionHash };
   } catch (error) {
-    return { ok: false, failure: { reason: "transaction-failed", message: describeError(error) } };
+    return { ok: false, failure: { reason: "transaction-failed", detail: describeError(error) } };
   }
 }
 
@@ -336,12 +327,12 @@ export async function releaseTestament({
     if (receipt.status !== "success") {
       return {
         ok: false,
-        failure: { reason: "transaction-failed", message: "L'ouverture a été rejetée." },
+        failure: { reason: "rejected", step: "release" },
       };
     }
     return { ok: true, value: transactionHash };
   } catch (error) {
-    return { ok: false, failure: { reason: "transaction-failed", message: describeError(error) } };
+    return { ok: false, failure: { reason: "transaction-failed", detail: describeError(error) } };
   }
 }
 
@@ -386,13 +377,14 @@ export async function executeTestament({
         ok: false,
         failure: {
           reason: "encryption-failed",
-          message: `emplacement ${collected.failure.slotIndex + 1} : ${collected.failure.message}`,
+          slotIndex: collected.failure.slotIndex,
+          detail: collected.failure.message,
         },
       };
     }
     proofs = collected.proofs;
   } catch (error) {
-    return { ok: false, failure: { reason: "encryption-failed", message: describeError(error) } };
+    return { ok: false, failure: { reason: "encryption-failed", slotIndex: null, detail: describeError(error) } };
   }
 
   try {
@@ -408,12 +400,12 @@ export async function executeTestament({
     if (receipt.status !== "success") {
       return {
         ok: false,
-        failure: { reason: "transaction-failed", message: "Le paiement a été rejeté." },
+        failure: { reason: "rejected", step: "execute" },
       };
     }
     return { ok: true, value: transactionHash };
   } catch (error) {
-    return { ok: false, failure: { reason: "transaction-failed", message: describeError(error) } };
+    return { ok: false, failure: { reason: "transaction-failed", detail: describeError(error) } };
   }
 }
 
@@ -441,6 +433,6 @@ export async function readReleasedWill({
     );
     return { ok: true, value: decrypted.filter((bequest) => !isPaddedBequest(bequest)) };
   } catch (error) {
-    return { ok: false, failure: { reason: "encryption-failed", message: describeError(error) } };
+    return { ok: false, failure: { reason: "encryption-failed", slotIndex: null, detail: describeError(error) } };
   }
 }

@@ -6,7 +6,6 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   BPS_DENOMINATOR,
   SLOT_COUNT,
-  describePackFailure,
   packBequests,
   testamentRegistryAbi,
 } from "@testament/shared";
@@ -22,9 +21,9 @@ import { useSound } from "@/components/scene/SoundProvider";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import type { Copy } from "@/lib/i18n";
 import { buildTransactionUrl, readDeployment } from "@/lib/chain";
+import { describePackFailureIn, describeWriteFailure } from "@/lib/describe-failure";
 import {
   authorizeWriterOnSafe,
-  describeWriteFailure,
   enableModuleOnSafe,
   readModuleEnabled,
   readSafeWriter,
@@ -172,7 +171,7 @@ export function WritePanel() {
     };
   }, [deployment, publicClient, safeAddress, address, consentTransaction]);
 
-  const validation = validateDraft({ drafts, safeAddress, intervalSeconds, graceSeconds });
+  const validation = validateDraft({ drafts, safeAddress, intervalSeconds, graceSeconds, copy });
 
   /**
    * The Safe's two consents, in the order it grants them. Enabling the module hands the
@@ -217,7 +216,7 @@ export function WritePanel() {
 
     if (!result.ok) {
       setStage("idle");
-      setErrorMessage(describeWriteFailure(result.failure));
+      setErrorMessage(describeWriteFailure(result.failure, copy));
       return;
     }
 
@@ -246,7 +245,7 @@ export function WritePanel() {
 
     setIsEnablingModule(false);
     if (!result.ok) {
-      setErrorMessage(describeWriteFailure(result.failure));
+      setErrorMessage(describeWriteFailure(result.failure, copy));
       return;
     }
     setConsentTransaction(result.value);
@@ -272,7 +271,7 @@ export function WritePanel() {
 
     setIsNamingWriter(false);
     if (!result.ok) {
-      setErrorMessage(describeWriteFailure(result.failure));
+      setErrorMessage(describeWriteFailure(result.failure, copy));
       return;
     }
     setConsentTransaction(result.value);
@@ -546,24 +545,26 @@ function validateDraft({
   safeAddress,
   intervalSeconds,
   graceSeconds,
+  copy,
 }: {
   drafts: readonly BequestDraft[];
   safeAddress: string;
   intervalSeconds: string;
   graceSeconds: string;
+  copy: Copy;
 }): Validation {
   if (!isAddress(safeAddress)) {
-    return { ok: false, message: "Renseignez l'adresse du Safe." };
+    return { ok: false, message: copy.errors.safeAddressRequired };
   }
 
   const parsedInterval = Number(intervalSeconds);
   if (!Number.isInteger(parsedInterval) || parsedInterval < MIN_INTERVAL_SECONDS) {
-    return { ok: false, message: `L'intervalle doit valoir au moins ${MIN_INTERVAL_SECONDS} secondes.` };
+    return { ok: false, message: copy.errors.intervalTooShort(MIN_INTERVAL_SECONDS) };
   }
 
   const parsedGrace = Number(graceSeconds);
   if (!Number.isInteger(parsedGrace) || parsedGrace < 0) {
-    return { ok: false, message: "Le délai de grâce doit être un nombre de secondes." };
+    return { ok: false, message: copy.errors.graceInvalid };
   }
 
   const bequests = drafts
@@ -577,7 +578,7 @@ function validateDraft({
   // rather than re-deriving the rules and drifting from the contract.
   const packed = packBequests(bequests);
   if (!packed.ok) {
-    return { ok: false, message: describePackFailure(packed.failure) };
+    return { ok: false, message: describePackFailureIn(packed.failure, copy) };
   }
 
   return {
