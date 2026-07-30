@@ -59,8 +59,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                   className="pointer-events-none fixed bottom-5 right-6 sm:bottom-6 sm:right-10"
                   style={{ zIndex: "var(--layer-nav)" }}
                 >
-                  {/* On the plaque's paper, so it stays legible over the illustration. */}
-                  <div className="panel pointer-events-auto px-3 py-1.5">
+                  {/* The toggle carries its own wavy ink frame; the small-type relief keeps
+                      the label legible over the mat without a paper pill behind it. */}
+                  <div className="pointer-events-auto">
                     <SoundToggle />
                   </div>
                 </div>

@@ -3,10 +3,12 @@ import type { ReactNode } from "react";
 
 /**
  * The way through. A doorway link rather than a button: a brush stroke that ends in a
- * slight hook, set beside display type.
+ * slight hook, held in the wavy ink frame (`/ui/ink-frame.svg`), the same frame that holds
+ * the sound toggle: the mark of a quiet way sideways, as opposed to the ink keys that
+ * commit something.
  *
- * On hover the mark travels and the ink lifts. It does not grow an underline, does not
- * lift the whole control off the page, and does not carry the stock right-pointing arrow.
+ * On hover the mark travels, the ink lifts, and the frame rises its two pixels. No grown
+ * underline, no stock right-pointing arrow.
  */
 export function PassageLink({
   href,
@@ -22,9 +24,16 @@ export function PassageLink({
   return (
     <Link
       href={href}
-      className={`group inline-flex items-baseline gap-3 transition-colors duration-(--dur-small) ease-(--ease-standard) ${
-        isPrimary ? "type-title text-ink hover:text-bronze" : "type-small text-ink-muted hover:text-ink"
+      className={`group inline-flex items-baseline gap-3 transition-all duration-(--dur-small) ease-(--ease-standard) hover:-translate-y-0.5 ${
+        isPrimary
+          ? "type-title px-4 py-2.5 text-ink hover:text-bronze"
+          : "type-small px-3.5 py-2 text-ink-muted hover:text-ink"
       }`}
+      style={{
+        backgroundImage: 'url("/ui/ink-frame.svg")',
+        backgroundSize: "100% 100%",
+        backgroundRepeat: "no-repeat",
+      }}
     >
       <span>{children}</span>
       <svg

@@ -188,15 +188,24 @@ own darkest value, never pure black, and is directional, never a symmetric halo.
 never nest on panels: a well inside a panel uses `--color-field-sunk` with an inset ring
 and no cast.
 
-**Sunk means you write into it, proud means you press it.** This is the one distinction the
-system was missing, and its absence is what live testing found: a field and a button were the
-same carved recess, so nothing announced itself as pressable and pressing produced no before
-and after. Fields stay wells (`.panel-well`). Every control is a key (`.key`): the same paper,
-standing proud of the panel on a tight directional cast, that goes flush when pressed. The cast
-disappears, the lip inverts into a recess, the fill warms to `--color-field-warm` and the label
-travels one pixel down with it. Rest, hover and press are three readings you can tell apart
-from a still image, which is the bar. A refused control is sunk from the start, so it never
-looked pressable in the first place.
+**Sunk means you write into it, ink means you press it.** Fields stay wells (`.panel-well`).
+Every key (`.key`) is a patch of laid ink: `--key-surface` (the palette's own two darks,
+top-lit) behind a hand-wavered silhouette applied as a CSS mask (`public/ui/ink-key.svg`,
+sourceRef in the file: the wavy patch behind the Play button at marinabudarina.github.io/chimes,
+asked for by name). The label sits in the paper's own light (`--color-field-raised`), so on a
+page made entirely of cream the pressable things are the darkest objects in sight, found at a
+glance: paper-on-paper keys kept being read as furniture, and this is the correction. Hover
+lifts the ink toward the light (`brightness(1.14)`, the reference's own hover) and runs the
+sheen; press goes flush (translateY(1px), the cast gone, the ink dimmed); a refused key is the
+same patch washed out to `--color-field-sunk`, so "not now" reads as faded rather than
+invisible. The cast is a drop-shadow filter because a shadow has to follow the wavered edge.
+
+**The wavy ink frame marks the quiet ways sideways.** `public/ui/ink-frame.svg` (sourceRef in
+the file: the frame around the same site's country selectors, drawn in this palette's own
+ink-muted) is stretched behind exactly two kinds of control: the passage links (a way to
+another page) and the sound toggle (an ambient control on the scene). Framed means "this
+changes where you are or what surrounds you"; ink patch means "this commits something".
+Neither treatment ever appears on the other's job.
 
 The seal keeps its own recess, because the stone goes into it rather than standing on it:
 hovering lifts the stone off the floor, pressing puts it back down. Same physics, one control's
@@ -206,9 +215,9 @@ own version of it.
 travelling back on hover-out, because light does not rewind. This is where the product spends
 its specular sweep: on the objects you press, transform and opacity only, quiet enough to read
 as lacquer answering the pointer rather than as an effect with a name. It lives on a real child
-(`.key-sheen`, rendered by `components/ui/Key.tsx`) because the chamfer has to stand still
-while the band travels; every key therefore goes through the Key component rather than
-hand-writing the class.
+(`.key-sheen`, rendered by `components/ui/Key.tsx`) because the silhouette mask has to stand
+still while the band travels; every key therefore goes through the Key component rather than
+hand-writing the class. Over the ink surface the band reads as lamplight raking lacquer.
 
 **The beckon: the page's one next act, named by the material.** `.key-beckon` (a prop on the
 Key component) marks the single control the chain is waiting on: a bronze inset ring that holds
@@ -330,13 +339,13 @@ edge, drawn as SVG, pressed onto the panel at the moment of signing. Placement r
 most one seal per screen, only on an irreversible action, always at the point of
 commitment.
 
-**One geometry, on every key: the chamfered corner.** The key is cut top-left and
-bottom-right, the 委角 of a lacquer panel, so this product's pressable things share a shape no
-component kit ships. It is one polygon in `globals.css`, applied to the key's surface and to
-anything inlaid into it (`.key-inlay`, for the heartbeat charge and the copy wash) so the cut
-never disagrees with itself. The cast is a `drop-shadow` filter rather than a `box-shadow`,
-because a shadow has to follow a cut silhouette; the handscroll and the carved frames do the
-same for the same reason.
+**One silhouette, on every key: the wavered ink edge.** The key's mask (`/ui/ink-key.svg`)
+is one shape shared by the surface and everything inlaid into it (`.key-inlay`, for the
+heartbeat charge and the copy wash), so the cut never disagrees with itself. It replaced the
+earlier chamfered-corner polygon when the keys became laid ink: a brush edge no component kit
+ships, on every pressable thing at once. The cast is a `drop-shadow` filter rather than a
+`box-shadow`, because a shadow has to follow the wavered edge; the handscroll and the carved
+frames do the same for the same reason.
 
 **The Safe mark, where a Safe is named.** `components/ui/SafeMark.tsx` carries Safe's own
 glyph, taken verbatim from their brand asset and cropped to the mark, rendered in

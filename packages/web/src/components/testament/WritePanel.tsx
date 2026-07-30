@@ -135,7 +135,12 @@ export function WritePanel() {
    */
   type SafeCheck =
     | { safeAddress: string; unreadable: true }
-    | { safeAddress: string; moduleEnabled: boolean; writer: Address | null };
+    | {
+        safeAddress: string;
+        moduleEnabled: boolean;
+        writer: Address | null;
+        isMandateSpent: boolean;
+      };
   const [safeCheck, setSafeCheck] = useState<SafeCheck | null>(null);
   /**
    * Bumped by the "check again" affordance. A failed read is an answer the reader can ask to
@@ -209,12 +214,18 @@ export function WritePanel() {
   const isModuleEnabled = safeAnswer === null ? null : safeAnswer.moduleEnabled;
   /**
    * Being named is per wallet, not per Safe: a Safe that named someone else has a mandate,
-   * just not this one, and the registry will refuse this wallet's will either way.
+   * just not this one, and the registry will refuse this wallet's will either way. A spent
+   * mandate counts as not named, because one authorization buys one will: after a testament
+   * executes, the hand has to be named again, and a step reading "done" here left the owner
+   * with a seal saying "mandate spent" and nothing to press.
    */
   const isWriterNamed =
     safeAnswer === null || address === undefined
       ? null
-      : safeAnswer.writer !== null && safeAnswer.writer.toLowerCase() === address.toLowerCase();
+      : safeAnswer.writer !== null &&
+        safeAnswer.writer.toLowerCase() === address.toLowerCase() &&
+        !safeAnswer.isMandateSpent;
+  const isMandateSpent = safeAnswer !== null && safeAnswer.isMandateSpent;
 
   /**
    * External system: the Safe contract and the module.
@@ -239,6 +250,7 @@ export function WritePanel() {
     const checkedAddress = safeAddress as Address;
     void readSafeConsentsPatiently({
       publicClient,
+      registryAddress: deployment.addresses.registry,
       safeAddress: checkedAddress,
       moduleAddress: deployment.addresses.module,
     }).then((read) => {
@@ -301,7 +313,10 @@ export function WritePanel() {
     if (!isModuleEnabled) {
       return copy.write.sealNeedsModule;
     }
-    return isWriterNamed ? null : copy.write.sealNeedsWriter;
+    if (isWriterNamed) {
+      return null;
+    }
+    return isMandateSpent ? copy.errors.sealAuthorizationUsed : copy.write.sealNeedsWriter;
   })();
 
   const handleSeal = async () => {
@@ -364,6 +379,7 @@ export function WritePanel() {
     const result = await enableModuleOnSafe({
       walletClient,
       publicClient,
+      registryAddress: deployment.addresses.registry,
       safeAddress: checkedSafeAddress,
       moduleAddress: deployment.addresses.module,
     });
@@ -397,6 +413,7 @@ export function WritePanel() {
     const result = await authorizeWriterOnSafe({
       walletClient,
       publicClient,
+      registryAddress: deployment.addresses.registry,
       safeAddress: checkedSafeAddress,
       moduleAddress: deployment.addresses.module,
     });
@@ -655,6 +672,7 @@ export function WritePanel() {
                 isSafeUnreadable,
                 isModuleEnabled,
                 isWriterNamed,
+                isMandateSpent,
                 copy,
               })}
             />
@@ -844,6 +862,7 @@ function resolveVaultHint({
   isSafeUnreadable,
   isModuleEnabled,
   isWriterNamed,
+  isMandateSpent,
   copy,
 }: {
   vault: TestamentVault;
@@ -852,6 +871,7 @@ function resolveVaultHint({
   isSafeUnreadable: boolean;
   isModuleEnabled: boolean | null;
   isWriterNamed: boolean | null;
+  isMandateSpent: boolean;
   copy: Copy;
 }): string {
   // The vault's own existence comes first: a derived vault with no code yet has one honest
@@ -889,7 +909,12 @@ function resolveVaultHint({
   if (!isModuleEnabled) {
     return copy.write.safeHintModuleMissing;
   }
-  return isWriterNamed === true ? copy.write.safeHintReady : copy.write.safeHintWriterMissing;
+  if (isWriterNamed === true) {
+    return copy.write.safeHintReady;
+  }
+  // A spent mandate is not a missing one: the hand was named, its will has been written and
+  // settled, and the Safe simply has to say yes again before another can be drawn on it.
+  return isMandateSpent ? copy.write.safeHintMandateSpent : copy.write.safeHintWriterMissing;
 }
 
 /**

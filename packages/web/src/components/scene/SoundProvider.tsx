@@ -85,7 +85,12 @@ export function SoundProvider({ children }: { children: ReactNode }) {
   return <SoundContext.Provider value={controls}>{children}</SoundContext.Provider>;
 }
 
-/** The one control that turns the chimes on. Deliberately quiet and out of the way. */
+/**
+ * The one control that turns the chimes on. Deliberately quiet and out of the way, held in
+ * the wavy ink frame (`/ui/ink-frame.svg`) rather than a paper pill: the frame's job across
+ * this product is marking the ambient controls that live on the scene itself, and a control
+ * about wind chimes is the first thing it belongs around.
+ */
 export function SoundToggle() {
   const { isEnabled, toggle } = useSound();
   const { copy } = useTranslation();
@@ -95,7 +100,12 @@ export function SoundToggle() {
       type="button"
       onClick={toggle}
       aria-pressed={isEnabled}
-      className="type-small flex items-center gap-2 text-ink-faint transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+      className="type-small flex items-center gap-2 px-4 py-2.5 text-ink-muted transition-all duration-(--dur-small) ease-(--ease-standard) hover:-translate-y-0.5 hover:text-ink"
+      style={{
+        backgroundImage: 'url("/ui/ink-frame.svg")',
+        backgroundSize: "100% 100%",
+        backgroundRepeat: "no-repeat",
+      }}
     >
       {/* The icon-swap recipe: both marks share one cell and trade places on toggle. */}
       <span className="icon-swap" data-state={isEnabled ? "a" : "b"} aria-hidden="true">

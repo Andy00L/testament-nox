@@ -323,12 +323,14 @@ export type GrantedConsent = { transactionHash: Hex; consents: SafeConsents };
  */
 async function awaitConsent({
   publicClient,
+  registryAddress,
   safeAddress,
   moduleAddress,
   step,
   hasBeenGranted,
 }: {
   publicClient: PublicClient;
+  registryAddress: Address;
   safeAddress: Address;
   moduleAddress: Address;
   step: WriteStep;
@@ -336,7 +338,7 @@ async function awaitConsent({
 }): Promise<WriteResult<SafeConsents>> {
   const attempt = await retryAsync(
     async () => {
-      const read = await readSafeConsents({ publicClient, safeAddress, moduleAddress });
+      const read = await readSafeConsents({ publicClient, registryAddress, safeAddress, moduleAddress });
       if (!read.ok) {
         throw new Error(read.detail);
       }
@@ -368,11 +370,13 @@ async function awaitConsent({
 export async function enableModuleOnSafe({
   walletClient,
   publicClient,
+  registryAddress,
   safeAddress,
   moduleAddress,
 }: {
   walletClient: WalletClient;
   publicClient: PublicClient;
+  registryAddress: Address;
   safeAddress: Address;
   moduleAddress: Address;
 }): Promise<WriteResult<GrantedConsent>> {
@@ -403,6 +407,7 @@ export async function enableModuleOnSafe({
 
   const confirmed = await awaitConsent({
     publicClient,
+    registryAddress,
     safeAddress,
     moduleAddress,
     step: "enable-module",
@@ -427,11 +432,13 @@ export async function enableModuleOnSafe({
 export async function authorizeWriterOnSafe({
   walletClient,
   publicClient,
+  registryAddress,
   safeAddress,
   moduleAddress,
 }: {
   walletClient: WalletClient;
   publicClient: PublicClient;
+  registryAddress: Address;
   safeAddress: Address;
   moduleAddress: Address;
 }): Promise<WriteResult<GrantedConsent>> {
@@ -468,11 +475,16 @@ export async function authorizeWriterOnSafe({
 
   const confirmed = await awaitConsent({
     publicClient,
+    registryAddress,
     safeAddress,
     moduleAddress,
     step: "authorize-writer",
+    // Named, and named freshly: re-authorizing bumps the nonce past the consumed one, so a
+    // read that still shows the spent mandate is a lagging node, not a granted consent.
     hasBeenGranted: (consents) =>
-      consents.writer !== null && consents.writer.toLowerCase() === writerAddress.toLowerCase(),
+      consents.writer !== null &&
+      consents.writer.toLowerCase() === writerAddress.toLowerCase() &&
+      !consents.isMandateSpent,
   });
   return confirmed.ok
     ? { ok: true, value: { transactionHash, consents: confirmed.value } }
@@ -491,6 +503,13 @@ export type SafeConsents = {
   moduleEnabled: boolean;
   /** The address the Safe named as its writer, or null if it has named nobody. */
   writer: Address | null;
+  /**
+   * Whether the standing mandate has already bought a will. One authorization buys one
+   * testament (the registry consumes its nonce at write), so a writer who is still named
+   * but whose mandate is spent has to be re-named before sealing again. Without this bit
+   * the step showed "done", the seal said "mandate spent", and there was no key to press.
+   */
+  isMandateSpent: boolean;
 };
 
 export type SafeConsentsResult =
@@ -508,15 +527,17 @@ export type SafeConsentsResult =
  */
 export async function readSafeConsents({
   publicClient,
+  registryAddress,
   safeAddress,
   moduleAddress,
 }: {
   publicClient: PublicClient;
+  registryAddress: Address;
   safeAddress: Address;
   moduleAddress: Address;
 }): Promise<SafeConsentsResult> {
   try {
-    const [moduleEnabled, authorization] = await Promise.all([
+    const [moduleEnabled, authorization, consumedNonce] = await Promise.all([
       publicClient.readContract({
         address: safeAddress,
         abi: safeManagementAbi,
@@ -529,11 +550,23 @@ export async function readSafeConsents({
         functionName: "authorizationOf",
         args: [safeAddress],
       }),
+      // The registry, not the module, remembers which mandates have already bought a will.
+      // sourceRef: TestamentRegistry.sol, consumedAuthNonce and the write() require on it.
+      publicClient.readContract({
+        address: registryAddress,
+        abi: testamentRegistryAbi,
+        functionName: "consumedAuthNonce",
+        args: [safeAddress],
+      }),
     ]);
-    const [writer] = authorization;
+    const [writer, authNonce] = authorization;
     return {
       ok: true,
-      consents: { moduleEnabled, writer: writer === zeroAddress ? null : writer },
+      consents: {
+        moduleEnabled,
+        writer: writer === zeroAddress ? null : writer,
+        isMandateSpent: writer !== zeroAddress && authNonce <= consumedNonce,
+      },
     };
   } catch (error) {
     return { ok: false, detail: describeThrown(error) };
@@ -550,6 +583,7 @@ export async function readSafeConsents({
  */
 export async function readSafeConsentsPatiently(request: {
   publicClient: PublicClient;
+  registryAddress: Address;
   safeAddress: Address;
   moduleAddress: Address;
 }): Promise<SafeConsentsResult> {

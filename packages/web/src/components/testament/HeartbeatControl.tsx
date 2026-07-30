@@ -156,9 +156,12 @@ export function HeartbeatControl({ testamentId, onSent }: HeartbeatControlProps)
           only the key's own corners are ever cut.
         */}
         <span aria-hidden="true" className="key-inlay pointer-events-none absolute inset-0">
+          {/* Light rising through ink, not bronze over paper: the fill must never cover the
+              label, so it is the paper's own highlight at an alpha the cream type reads over. */}
           <span
-            className="absolute inset-x-0 bottom-0 bg-bronze-sunk"
+            className="absolute inset-x-0 bottom-0"
             style={{
+              background: "rgba(255, 253, 247, 0.22)",
               height: `${chargeProgress * 100}%`,
               transition: isHolding ? "none" : "height var(--dur-standard) var(--ease-exit)",
             }}

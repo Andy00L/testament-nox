@@ -64,25 +64,36 @@ export function HeirEnvelope({
 }: HeirEnvelopeProps) {
   // The pile deals itself: each envelope rises one beat after the one it lands on.
   const dealDelayClass = `anim-d-${Math.min(index + 1, DEAL_DELAY_STEPS)}`;
+  /*
+   * The plate composes around what it holds. Before settlement there is no right column,
+   * and a left-anchored pair of lines in a wide gold window read as a misprint hugging one
+   * edge; alone, the address centres. Once a settlement mark exists the two columns share
+   * the window edge to edge. 2.6cqw is measured against the longest content the plate
+   * carries (a shortened address with the visitor mark, "100 % · 0.0000 ETH", and the retry
+   * label beside them): it clears the window at every width the pile lays out at.
+   */
+  const hasSettlementColumn = settlement !== null;
   const envelope = (
     <CarvedFrame frame="heirEnvelope" maxWidth={ENVELOPE_MAX_WIDTH}>
       {[
         <div
           key="plate"
-          className="flex h-full w-full items-center justify-between gap-[3%] text-left"
+          className={`flex h-full w-full items-center gap-[3%] px-[2%] ${
+            hasSettlementColumn ? "justify-between text-left" : "justify-center text-center"
+          }`}
         >
-          <span className="flex min-w-0 flex-col" style={{ fontSize: "2cqw", lineHeight: 1.35 }}>
+          <span
+            className={`flex min-w-0 flex-col ${hasSettlementColumn ? "" : "items-center"}`}
+            style={{ fontSize: "2.6cqw", lineHeight: 1.4 }}
+          >
             {addressLine}
             {amountLine}
           </span>
-          {settlement === null ? null : (
-            <span
-              className="shrink-0 text-right"
-              style={{ fontSize: "2cqw", lineHeight: 1.35 }}
-            >
+          {hasSettlementColumn ? (
+            <span className="shrink-0 text-right" style={{ fontSize: "2.6cqw", lineHeight: 1.4 }}>
               {settlement}
             </span>
-          )}
+          ) : null}
         </div>,
       ]}
     </CarvedFrame>

@@ -35,7 +35,13 @@ export function SceneHero() {
         on a four-line staircase. The prose underneath keeps its own 46ch measure, so widening
         the column changes the headline and nothing else.
       */}
-      <div className="mt-auto flex max-w-[58rem] flex-col gap-5 pb-10 pt-[16vh] sm:gap-6 sm:pb-14">
+      {/*
+        The top padding clears the eave by construction: it is the roof band's own clamp
+        (Eave.tsx ROOF_BAND) plus a breath. A plain 16vh cleared it only while the column was
+        short; connected, the status stack grows the column past the viewport, `mt-auto`
+        stops mattering, and the headline rode up under the roof on wide short windows.
+      */}
+      <div className="mt-auto flex max-w-[58rem] flex-col gap-5 pb-10 pt-[calc(clamp(96px,19vh,210px)+1.5rem)] sm:gap-6 sm:pb-14">
         <h1 className="type-display-hero">
           <span className="anim-rise anim-d-2 block">{copy.scene.headlineFirst}</span>
           <span className="anim-rise anim-d-3 block">{copy.scene.headlineSecond}</span>

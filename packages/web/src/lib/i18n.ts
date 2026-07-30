@@ -115,6 +115,8 @@ const french = {
     safeHintWriterMissing:
       "Le passage est ouvert. Le Safe doit encore désigner ce portefeuille comme sa plume.",
     safeHintReady: "Le passage est ouvert et ce portefeuille est la plume désignée.",
+    safeHintMandateSpent:
+      "Le mandat de ce Safe a servi pour son dernier testament. Nommez la plume à nouveau.",
     safeHintUnreadable:
       "Impossible de lire l'état de ce Safe. Vérifiez l'adresse et le réseau.",
     intervalLabel: "Intervalle",
@@ -408,6 +410,8 @@ const english: typeof french = {
     safeHintWriterMissing:
       "The passage is open. The Safe still has to name this wallet as its hand.",
     safeHintReady: "The passage is open and this wallet is the named hand.",
+    safeHintMandateSpent:
+      "This Safe's mandate was spent by its last testament. Name the hand again.",
     safeHintUnreadable: "This Safe's state could not be read. Check the address and the network.",
     intervalLabel: "Interval",
     intervalHint: (minimum: number) => `Between two signs of life. Minimum ${minimum} s.`,

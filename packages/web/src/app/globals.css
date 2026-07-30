@@ -89,6 +89,12 @@
    * front, so every shadow agrees and every lip catches the same highlight.
    */
   --panel-surface: linear-gradient(180deg, #fffdf7 0%, #fdf7ea 100%);
+  /*
+   * The key's ink: the palette's own two darks, top-lit. Both values are the ink steps
+   * from the @theme block above, restated here because a gradient cannot be composed in
+   * @theme; change them together or the material splits from the type it carries.
+   */
+  --key-surface: linear-gradient(180deg, #58423c 0%, #3a2d2a 100%);
   --panel-lip: inset 0 1px 0 rgba(255, 255, 255, 0.9);
   /* The same catch, at type scale: what the light does just under a pressed stroke. */
   --relief-catch: rgba(255, 253, 247, 0.85);
@@ -287,32 +293,31 @@ body {
 }
 
 /*
- * The key: the one pressable surface in this product.
+ * The key: the one pressable surface in this product, drawn as a pressed ink patch.
  *
- * The problem it fixes is that everything used to be a well. A field you type into and a
- * button you press were the same carved recess, so nothing on the page announced itself as
- * pressable, and pressing it produced no before and after. Testing found exactly that: the
- * consents read as inert grey boxes and the seal looked like it did nothing.
+ * The problem the material solves is visibility. Paper-on-paper keys read as furniture:
+ * testing kept asking where the buttons were on a page made of the same cream everywhere.
+ * So a key is now a patch of ink laid on the paper, the darkest thing on any screen it
+ * appears on, with its label in the paper's own light. Nothing else on a page is dark, so
+ * the pressable things are found at a glance, which is the whole job.
  *
- * So the material now says which is which. A well is sunk, because you write into it. A key
- * is a piece of the same paper sitting proud of the panel, because you press it, and pressing
- * pushes it flush: the cast disappears, the lip inverts into a recess, and the label travels a
- * single pixel down with it. Rest, hover and press are three states you can tell apart with
- * the sound off.
+ * The silhouette is a hand-wavered rectangle rather than a die-cut one: the shape is
+ * applied as a CSS mask (`/ui/ink-key.svg`, sourceRef in the file), so the edge reads as
+ * brush-laid ink while the colour, the sheen, the press physics and the beckon all stay
+ * this product's own. The surface lives on a pseudo-element because the mask has to cut
+ * the ink and its cast without cutting the label, and the cast is a drop-shadow filter
+ * because a shadow has to follow the wavered edge (the handscroll and the carved frames
+ * use one for the same reason).
  *
- * The silhouette is the chamfered corner of a lacquer panel, cut top-left and bottom-right,
- * so the product's pressable things carry one geometry that no component kit ships. The
- * surface lives on a pseudo-element because the chamfer has to clip the paper and its cast
- * without clipping the label, and a cast that follows a cut silhouette is a drop-shadow
- * filter rather than a box-shadow (the same reason the handscroll and the carved frames use
- * one).
+ * Pressing pushes the patch flush: the cast disappears, the ink deepens, and the label
+ * travels a single pixel down with it. A refused key is the same patch with the ink washed
+ * out, so "not now" reads as faded rather than invisible.
  */
 .key {
-  --key-chamfer: 8px;
   position: relative;
   isolation: isolate;
   border-radius: var(--radius-control);
-  color: var(--color-ink);
+  color: var(--color-field-raised);
   transition:
     color var(--dur-small) var(--ease-standard),
     transform var(--dur-micro) var(--ease-standard);
@@ -322,14 +327,12 @@ body {
 .key::before,
 .key-sheen,
 .key-inlay {
-  clip-path: polygon(
-    var(--key-chamfer) 0,
-    100% 0,
-    100% calc(100% - var(--key-chamfer)),
-    calc(100% - var(--key-chamfer)) 100%,
-    0 100%,
-    0 var(--key-chamfer)
-  );
+  -webkit-mask-image: url("/ui/ink-key.svg");
+  mask-image: url("/ui/ink-key.svg");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
 .key::before {
@@ -337,14 +340,15 @@ body {
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: var(--panel-surface);
-  box-shadow: var(--panel-lip), inset 0 0 0 1px rgba(88, 66, 60, 0.14);
-  /* One light from above, tight and low: a key resting on the panel, not floating over it. */
-  filter: drop-shadow(0 1px 0 rgba(58, 45, 42, 0.1)) drop-shadow(0 2px 3px rgba(58, 45, 42, 0.09));
+  background: var(--key-surface);
+  /* The lacquer lip: the one light from above catching the patch's top edge. */
+  box-shadow: inset 0 1px 0 rgba(255, 253, 247, 0.16);
+  /* One light from above, tight and low: ink laid on the panel, not floating over it. */
+  filter: drop-shadow(0 2px 3px rgba(58, 45, 42, 0.28));
   transition:
     background-color var(--dur-small) var(--ease-standard),
-    box-shadow var(--dur-small) var(--ease-standard),
-    filter var(--dur-small) var(--ease-standard);
+    filter var(--dur-small) var(--ease-standard),
+    opacity var(--dur-small) var(--ease-standard);
 }
 
 /*
@@ -385,12 +389,12 @@ body {
 }
 
 .key:hover:not(:disabled) {
-  color: var(--color-bronze-deep);
+  color: #ffffff;
 }
 
+/* The ink lifts toward the light, the reference's own hover, in this product's cast. */
 .key:hover:not(:disabled)::before {
-  box-shadow: var(--panel-lip), inset 0 0 0 1px rgba(88, 66, 60, 0.26);
-  filter: drop-shadow(0 1px 0 rgba(58, 45, 42, 0.12)) drop-shadow(0 3px 5px rgba(58, 45, 42, 0.11));
+  filter: brightness(1.14) drop-shadow(0 3px 5px rgba(58, 45, 42, 0.3));
 }
 
 .key:hover:not(:disabled) .key-sheen::before {
@@ -404,19 +408,18 @@ body {
 }
 
 .key:active:not(:disabled)::before {
-  background: var(--color-field-warm);
-  box-shadow: inset 0 2px 4px rgba(58, 45, 42, 0.2), inset 0 0 0 1px rgba(88, 66, 60, 0.2);
-  filter: none;
+  filter: brightness(0.86);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-/* Refused: sunk from the start, so it never looked pressable in the first place. */
+/* Refused: the same patch with the ink washed out, so it never looked pressable at all. */
 .key:disabled {
   color: var(--color-ink-faint);
 }
 
 .key:disabled::before {
   background: var(--color-field-sunk);
-  box-shadow: inset 0 1px 2px rgba(58, 45, 42, 0.09), inset 0 0 0 1px rgba(88, 66, 60, 0.08);
+  box-shadow: inset 0 1px 2px rgba(58, 45, 42, 0.09);
   filter: none;
 }
 
@@ -454,8 +457,11 @@ body {
   }
 }
 
+/* A gilt edge catch following the wavered silhouette: the one interactive colour, lifted
+   light enough to read against ink. Hover's own filter replaces it: an answered call. */
 .key-beckon:not(:disabled)::before {
-  box-shadow: var(--panel-lip), inset 0 0 0 1px rgba(138, 109, 31, 0.38);
+  filter: drop-shadow(0 2px 3px rgba(58, 45, 42, 0.28))
+    drop-shadow(0 0 1.5px rgba(201, 167, 92, 0.9));
 }
 
 .key-beckon:not(:disabled) .key-sheen::after {

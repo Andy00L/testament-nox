@@ -59,7 +59,9 @@ export function StepTrack({ first, second, title }: StepTrackProps) {
 
 function TrackStepCell({ step, ordinal }: { step: TrackStep; ordinal: number }) {
   // The ordinal is what makes the pair read as a sequence rather than two loose buttons, so
-  // it is rendered even in the states that carry no action.
+  // it is rendered even in the states that carry no action. On a well it is faint ink; on
+  // the ink key it inherits the label's light and steps back through opacity instead,
+  // because faint ink on ink is nothing at all.
   const ordinalMark = (
     <span aria-hidden="true" className="type-numeric shrink-0 text-ink-faint">
       {ordinal}
@@ -95,7 +97,9 @@ function TrackStepCell({ step, ordinal }: { step: TrackStep; ordinal: number }) 
       beckons={step.beckons === true && !isRunning}
       className="type-small flex min-h-11 flex-1 items-center gap-2.5 px-4 py-3 text-left"
     >
-      {ordinalMark}
+      <span aria-hidden="true" className="type-numeric shrink-0 opacity-65">
+        {ordinal}
+      </span>
       {isRunning ? step.runningLabel : step.label}
     </Key>
   );

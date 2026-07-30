@@ -92,18 +92,19 @@ export function CopyField({ value, label, hint, confirmedLabel, failedLabel }: C
         <span
           key={`wash-${state}-${String(isCopied)}`}
           aria-hidden="true"
-          className={`key-inlay pointer-events-none absolute inset-0 bg-bronze-sunk ${
+          className={`key-inlay pointer-events-none absolute inset-0 ${
             isCopied ? "anim-wash-out" : "opacity-0"
           }`}
+          // On the ink patch the wash is light, the same rising highlight the heartbeat
+          // charges with; the old bronze-sunk pass belonged to a paper key that is gone.
+          style={{ background: "rgba(255, 253, 247, 0.24)" }}
         />
 
-        <span className="type-small type-numeric relative min-w-0 flex-1 truncate text-ink">
-          {value}
-        </span>
+        <span className="type-small type-numeric relative min-w-0 flex-1 truncate">{value}</span>
 
         <span
           aria-hidden="true"
-          className="icon-swap relative shrink-0 text-ink-muted"
+          className="icon-swap relative shrink-0 opacity-80"
           data-state={isCopied ? "b" : "a"}
         >
           <Copy data-icon="a" size={16} strokeWidth={1.5} />
