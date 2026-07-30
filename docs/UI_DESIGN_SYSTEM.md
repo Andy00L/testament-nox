@@ -222,8 +222,8 @@ on, strands detaching and falling once released. There is no countdown widget an
 this product; the curtain is the countdown.
 
 **Four carved frames, mounted rather than drawn.** `public/frames/` holds four painted
-objects the interface mounts live controls inside: the two-slot legacy plaque (both pages'
-ordered pair of acts), the heir envelope (one per heir, stacked into a pile), the zodiac dial
+objects the interface mounts live controls inside: the two-slot legacy plaque (the home page's two
+doors: write a testament, or arrive as an heir), the heir envelope (one per heir, stacked into a pile), the zodiac dial
 (the countdown while the author is alive) and the opened fan (the same countdown, public, on
 the door). Every window in them was measured off the shipped WebP by flood-filling its alpha
 channel, and those measurements live as percentages in `components/frames/CarvedFrame.tsx`.

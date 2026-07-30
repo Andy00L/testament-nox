@@ -14,7 +14,7 @@ import { useAccount, useBalance, usePublicClient, useReadContract, useWalletClie
 
 import { FramedCountdown } from "@/components/frames/FramedCountdown";
 import { HeirEnvelope } from "@/components/testament/HeirEnvelope";
-import { StepPlaque, type StepState } from "@/components/testament/StepPlaque";
+import { StepTrack, type StepState } from "@/components/testament/StepTrack";
 import { useCurtain } from "@/components/scene/CurtainStage";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { describeWriteFailure } from "@/lib/describe-failure";
@@ -254,9 +254,8 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
         <p className="type-body text-ink-muted">
 {copy.door.expiredLede}
         </p>
-        <StepPlaque
+        <StepTrack
           title={copy.door.openedTitle}
-          align="start"
           first={{
             state: isWorking ? "running" : "ready",
             label: copy.door.openIt,
@@ -364,9 +363,8 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
         </p>
       ) : null}
 
-      <StepPlaque
+      <StepTrack
         title={copy.door.openedTitle}
-        align="start"
         first={{
           state: "done",
           label: copy.door.openIt,

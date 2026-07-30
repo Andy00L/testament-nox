@@ -1,5 +1,6 @@
 "use client";
 
+import { LegacyBoxNav } from "@/components/scene/LegacyBoxNav";
 import { PassageLink } from "@/components/ui/PassageLink";
 import { TestamentStatus } from "@/components/testament/TestamentStatus";
 import { WordDevice } from "@/components/scene/WordDevice";
@@ -28,7 +29,7 @@ export function SceneHero() {
         <WordDevice />
       </div>
 
-      <div className="mt-auto flex max-w-[34rem] flex-col gap-6 pb-16 pt-[34vh] sm:gap-7 sm:pb-20">
+      <div className="mt-auto flex max-w-[34rem] flex-col gap-5 pb-10 pt-[16vh] sm:gap-6 sm:pb-14">
         <h1 className="type-display-hero">
           <span className="anim-rise anim-d-2 block">{copy.scene.headlineFirst}</span>
           <span className="anim-rise anim-d-3 block">{copy.scene.headlineSecond}</span>
@@ -40,11 +41,19 @@ export function SceneHero() {
 
         <TestamentStatus />
 
-        <div className="anim-rise anim-d-5 flex flex-wrap items-baseline gap-x-10 gap-y-4">
-          <PassageLink href="/ecrire">{copy.scene.write}</PassageLink>
-          <PassageLink href="/porte" tone="quiet">
-            {copy.scene.heir}
-          </PassageLink>
+        {/*
+          The two doors are the plaque; reading about it is not. Three links of graded quiet
+          made the primary act look like a footnote, and the plaque is the one object on this
+          page you are meant to press.
+        */}
+        <div className="anim-rise anim-d-5 flex flex-col items-start gap-4">
+          <LegacyBoxNav
+            title={copy.scene.doorsTitle}
+            writeHref="/ecrire"
+            writeLabel={copy.scene.write}
+            heirHref="/porte"
+            heirLabel={copy.scene.heir}
+          />
           <PassageLink href="/apropos" tone="quiet">
             {copy.scene.about}
           </PassageLink>

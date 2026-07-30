@@ -49,6 +49,7 @@ const french = {
     lede: "Les héritiers et les parts restent chiffrés. Vous envoyez un signe de vie. Le jour où le silence dure trop longtemps, le Safe paie.",
     write: "Écrire le testament",
     heir: "Je suis un héritier",
+    doorsTitle: "Les deux portes",
     about: "Comprendre",
   },
 
@@ -292,6 +293,7 @@ const english: typeof french = {
     lede: "Heirs and shares stay encrypted. You send a sign of life. The day the silence lasts too long, the Safe pays.",
     write: "Write the testament",
     heir: "I am an heir",
+    doorsTitle: "The two doors",
     about: "How it works",
   },
 

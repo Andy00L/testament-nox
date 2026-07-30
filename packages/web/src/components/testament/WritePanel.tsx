@@ -15,7 +15,7 @@ import { isAddress, type Address } from "viem";
 import { useAccount, usePublicClient, useReadContract, useWalletClient } from "wagmi";
 
 import { SealPress } from "@/components/testament/SealPress";
-import { StepPlaque, type StepState } from "@/components/testament/StepPlaque";
+import { StepTrack, type StepState } from "@/components/testament/StepTrack";
 import { TextField } from "@/components/ui/TextField";
 import { useHeirAddressKinds } from "@/lib/heir-check";
 import { useCurtain } from "@/components/scene/CurtainStage";
@@ -327,47 +327,6 @@ export function WritePanel() {
   return (
     <div className="flex flex-col gap-8">
       {/*
-        The two consents, before anything else on the page. Both slots are readable from the
-        first paint, so the ritual states its own shape: two things the Safe grants, in this
-        order, and which of them you are standing on. Before an address is typed they simply
-        read as the steps they are.
-      */}
-      <div className="anim-rise flex flex-col items-center gap-3">
-        <StepPlaque
-          title={copy.write.consentTitle}
-          first={{
-            state: passageState,
-            label: copy.write.stepPassage,
-            runningLabel: copy.write.stepPassageBusy,
-            doneLabel: copy.write.stepPassageDone,
-            onRun: () => void handleEnableModule(),
-          }}
-          second={{
-            state: handState,
-            label: copy.write.stepHand,
-            runningLabel: copy.write.stepHandBusy,
-            doneLabel: copy.write.stepHandDone,
-            onRun: () => void handleNameWriter(),
-          }}
-        />
-        {consentTransaction !== null ? (
-          <a
-            href={buildTransactionUrl(consentTransaction)}
-            target="_blank"
-            rel="noreferrer"
-            className="type-small type-numeric group/tx inline-flex w-fit items-center gap-1.5 text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
-          >
-            {copy.write.viewTransaction}
-            <ExternalLink
-              size={13}
-              strokeWidth={1.5}
-              className="transition-transform duration-(--duration-fast) ease-(--ease-smooth-out) group-hover/tx:-translate-y-0.5 group-hover/tx:translate-x-0.5"
-            />
-          </a>
-        ) : null}
-      </div>
-
-      {/*
         Two halves of one sheet, side by side the way the reference lays them out, so the
         whole ritual fits a single viewport: who inherits on the left, the vault and its
         silence on the right, the seal at the bottom right where a document is signed.
@@ -500,6 +459,45 @@ export function WritePanel() {
             button is gone and the hint above carries the state, so a Safe that was prepared
             earlier costs the ritual no vertical space at all.
           */}
+          {/*
+            The Safe's two consents, asked for where the Safe is named and nowhere else. Both
+            are on screen from the first paint, so the ritual states its own shape: two things
+            the Safe grants, in this order, and which of them you are standing on.
+          */}
+          <StepTrack
+            title={copy.write.consentTitle}
+            first={{
+              state: passageState,
+              label: copy.write.stepPassage,
+              runningLabel: copy.write.stepPassageBusy,
+              doneLabel: copy.write.stepPassageDone,
+              onRun: () => void handleEnableModule(),
+            }}
+            second={{
+              state: handState,
+              label: copy.write.stepHand,
+              runningLabel: copy.write.stepHandBusy,
+              doneLabel: copy.write.stepHandDone,
+              onRun: () => void handleNameWriter(),
+            }}
+          />
+
+          {consentTransaction !== null ? (
+            <a
+              href={buildTransactionUrl(consentTransaction)}
+              target="_blank"
+              rel="noreferrer"
+              className="type-small type-numeric group/tx inline-flex w-fit items-center gap-1.5 text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+            >
+              {copy.write.viewTransaction}
+              <ExternalLink
+                size={13}
+                strokeWidth={1.5}
+                className="transition-transform duration-(--duration-fast) ease-(--ease-smooth-out) group-hover/tx:-translate-y-0.5 group-hover/tx:translate-x-0.5"
+              />
+            </a>
+          ) : null}
+
           <div className="flex flex-col gap-4 sm:flex-row">
             <div className="flex-1">
               <TextField
