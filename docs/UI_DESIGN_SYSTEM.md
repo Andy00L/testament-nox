@@ -221,6 +221,23 @@ breeze while the heartbeat is recent, desaturating toward cold iron as the silen
 on, strands detaching and falling once released. There is no countdown widget anywhere in
 this product; the curtain is the countdown.
 
+**Four carved frames, mounted rather than drawn.** `public/frames/` holds four painted
+objects the interface mounts live controls inside: the two-slot legacy plaque (both pages'
+ordered pair of acts), the heir envelope (one per heir, stacked into a pile), the zodiac dial
+(the countdown while the author is alive) and the opened fan (the same countdown, public, on
+the door). Every window in them was measured off the shipped WebP by flood-filling its alpha
+channel, and those measurements live as percentages in `components/frames/CarvedFrame.tsx`.
+Content is positioned in percent of the frame's own box and sized in `cqw` against it, so a
+window that contains its content at 1200px contains it at 320px. Re-measure if the art is
+ever replaced. Sources are gitignored; regenerate the WebP with
+`bun run --cwd packages/web scripts/optimise-scene-assets.ts`.
+
+**The countdown now has a widget, deliberately.** This sheet used to say there was none and
+that the curtain was the countdown. Testing reversed it: the curtain reads as mood, not as a
+figure, and the remaining silence was going unread as the opening clause of a muted sentence.
+The curtain is still the signature and still carries the state; the dial and the fan carry the
+number. One reading each, and they cannot disagree because both come from the same summary.
+
 **One bespoke silhouette: the seal.** A cinnabar stamp with a deliberately imperfect
 edge, drawn as SVG, pressed onto the panel at the moment of signing. Placement rule: at
 most one seal per screen, only on an irreversible action, always at the point of

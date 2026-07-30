@@ -12,6 +12,9 @@ import { useEffect, useState } from "react";
 import { formatEther } from "viem";
 import { useAccount, useBalance, usePublicClient, useReadContract, useWalletClient } from "wagmi";
 
+import { FramedCountdown } from "@/components/frames/FramedCountdown";
+import { HeirEnvelope } from "@/components/testament/HeirEnvelope";
+import { StepPlaque, type StepState } from "@/components/testament/StepPlaque";
 import { useCurtain } from "@/components/scene/CurtainStage";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { describeWriteFailure } from "@/lib/describe-failure";
@@ -41,6 +44,10 @@ import {
  * link the author shared, and defaulting to "the most recent testament on the registry"
  * would put a stranger's affairs on the doorstep.
  */
+
+/** Largest width the fan is laid out at. Unit: CSS px. */
+const FAN_MAX_WIDTH = 440;
+
 export function DoorScene({ requestedId }: { requestedId?: bigint }) {
   const deployment = readDeployment();
   const testamentId = requestedId;
@@ -220,11 +227,21 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
       <div key="closed" className="anim-rise flex flex-col gap-6">
         <h1 className="type-display-hero">{copy.door.closedTitle}</h1>
         <p className="type-body text-ink-muted">{copy.door.closedLede}</p>
-        <p className="type-small text-ink-faint">
-          {nowSeconds === null
-            ? " "
-            : copy.door.windFallsIn(formatRemaining(deadline - nowSeconds, copy.duration))}
-        </p>
+        {/*
+          The public countdown, on the fan. It is the only thing this page can honestly show
+          an heir before the wind falls, so it is the object on the page rather than a grey
+          line under the prose.
+        */}
+        <FramedCountdown
+          frame="fan"
+          maxWidth={FAN_MAX_WIDTH}
+          isExpired={false}
+          remaining={
+            nowSeconds === null ? null : formatRemaining(deadline - nowSeconds, copy.duration)
+          }
+          expiredLabel={copy.door.expiredTitle}
+          label={copy.door.countdownLabel}
+        />
       </div>
     );
   }
@@ -237,7 +254,24 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
         <p className="type-body text-ink-muted">
 {copy.door.expiredLede}
         </p>
-        <ActionButton onPress={() => void runRelease()} isWorking={isWorking} label={copy.door.openIt} workingLabel={copy.door.opening} />
+        <StepPlaque
+          title={copy.door.openedTitle}
+          align="start"
+          first={{
+            state: isWorking ? "running" : "ready",
+            label: copy.door.openIt,
+            runningLabel: copy.door.opening,
+            doneLabel: copy.door.stepOpenDone,
+            onRun: () => void runRelease(),
+          }}
+          second={{
+            state: "unreached",
+            label: copy.door.execute,
+            runningLabel: copy.door.executing,
+            doneLabel: copy.door.stepPayDone,
+            onRun: () => undefined,
+          }}
+        />
         <Feedback errorMessage={errorMessage} transactionHash={actionTransaction} feedbackCopy={copy.door} />
       </div>
     );
@@ -252,7 +286,14 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
   const isSettled = summary.state === TESTAMENT_STATE.Executed;
   const isPartlySettled = summary.state === TESTAMENT_STATE.PartiallyExecuted;
   const hasBeenExecuted = isSettled || isPartlySettled;
-  const paidCount = will === null ? 0 : will.filter((b) => (paidMask & (1 << b.slot)) !== 0).length;
+  const paidCount = will === null ? 0 : will.filter((bequest) => (paidMask & (1 << bequest.slot)) !== 0).length;
+
+  /**
+   * Settling is the plaque's second act. Once it has run at all the act is done, even if an
+   * heir refused: the money that did not land is chased per heir on its own envelope, and the
+   * line under the plaque says how many were reached.
+   */
+  const payState: StepState = hasBeenExecuted ? "done" : isWorking ? "running" : "ready";
 
   return (
     <div key="open" className="anim-rise flex flex-col gap-8">
@@ -266,58 +307,55 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
       {will === null ? (
         <p className="type-small text-ink-faint">{copy.door.decrypting}</p>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ol className="flex w-full flex-col items-start">
           {will.map((bequest, bequestIndex) => {
             const isVisitor =
               address !== undefined && bequest.beneficiary.toLowerCase() === address.toLowerCase();
+            const isPaid = (paidMask & (1 << bequest.slot)) !== 0;
             return (
-              <li
+              <HeirEnvelope
                 key={bequest.beneficiary}
-                className="anim-rise panel-well flex flex-wrap items-baseline justify-between gap-3 px-4 py-3"
-                style={{ "--anim-delay": `${80 * bequestIndex}ms` } as React.CSSProperties}
-              >
-                <a
-                  href={buildAddressUrl(bequest.beneficiary)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={`type-small type-numeric transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink ${
-                    isVisitor ? "text-bronze" : "text-ink-muted"
-                  }`}
-                >
-                  {shortenAddress(bequest.beneficiary)}
-                  {isVisitor ? copy.door.you : ""}
-                </a>
-                <span className="flex items-baseline gap-3">
-                  <span className="type-small type-numeric text-ink">
+                index={bequestIndex}
+                isTop={bequestIndex === will.length - 1}
+                addressLine={
+                  <a
+                    href={buildAddressUrl(bequest.beneficiary)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`type-numeric truncate transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-bronze-deep ${
+                      isVisitor ? "text-bronze-deep" : "text-ink"
+                    }`}
+                  >
+                    {shortenAddress(bequest.beneficiary)}
+                    {isVisitor ? copy.door.you : ""}
+                  </a>
+                }
+                amountLine={
+                  <span className="type-numeric text-ink-muted">
                     {bequest.shareBps / 100} %
                     {estateWei > 0n
                       ? ` · ${formatEther(computePayout(estateWei, bequest.shareBps))} ETH`
                       : ""}
                   </span>
-                  {/*
-                    Settlement is per heir, so the door says so per heir. An heir whose wallet
-                    refused the transfer is owed, not forgotten: the money is still in the Safe
-                    and anyone at all can push it again.
-                  */}
-                  {hasBeenExecuted ? (
-                    (paidMask & (1 << bequest.slot)) !== 0 ? (
-                      <span className="type-small text-bronze-deep">{copy.door.heirPaid}</span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => void runRetry(bequest.slot)}
-                        disabled={isWorking}
-                        className="type-small text-cinnabar transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink disabled:text-ink-faint"
-                      >
-                        {isWorking ? copy.door.heirRetrying : copy.door.heirRetry}
-                      </button>
-                    )
-                  ) : null}
-                </span>
-              </li>
+                }
+                settlement={
+                  !hasBeenExecuted ? null : isPaid ? (
+                    <span className="text-bronze-deep">{copy.door.heirPaid}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void runRetry(bequest.slot)}
+                      disabled={isWorking}
+                      className="text-cinnabar transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink disabled:text-ink-faint"
+                    >
+                      {isWorking ? copy.door.heirRetrying : copy.door.heirRetry}
+                    </button>
+                  )
+                }
+              />
             );
           })}
-        </ul>
+        </ol>
       )}
 
       {visitorShare !== null && !hasBeenExecuted ? (
@@ -326,48 +364,34 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
         </p>
       ) : null}
 
-      {!hasBeenExecuted ? (
-        <ActionButton
-          onPress={() => void runExecute()}
-          isWorking={isWorking}
-          label={copy.door.execute}
-          workingLabel={copy.door.executing}
-        />
-      ) : isPartlySettled ? (
-        <p className="type-body text-ink">
-          {copy.door.partiallyPaid(paidCount, will?.length ?? 0)}
-        </p>
-      ) : (
-        <p className="type-body text-bronze">{copy.door.paid}</p>
-      )}
+      <StepPlaque
+        title={copy.door.openedTitle}
+        align="start"
+        first={{
+          state: "done",
+          label: copy.door.openIt,
+          runningLabel: copy.door.opening,
+          doneLabel: copy.door.stepOpenDone,
+          onRun: () => undefined,
+        }}
+        second={{
+          state: payState,
+          label: copy.door.execute,
+          runningLabel: copy.door.executing,
+          doneLabel: copy.door.stepPayDone,
+          onRun: () => void runExecute(),
+        }}
+      />
+
+      {isPartlySettled ? (
+        <p className="type-body text-ink">{copy.door.partiallyPaid(paidCount, will?.length ?? 0)}</p>
+      ) : null}
 
       <Feedback errorMessage={errorMessage} transactionHash={actionTransaction} feedbackCopy={copy.door} />
     </div>
   );
 }
 
-function ActionButton({
-  onPress,
-  isWorking,
-  label,
-  workingLabel,
-}: {
-  onPress: () => void;
-  isWorking: boolean;
-  label: string;
-  workingLabel: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onPress}
-      disabled={isWorking}
-      className="panel-well type-small min-h-11 w-fit px-5 py-3 text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-bronze disabled:text-ink-faint"
-    >
-      {isWorking ? workingLabel : label}
-    </button>
-  );
-}
 
 function Feedback({
   errorMessage,

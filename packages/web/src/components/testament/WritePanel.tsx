@@ -15,7 +15,9 @@ import { isAddress, type Address } from "viem";
 import { useAccount, usePublicClient, useReadContract, useWalletClient } from "wagmi";
 
 import { SealPress } from "@/components/testament/SealPress";
+import { StepPlaque, type StepState } from "@/components/testament/StepPlaque";
 import { TextField } from "@/components/ui/TextField";
+import { useHeirAddressKinds } from "@/lib/heir-check";
 import { useCurtain } from "@/components/scene/CurtainStage";
 import { useSound } from "@/components/scene/SoundProvider";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
@@ -54,6 +56,18 @@ type BequestDraft = {
 };
 
 type SealStage = "idle" | "encrypting" | "signing" | "confirming" | "sealed";
+
+/**
+ * How far through the press each stage stands, so the recess fills with real staged progress
+ * rather than an indeterminate spinner. Unit: 0 to 1.
+ */
+const SEAL_STAGE_PROGRESS: Record<SealStage, number> = {
+  idle: 0,
+  encrypting: 1 / 3,
+  signing: 2 / 3,
+  confirming: 1,
+  sealed: 1,
+};
 
 let nextDraftId = 0;
 function createDraft(): BequestDraft {
@@ -174,6 +188,13 @@ export function WritePanel() {
   const validation = validateDraft({ drafts, safeAddress, intervalSeconds, graceSeconds, copy });
 
   /**
+   * Whether each named heir is a plain wallet. A contract that refuses ETH does not break a
+   * will (the module records the refusal and anyone can retry), so this warns where the
+   * address is typed rather than blocking the seal.
+   */
+  const heirKinds = useHeirAddressKinds(drafts.map((draft) => draft.beneficiary));
+
+  /**
    * The Safe's two consents, in the order it grants them. Enabling the module hands the
    * registry spending authority over the estate; naming the writer says whose will it may
    * spend on. The registry refuses a testament that has neither, so the seal refuses first
@@ -281,25 +302,71 @@ export function WritePanel() {
    * One consent at a time, in the order the Safe grants them. Declared after its handlers
    * so it reads them rather than the temporal dead zone.
    */
-  const consentAction =
-    isModuleEnabled === false
-      ? {
-          label: isEnablingModule ? copy.write.enablingModule : copy.write.enableModule,
-          run: handleEnableModule,
-          isBusy: isEnablingModule,
-        }
-      : isWriterNamed === false
-        ? {
-            label: isNamingWriter ? copy.write.authorizingWriter : copy.write.authorizeWriter,
-            run: handleNameWriter,
-            isBusy: isNamingWriter,
-          }
-        : null;
+  const passageState: StepState = isEnablingModule
+    ? "running"
+    : isModuleEnabled === null
+      ? "unreached"
+      : isModuleEnabled
+        ? "done"
+        : "ready";
+
+  /**
+   * The hand cannot be named before the passage is open, so until it is, slot two reads as
+   * the step it is rather than offering an action the Safe would refuse.
+   */
+  const handState: StepState = isNamingWriter
+    ? "running"
+    : isWriterNamed === true
+      ? "done"
+      : isModuleEnabled !== true || isWriterNamed === null
+        ? "unreached"
+        : "ready";
 
   const isBusy = stage === "encrypting" || stage === "signing" || stage === "confirming";
 
   return (
     <div className="flex flex-col gap-8">
+      {/*
+        The two consents, before anything else on the page. Both slots are readable from the
+        first paint, so the ritual states its own shape: two things the Safe grants, in this
+        order, and which of them you are standing on. Before an address is typed they simply
+        read as the steps they are.
+      */}
+      <div className="anim-rise flex flex-col items-center gap-3">
+        <StepPlaque
+          title={copy.write.consentTitle}
+          first={{
+            state: passageState,
+            label: copy.write.stepPassage,
+            runningLabel: copy.write.stepPassageBusy,
+            doneLabel: copy.write.stepPassageDone,
+            onRun: () => void handleEnableModule(),
+          }}
+          second={{
+            state: handState,
+            label: copy.write.stepHand,
+            runningLabel: copy.write.stepHandBusy,
+            doneLabel: copy.write.stepHandDone,
+            onRun: () => void handleNameWriter(),
+          }}
+        />
+        {consentTransaction !== null ? (
+          <a
+            href={buildTransactionUrl(consentTransaction)}
+            target="_blank"
+            rel="noreferrer"
+            className="type-small type-numeric group/tx inline-flex w-fit items-center gap-1.5 text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+          >
+            {copy.write.viewTransaction}
+            <ExternalLink
+              size={13}
+              strokeWidth={1.5}
+              className="transition-transform duration-(--duration-fast) ease-(--ease-smooth-out) group-hover/tx:-translate-y-0.5 group-hover/tx:translate-x-0.5"
+            />
+          </a>
+        ) : null}
+      </div>
+
       {/*
         Two halves of one sheet, side by side the way the reference lays them out, so the
         whole ritual fits a single viewport: who inherits on the left, the vault and its
@@ -336,6 +403,11 @@ export function WritePanel() {
                       draft.beneficiary !== "" && !isAddress(draft.beneficiary)
                         ? copy.write.invalidAddress
                         : null
+                    }
+                    hint={
+                      heirKinds.get(draft.beneficiary.toLowerCase()) === "contract"
+                        ? copy.write.heirIsContract
+                        : undefined
                     }
                   />
                 </div>
@@ -428,35 +500,6 @@ export function WritePanel() {
             button is gone and the hint above carries the state, so a Safe that was prepared
             earlier costs the ritual no vertical space at all.
           */}
-          {consentAction !== null || consentTransaction !== null ? (
-            <div className="flex flex-col gap-2">
-              {consentAction !== null ? (
-                <button
-                  type="button"
-                  onClick={() => void consentAction.run()}
-                  disabled={consentAction.isBusy}
-                  className="panel-well type-small min-h-11 w-fit px-5 py-3 text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-bronze-deep disabled:text-ink-faint"
-                >
-                  {consentAction.label}
-                </button>
-              ) : null}
-              {consentTransaction !== null ? (
-                <a
-                  href={buildTransactionUrl(consentTransaction)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="type-small type-numeric group/tx inline-flex w-fit items-center gap-1.5 text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
-                >
-                  {copy.write.viewTransaction}
-                  <ExternalLink
-                    size={13}
-                    strokeWidth={1.5}
-                    className="transition-transform duration-(--duration-fast) ease-(--ease-smooth-out) group-hover/tx:-translate-y-0.5 group-hover/tx:translate-x-0.5"
-                  />
-                </a>
-              ) : null}
-            </div>
-          ) : null}
           <div className="flex flex-col gap-4 sm:flex-row">
             <div className="flex-1">
               <TextField
@@ -486,6 +529,7 @@ export function WritePanel() {
               isStamped={stage === "sealed"}
               isBusy={isBusy}
               busyLabel={resolveBusyLabel(stage, copy)}
+              busyProgress={SEAL_STAGE_PROGRESS[stage]}
               disabledReason={validation.ok ? mandateBlock : validation.message}
             />
 

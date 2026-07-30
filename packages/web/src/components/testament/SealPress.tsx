@@ -14,6 +14,15 @@ import { useTranslation } from "@/components/i18n/LanguageProvider";
  *
  * Cinnabar's whole meaning in this palette is "this cannot be undone", so it appears at the
  * moment of commitment and at most once on a screen.
+ *
+ * What the press has to answer, and previously did not: sealing takes several seconds, and
+ * the only feedback was a `group-active` scale that the disabled attribute cancelled the
+ * instant the work began. Pressing therefore looked like nothing happening. So the stone now
+ * goes down and STAYS down for the whole operation, and the recess fills tonally through the
+ * three stages the write already reports (encrypting, signing, confirming). The fill is real
+ * information rather than a spinner: it is the same staged progress the label names, in the
+ * same tonal-fill-in-a-well language as the heartbeat charge and the allocation meter, so the
+ * product keeps one physics and one personality.
  */
 
 type SealPressProps = {
@@ -21,10 +30,19 @@ type SealPressProps = {
   isStamped: boolean;
   isBusy: boolean;
   busyLabel: string;
+  /** How far through the seal's three stages the write is. Unit: 0 to 1. */
+  busyProgress: number;
   disabledReason?: string | null;
 };
 
-export function SealPress({ onPress, isStamped, isBusy, busyLabel, disabledReason }: SealPressProps) {
+export function SealPress({
+  onPress,
+  isStamped,
+  isBusy,
+  busyLabel,
+  busyProgress,
+  disabledReason,
+}: SealPressProps) {
   const { copy } = useTranslation();
   const isDisabled = isBusy || isStamped || (disabledReason != null && disabledReason !== "");
 
@@ -34,13 +52,26 @@ export function SealPress({ onPress, isStamped, isBusy, busyLabel, disabledReaso
         type="button"
         onClick={onPress}
         disabled={isDisabled}
+        aria-busy={isBusy}
         className="group flex items-center gap-4 text-left disabled:cursor-not-allowed"
       >
         {/* The carved recess the stone is pressed into. */}
         <span
           aria-hidden="true"
-          className="panel-well relative grid size-16 shrink-0 place-items-center transition-transform duration-(--dur-micro) ease-(--ease-standard) group-active:not-disabled:scale-[0.98]"
+          className="panel-well relative grid size-16 shrink-0 place-items-center overflow-hidden transition-transform duration-(--dur-micro) ease-(--ease-standard) group-active:not-disabled:scale-[0.98]"
         >
+          {/*
+            The stage fill. Rises through the full track with stable square edges, clamped to
+            the well, and is a value step off the field rather than a saturated bar.
+          */}
+          <span
+            className="absolute inset-x-0 bottom-0 bg-bronze-sunk"
+            style={{
+              height: `${Math.round(Math.min(1, Math.max(0, busyProgress)) * 100)}%`,
+              transition: "height var(--duration-medium) var(--ease-smooth-out)",
+            }}
+          />
+
           <AnimatePresence>
             {isStamped ? (
               <motion.span
@@ -56,18 +87,25 @@ export function SealPress({ onPress, isStamped, isBusy, busyLabel, disabledReaso
               <motion.span
                 key="waiting"
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+                // The stone holds down for the whole operation rather than rebounding on
+                // pointer-up: the press is the state, not the gesture.
+                animate={{ opacity: 1, scale: isBusy ? 0.94 : 1 }}
                 exit={{ opacity: 0, transition: { duration: 0.16 } }}
+                transition={{ duration: 0.24, ease: [0.4, 0, 0.2, 1] }}
                 className="absolute inset-0 grid place-items-center"
               >
-                <Seal size={46} pressed={0.16} />
+                <Seal size={46} pressed={isBusy ? 0.62 : 0.16} />
               </motion.span>
             )}
           </AnimatePresence>
         </span>
 
         <span className="flex flex-col gap-1">
-          <span className="type-title text-ink">
+          {/*
+            The stage name changes three times during one press. Announced, because the only
+            other reading of it is a 64px recess filling.
+          */}
+          <span className="type-title text-ink" aria-live="polite">
             {isBusy ? busyLabel : isStamped ? copy.seal.sealed : copy.seal.idle}
           </span>
           <span className="type-small text-ink-muted">

@@ -133,7 +133,10 @@ export function HeartbeatControl({ testamentId, onSent }: HeartbeatControlProps)
           }
         }}
         aria-describedby="heartbeat-hint"
-        className="panel-well relative min-h-11 w-fit min-w-56 touch-none overflow-hidden px-5 py-3 text-left transition-colors duration-(--dur-small) ease-(--ease-standard) disabled:text-ink-faint"
+        // The one thing on this page that has to be done, at the size that says so. It was a
+        // 44px well set in the same small type as the hint underneath it, and it read as a
+        // caption. Presence here is size and space, not a second colour.
+        className="panel-well relative min-h-14 w-full max-w-sm touch-none overflow-hidden px-7 py-4 text-left transition-colors duration-(--dur-small) ease-(--ease-standard) disabled:text-ink-faint"
       >
         {/*
           A tonal fill rising through the well. It fills the full track, has stable square
@@ -147,7 +150,7 @@ export function HeartbeatControl({ testamentId, onSent }: HeartbeatControlProps)
             transition: isHolding ? "none" : "height var(--dur-standard) var(--ease-exit)",
           }}
         />
-        <span className="type-small relative">{label}</span>
+        <span className="type-title relative">{label}</span>
       </button>
       <p id="heartbeat-hint" className="type-small text-ink-faint">
         {copy.heartbeat.hint}

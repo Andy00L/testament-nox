@@ -390,6 +390,20 @@ body {
   pointer-events: none;
 }
 
+/*
+ * The copy confirmation. One tonal pass of bronze over the well, leaving on opacity alone so
+ * nothing paints or lays out, and no bounce: the single overshoot in this product is the
+ * seal landing and it stays there.
+ */
+@keyframes wash-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.anim-wash-out {
+  animation: wash-out var(--duration-slow) var(--ease-smooth-out) both;
+}
+
 /* The allocation count pops once when the estate reaches exactly 100%. */
 @keyframes count-pop {
   0% { transform: scale(1); }
