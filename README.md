@@ -251,6 +251,11 @@ bun run e2e:sepolia             # write, heartbeat, wait out the silence, releas
 bun run demo-retry:sepolia      # the same, with one heir refusing ETH and a later retry
 ```
 
+`create-safe` makes the deployer the owner. Set `SAFE_OWNER_ADDRESS` to hand the Safe to
+another wallet instead, which is the way through when app.safe.global's own creation flow is
+failing: the deployer still pays for the Safe and funds the estate, `.env` keeps pointing at
+the deployer-owned Safe, and that wallet grants the two consents from the app.
+
 `enable-module` and `authorize-writer` are two separate Safe transactions on purpose, and
 `e2e:sepolia` refuses to start without both. Batch them through MultiSend to keep it to one
 signature, `enableModule` first.
