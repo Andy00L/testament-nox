@@ -1,15 +1,16 @@
 import { resolve } from "node:path";
 
-import { safeManagementAbi } from "@testament/shared";
-import hre from "hardhat";
 import {
-  encodeFunctionData,
-  formatEther,
-  getAddress,
-  parseEther,
-  zeroAddress,
-  type Address,
-} from "viem";
+  SAFE_FALLBACK_HANDLER,
+  SAFE_PROXY_CREATION_EVENT,
+  SAFE_PROXY_FACTORY,
+  SAFE_SINGLETON,
+  encodeSafeSetup,
+  safeManagementAbi,
+  safeProxyFactoryAbi,
+} from "@testament/shared";
+import hre from "hardhat";
+import { formatEther, getAddress, parseEther, type Address } from "viem";
 
 import { updateEnvFile } from "../lib/env-file.ts";
 
@@ -26,15 +27,6 @@ import { updateEnvFile } from "../lib/env-file.ts";
  *
  * Run with: bun run create-safe:sepolia
  */
-
-/**
- * Canonical Safe v1.4.1 addresses. Identical across every chain Safe has deployed to, and
- * checked for code before use so a wrong chain fails loudly instead of silently.
- * sourceRef: safe-global/safe-deployments, v1.4.1 canonical entries.
- */
-const SAFE_PROXY_FACTORY: Address = "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67";
-const SAFE_SINGLETON: Address = "0x41675C099F32341bf84BFc5382aF534df5C7461a";
-const SAFE_FALLBACK_HANDLER: Address = "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99";
 
 /** The estate the demo Safe is funded with. Unit: wei. */
 const ESTATE_WEI = parseEther("0.02");
@@ -53,52 +45,6 @@ function readSafeOwnerOverride(): Address | undefined {
   }
   return getAddress(raw.trim());
 }
-
-/**
- * sourceRef: safe-smart-account v1.4.1 contracts/Safe.sol setup(),
- * contracts/proxies/SafeProxyFactory.sol createProxyWithNonce() and the ProxyCreation event.
- */
-const safeSetupAbi = [
-  {
-    inputs: [
-      { name: "_owners", type: "address[]" },
-      { name: "_threshold", type: "uint256" },
-      { name: "to", type: "address" },
-      { name: "data", type: "bytes" },
-      { name: "fallbackHandler", type: "address" },
-      { name: "paymentToken", type: "address" },
-      { name: "payment", type: "uint256" },
-      { name: "paymentReceiver", type: "address" },
-    ],
-    name: "setup",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-] as const;
-
-const safeProxyFactoryAbi = [
-  {
-    inputs: [
-      { name: "_singleton", type: "address" },
-      { name: "initializer", type: "bytes" },
-      { name: "saltNonce", type: "uint256" },
-    ],
-    name: "createProxyWithNonce",
-    outputs: [{ name: "proxy", type: "address" }],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, name: "proxy", type: "address" },
-      { indexed: false, name: "singleton", type: "address" },
-    ],
-    name: "ProxyCreation",
-    type: "event",
-  },
-] as const;
 
 const connection = await hre.network.getOrCreate();
 const { viem, networkName } = connection;
@@ -128,20 +74,7 @@ for (const [label, address] of [
   }
 }
 
-const setupCalldata = encodeFunctionData({
-  abi: safeSetupAbi,
-  functionName: "setup",
-  args: [
-    [safeOwnerAddress],
-    1n,
-    zeroAddress,
-    "0x",
-    SAFE_FALLBACK_HANDLER,
-    zeroAddress,
-    0n,
-    zeroAddress,
-  ],
-});
+const setupCalldata = encodeSafeSetup(safeOwnerAddress);
 
 // The salt is the payer's current nonce, so re-running produces a new Safe rather than
 // colliding with the previous one. The test guide needs that: one Safe carries one will.
@@ -160,7 +93,7 @@ if (createReceipt.status !== "success") {
 
 const creationLogs = await publicClient.getLogs({
   address: SAFE_PROXY_FACTORY,
-  event: safeProxyFactoryAbi[1],
+  event: SAFE_PROXY_CREATION_EVENT,
   fromBlock: createReceipt.blockNumber,
   toBlock: createReceipt.blockNumber,
 });

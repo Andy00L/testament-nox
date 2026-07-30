@@ -1,4 +1,14 @@
-import { concat, encodeFunctionData, pad, zeroAddress, type Address, type Hex } from "viem";
+import {
+  concat,
+  encodeAbiParameters,
+  encodeFunctionData,
+  getContractAddress,
+  keccak256,
+  pad,
+  zeroAddress,
+  type Address,
+  type Hex,
+} from "viem";
 
 import { testamentModuleAbi } from "./generated/abis.ts";
 
@@ -90,6 +100,138 @@ export const safeManagementAbi = [
     type: "function",
   },
 ] as const;
+
+/**
+ * Canonical Safe v1.4.1 deployments. Identical on every chain Safe has deployed to, which is
+ * why they can be constants rather than configuration. Callers check them for code before
+ * using them, so a wrong chain fails loudly instead of sending a transaction into nothing.
+ * sourceRef: safe-global/safe-deployments, v1.4.1 canonical entries.
+ */
+export const SAFE_PROXY_FACTORY: Address = "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67";
+export const SAFE_SINGLETON: Address = "0x41675C099F32341bf84BFc5382aF534df5C7461a";
+export const SAFE_FALLBACK_HANDLER: Address = "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99";
+
+/**
+ * The event the factory emits with the address of the Safe it just deployed. Exported on its
+ * own because `getLogs` takes one event rather than a whole ABI, and reaching into the ABI by
+ * index breaks silently the moment an entry is added above it.
+ */
+export const SAFE_PROXY_CREATION_EVENT = {
+  anonymous: false,
+  inputs: [
+    { indexed: true, name: "proxy", type: "address" },
+    { indexed: false, name: "singleton", type: "address" },
+  ],
+  name: "ProxyCreation",
+  type: "event",
+} as const;
+
+/**
+ * The factory entry points needed to create a Safe and to predict where it will land.
+ * sourceRef: safe-smart-account v1.4.1 contracts/proxies/SafeProxyFactory.sol.
+ */
+export const safeProxyFactoryAbi = [
+  {
+    inputs: [
+      { name: "_singleton", type: "address" },
+      { name: "initializer", type: "bytes" },
+      { name: "saltNonce", type: "uint256" },
+    ],
+    name: "createProxyWithNonce",
+    outputs: [{ name: "proxy", type: "address" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "proxyCreationCode",
+    outputs: [{ name: "", type: "bytes" }],
+    stateMutability: "pure",
+    type: "function",
+  },
+  SAFE_PROXY_CREATION_EVENT,
+] as const;
+
+/** sourceRef: safe-smart-account v1.4.1 contracts/Safe.sol, setup(). */
+const safeSetupAbi = [
+  {
+    inputs: [
+      { name: "_owners", type: "address[]" },
+      { name: "_threshold", type: "uint256" },
+      { name: "to", type: "address" },
+      { name: "data", type: "bytes" },
+      { name: "fallbackHandler", type: "address" },
+      { name: "paymentToken", type: "address" },
+      { name: "payment", type: "uint256" },
+      { name: "paymentReceiver", type: "address" },
+    ],
+    name: "setup",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+] as const;
+
+/**
+ * The initializer that turns a fresh proxy into a 1-of-1 Safe owned by one address.
+ *
+ * Every field after the owner is the neutral value: no setup module, no delegate call, no
+ * payment for the deployment. That matters twice over. It keeps the Safe ordinary, and it
+ * makes the initializer a pure function of the owner, which is what lets the address be
+ * predicted before anything is sent.
+ */
+export function encodeSafeSetup(ownerAddress: Address): Hex {
+  return encodeFunctionData({
+    abi: safeSetupAbi,
+    functionName: "setup",
+    args: [
+      [ownerAddress],
+      1n,
+      zeroAddress,
+      "0x",
+      SAFE_FALLBACK_HANDLER,
+      zeroAddress,
+      0n,
+      zeroAddress,
+    ],
+  });
+}
+
+/**
+ * Where `createProxyWithNonce` will put a Safe, computed rather than looked up.
+ *
+ * The factory deploys with CREATE2, so the address is a pure function of the factory, the
+ * singleton, the initializer and the salt nonce. Nothing here needs an indexer or Safe's
+ * transaction service: an owner's Safe address can be shown before it exists, and the same
+ * arithmetic tells the caller whether it exists yet (read the code at the address).
+ *
+ * `proxyCreationCode` is read from the factory rather than embedded, so this cannot drift
+ * from the bytecode the chain will actually deploy.
+ * sourceRef: safe-smart-account v1.4.1 contracts/proxies/SafeProxyFactory.sol,
+ * deployProxy() and createProxyWithNonce().
+ */
+export function predictSafeProxyAddress({
+  proxyCreationCode,
+  initializer,
+  saltNonce,
+}: {
+  proxyCreationCode: Hex;
+  initializer: Hex;
+  saltNonce: bigint;
+}): Address {
+  const salt = keccak256(concat([keccak256(initializer), pad(`0x${saltNonce.toString(16)}`, { size: 32 })]));
+  const deploymentData = concat([
+    proxyCreationCode,
+    encodeAbiParameters([{ type: "uint256" }], [BigInt(SAFE_SINGLETON)]),
+  ]);
+
+  return getContractAddress({
+    opcode: "CREATE2",
+    from: SAFE_PROXY_FACTORY,
+    salt,
+    bytecodeHash: keccak256(deploymentData),
+  });
+}
 
 /** Safe operation code for a plain CALL. sourceRef: contracts/libraries/Enum.sol. */
 const SAFE_OPERATION_CALL = 0;

@@ -38,12 +38,19 @@ export {
 export { retryAsync, sleep, type RetryOptions, type RetryResult } from "./retry.ts";
 
 export {
+  SAFE_FALLBACK_HANDLER,
+  SAFE_PROXY_CREATION_EVENT,
+  SAFE_PROXY_FACTORY,
   SAFE_SENTINEL_MODULES,
+  SAFE_SINGLETON,
   buildAuthorizeWriterTransaction,
   buildDisableModuleTransaction,
   buildEnableModuleTransaction,
   encodePrevalidatedSignature,
+  encodeSafeSetup,
+  predictSafeProxyAddress,
   safeManagementAbi,
+  safeProxyFactoryAbi,
 } from "./safe.ts";
 
 export { safeAbi, testamentModuleAbi, testamentRegistryAbi } from "./generated/abis.ts";
