@@ -31,6 +31,22 @@ const BAND_FRACTION = 0.36;
 /** Overlap at the seam, so the pile reads as paper resting on paper. Unit: percent of width. */
 const SEAM_OVERLAP_PERCENT = 1.2;
 
+/**
+ * Each envelope in the pile sits a hair off the axis of the one before it, alternating
+ * sides, the way dealt paper actually lands. Same red on same red, perfectly registered,
+ * read as one tall slab with several plates; the offset is what makes each sheet its own.
+ * Unit: percent of the envelope's width.
+ */
+const PILE_SWAY_PERCENT = 1.6;
+
+/**
+ * The seam the crop was swallowing. A covered envelope's own cast is clipped by the very
+ * overflow that crops it to a band, so the shadow that should land on the sheet below it
+ * never painted, and band met envelope with no edge at all. The band wrapper casts this
+ * instead: box-shadow is never clipped by its owner's overflow.
+ */
+const SEAM_CAST = "0 5px 10px rgba(46, 22, 14, 0.4)";
+
 /** Largest width one envelope is laid out at. Unit: CSS px. */
 const ENVELOPE_MAX_WIDTH = 560;
 
@@ -120,7 +136,17 @@ export function HeirEnvelope({
       ) : (
         <div
           className="relative w-full overflow-hidden"
-          style={{ aspectRatio: `${ENVELOPE_RATIO / BAND_FRACTION}` }}
+          style={{
+            aspectRatio: `${ENVELOPE_RATIO / BAND_FRACTION}`,
+            boxShadow: SEAM_CAST,
+            /*
+             * The deal's sway: odd sheets lean one way, even the other, and the top one lies
+             * straight because it is the one being read. It lives here and not on the `li`,
+             * whose entrance animation holds its own transform with fill-mode both and would
+             * override an inline translate for good.
+             */
+            transform: `translateX(${index % 2 === 0 ? "-" : ""}${PILE_SWAY_PERCENT}%)`,
+          }}
         >
           {/* Anchored to the band's bottom, so the crop takes the silk and never the plate. */}
           <div className="absolute inset-x-0 bottom-0">{envelope}</div>

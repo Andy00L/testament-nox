@@ -323,7 +323,15 @@ body {
     transform var(--dur-micro) var(--ease-standard);
 }
 
-/* The one silhouette, so the surface and anything inlaid into it are cut identically. */
+/*
+ * The one silhouette, so the surface and anything inlaid into it are cut identically.
+ *
+ * The SVG carries `preserveAspectRatio="none"`, and it is load-bearing: without it Firefox
+ * keeps the mask at the file's own 107x36 aspect while Chromium stretches it, and every key
+ * on the deployed site rendered as a small ink chip adrift inside an invisible button.
+ * Position and repeat are stated even where defaults would do, so the stretch never rests
+ * on one engine's reading of a shorthand.
+ */
 .key::before,
 .key-sheen,
 .key-inlay {
@@ -331,6 +339,8 @@ body {
   mask-image: url("/ui/ink-key.svg");
   -webkit-mask-size: 100% 100%;
   mask-size: 100% 100%;
+  -webkit-mask-position: 0 0;
+  mask-position: 0 0;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
 }
