@@ -2,7 +2,6 @@ import { createViemHandleClient } from "@iexec-nox/handle";
 import {
   SLOT_COUNT,
   TESTAMENT_STATE,
-  buildAuthorizeWriterTransaction,
   collectDecryptionProofs,
   computePayout,
   describePackFailure,
@@ -11,12 +10,13 @@ import {
   retryAsync,
   safeManagementAbi,
   sleep,
-  testamentModuleAbi,
   testamentRegistryAbi,
   unpackBequest,
 } from "@testament/shared";
 import hre from "hardhat";
 import { formatEther, getAddress, type Address, type Hex } from "viem";
+
+import { describeMandateFailure, ensureSpendableMandate } from "../lib/mandate.ts";
 
 /**
  * The whole life cycle on Ethereum Sepolia, against the deployed contracts and a real Safe:
@@ -103,19 +103,25 @@ if (!moduleEnabled) {
 }
 
 // Enabling the module is not consent to any particular will. The Safe also has to name its
-// writer, and the will carries the nonce that naming landed on.
-const [mandatedWriter, mandateNonce] = await publicClient.readContract({
-  address: moduleAddress,
-  abi: testamentModuleAbi,
-  functionName: "authorizationOf",
-  args: [safeAddress],
+// writer, and one naming buys one will, so a previous rehearsal leaves nothing to spend.
+// Settling this before the top-up means a wrong writer costs no transaction.
+const mandate = await ensureSpendableMandate({
+  reader: publicClient,
+  granter: ownerWallet,
+  safeAddress,
+  moduleAddress,
+  registryAddress,
+  writerAddress: ownerAddress,
+  onGrant: (currentNonce) =>
+    console.log(`[e2e] mandate ${currentNonce} already spent, asking the Safe for a new one`),
 });
-if (mandatedWriter.toLowerCase() !== ownerAddress.toLowerCase()) {
-  throw new Error(
-    `[e2e] the Safe's writer is ${mandatedWriter}, not ${ownerAddress}. Run: bun run authorize-writer:sepolia`,
-  );
+if (!mandate.ok) {
+  throw new Error(`[e2e] ${describeMandateFailure(mandate.failure)}`);
 }
-console.log(`[e2e] mandate  nonce ${mandateNonce}`);
+if (mandate.transactionHash !== null) {
+  console.log(`[e2e] authorize ${mandate.transactionHash}`);
+}
+console.log(`[e2e] mandate  nonce ${mandate.nonce}`);
 
 let estateValueWei = await publicClient.getBalance({ address: safeAddress });
 if (estateValueWei < MINIMUM_ESTATE_WEI) {
@@ -160,23 +166,6 @@ if (safeHeldId !== 0n) {
   throw new Error(
     `[e2e] testament #${safeHeldId} is still active against ${safeAddress} and belongs to someone else. Its owner has to revoke it, or the Safe has to rotate its mandate.`,
   );
-}
-
-// A mandate buys one will. A previous run spent this one, so the Safe grants another before
-// the rehearsal can write again. This is exactly what the app asks a user to do.
-const consumedNonce = await publicClient.readContract({
-  address: registryAddress,
-  abi: testamentRegistryAbi,
-  functionName: "consumedAuthNonce",
-  args: [safeAddress],
-});
-if (mandateNonce <= consumedNonce) {
-  console.log(`[e2e] mandate ${mandateNonce} already spent, asking the Safe for a new one`);
-  const authorizeHash = await ownerWallet.writeContract(
-    buildAuthorizeWriterTransaction(safeAddress, moduleAddress, ownerAddress, ownerAddress),
-  );
-  await publicClient.waitForTransactionReceipt({ hash: authorizeHash });
-  console.log(`[e2e] authorize ${authorizeHash}`);
 }
 
 // ---- Write --------------------------------------------------------------------------

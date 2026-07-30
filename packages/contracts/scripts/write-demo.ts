@@ -10,6 +10,8 @@ import {
 import hre from "hardhat";
 import { formatEther, getAddress, type Address } from "viem";
 
+import { describeMandateFailure, ensureSpendableMandate } from "../lib/mandate.ts";
+
 /**
  * Seals one long-lived demo testament on Ethereum Sepolia and stops there.
  *
@@ -78,6 +80,26 @@ const moduleEnabled = await publicClient.readContract({
 if (!moduleEnabled) {
   throw new Error(`[writeDemo] the Safe has not enabled ${moduleAddress}`);
 }
+
+// A mandate buys one will, and the previous demo spent the current one. Asking the Safe for
+// another before anything else means a failed grant costs no top-up and no revoke.
+const mandate = await ensureSpendableMandate({
+  reader: publicClient,
+  granter: ownerWallet,
+  safeAddress,
+  moduleAddress,
+  registryAddress,
+  writerAddress: ownerAddress,
+  onGrant: (currentNonce) =>
+    console.log(`[writeDemo] mandate ${currentNonce} already spent, asking the Safe for a new one`),
+});
+if (!mandate.ok) {
+  throw new Error(`[writeDemo] ${describeMandateFailure(mandate.failure)}`);
+}
+if (mandate.transactionHash !== null) {
+  console.log(`[writeDemo] authorize ${mandate.transactionHash}`);
+}
+console.log(`[writeDemo] mandate  nonce ${mandate.nonce}`);
 
 let estateValueWei = await publicClient.getBalance({ address: safeAddress });
 if (estateValueWei < MINIMUM_ESTATE_WEI) {

@@ -2,7 +2,6 @@ import { createViemHandleClient } from "@iexec-nox/handle";
 import {
   SLOT_COUNT,
   TESTAMENT_STATE,
-  buildAuthorizeWriterTransaction,
   collectDecryptionProofs,
   computePayout,
   describePackFailure,
@@ -15,6 +14,8 @@ import {
 } from "@testament/shared";
 import hre from "hardhat";
 import { formatEther, getAddress, type Address, type Hex } from "viem";
+
+import { describeMandateFailure, ensureSpendableMandate } from "../lib/mandate.ts";
 
 /**
  * The failure half of the life cycle, on Ethereum Sepolia and for real.
@@ -119,13 +120,22 @@ if (existingId !== 0n) {
   await publicClient.waitForTransactionReceipt({ hash: revokeHash });
 }
 
-// A mandate buys one will, so the Safe grants a fresh one for this run.
+// A mandate buys one will, so the Safe grants a fresh one for this run. Always granting,
+// even when the current one is unspent, keeps the authorization visible in the recording.
 console.log("[demoRetry] the Safe names its writer");
-const authorizeHash = await ownerWallet.writeContract(
-  buildAuthorizeWriterTransaction(safeAddress, moduleAddress, ownerAddress, ownerAddress),
-);
-await publicClient.waitForTransactionReceipt({ hash: authorizeHash });
-console.log(`[demoRetry] authorize ${authorizeHash}`);
+const mandate = await ensureSpendableMandate({
+  reader: publicClient,
+  granter: ownerWallet,
+  safeAddress,
+  moduleAddress,
+  registryAddress,
+  writerAddress: ownerAddress,
+  alwaysGrant: true,
+});
+if (!mandate.ok) {
+  throw new Error(`[demoRetry] ${describeMandateFailure(mandate.failure)}`);
+}
+console.log(`[demoRetry] authorize ${mandate.transactionHash} (nonce ${mandate.nonce})`);
 
 let estateValueWei = await publicClient.getBalance({ address: safeAddress });
 if (estateValueWei < ESTATE_WEI) {
