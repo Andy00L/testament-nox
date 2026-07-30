@@ -40,6 +40,8 @@ ui-design/
 # it is tooling for whoever is editing the project, not part of the project.
 .claude/
 .claude2/
+.agents/
+skills-lock.json
 
 # Scene art sources. The committed deliverables are the WebP files next to them;
 # regenerate with: bun run --cwd packages/web scripts/optimise-scene-assets.ts

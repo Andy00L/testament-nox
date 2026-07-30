@@ -54,7 +54,9 @@ await capture(page, "02-write");
 
 // The door reading a real executed testament off Sepolia, no wallet connected. The id is
 // explicit now: without a link the door explains itself instead of showing anything.
-await page.goto(`${BASE_URL}/porte?id=1`, { waitUntil: "networkidle" });
+// Will 6: two heirs, fully paid, so the envelope pile and both "received" marks are in
+// frame. Will 1, the previous subject, has since been revoked and photographs as a wall.
+await page.goto(`${BASE_URL}/porte?id=6`, { waitUntil: "networkidle" });
 await page.getByText("The door is open.").waitFor({ timeout: 30_000 });
 await page.waitForTimeout(1500);
 await capture(page, "03-door");
