@@ -35,8 +35,10 @@ const SEAM_OVERLAP_PERCENT = 1.2;
 const ENVELOPE_MAX_WIDTH = 560;
 
 type HeirEnvelopeProps = {
-  /** Position in the pile, from the bottom. Drives the seam and the stacking order. */
+  /** Position in the will, from the first heir. Drives the seam and the stacking order. */
   index: number;
+  /** How many envelopes are in the pile, so each one knows what it lies on. */
+  pileSize: number;
   /** The last envelope lies open; every other one shows only its band. */
   isTop: boolean;
   /** The address plate's left column: who, then how much. */
@@ -48,6 +50,7 @@ type HeirEnvelopeProps = {
 
 export function HeirEnvelope({
   index,
+  pileSize,
   isTop,
   addressLine,
   amountLine,
@@ -82,8 +85,14 @@ export function HeirEnvelope({
       className="relative w-full"
       style={{
         maxWidth: ENVELOPE_MAX_WIDTH,
-        // Later envelopes rest on the ones before them, so the seam reads the right way round.
-        zIndex: index + 1,
+        /*
+         * Earlier envelopes lie over later ones, which is the only order that lets the seams
+         * show. Every frame casts its shadow downward, from the one light this product has,
+         * so a band overlapping what is under it draws a real edge; stacked the other way the
+         * covering envelope would have to cast upward and the whole pile read as one slab,
+         * which is exactly what it did.
+         */
+        zIndex: pileSize - index,
         marginTop: index === 0 ? 0 : `-${SEAM_OVERLAP_PERCENT}%`,
       }}
     >

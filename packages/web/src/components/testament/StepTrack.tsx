@@ -16,6 +16,11 @@ import { Check } from "@appica/icons-react";
  * pressed. The done state is the same tonal bronze the rest of the product confirms with; the
  * unreached state names itself in faint ink and offers nothing, because offering an action the
  * chain would refuse is worse than showing none.
+ *
+ * The material carries that distinction rather than the copy. The step whose turn it is stands
+ * proud of the panel as a key and presses flush; the steps that are done or not yet reachable
+ * are sunk wells, which is what they are. Testing read the previous version, where all four
+ * states were the same recess, as four inert grey boxes.
  */
 
 /**
@@ -84,7 +89,7 @@ function TrackStepCell({ step, ordinal }: { step: TrackStep; ordinal: number }) 
       onClick={step.onRun}
       disabled={isRunning}
       aria-busy={isRunning}
-      className="panel-well type-small flex min-h-11 flex-1 items-center gap-2.5 px-4 py-3 text-left text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-bronze-deep disabled:text-ink-faint"
+      className="key type-small flex min-h-11 flex-1 items-center gap-2.5 px-4 py-3 text-left"
     >
       {ordinalMark}
       {isRunning ? step.runningLabel : step.label}

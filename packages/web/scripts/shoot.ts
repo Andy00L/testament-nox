@@ -46,7 +46,6 @@ for (const viewport of VIEWPORTS) {
   const context = await browser.newContext({
     viewport: { width: viewport.width, height: viewport.height },
     deviceScaleFactor: DEVICE_SCALE_FACTOR,
-    locale: "fr-FR",
   });
   const page = await context.newPage();
 
@@ -62,21 +61,30 @@ for (const viewport of VIEWPORTS) {
   await capture(page, `write-${viewport.name}`);
 
   // A filled form, at realistic address lengths, with the validation actually triggered.
-  await page.getByLabel("Héritier 1").fill("0x71De5E2141C89F7A6c5260d10D18CbC47fB1a7f2");
-  await page.getByLabel("Héritier 2").fill("0xe5aFeC35193B23B3AFD1B2C74613598714D5F484");
-  const shareFields = page.getByLabel("Part");
+  await page.getByLabel("Heir 1").fill("0x71De5E2141C89F7A6c5260d10D18CbC47fB1a7f2");
+  await page.getByLabel("Heir 2").fill("0xe5aFeC35193B23B3AFD1B2C74613598714D5F484");
+  const shareFields = page.getByLabel("Share");
   await shareFields.nth(0).fill("60");
   await shareFields.nth(1).fill("40");
-  await page.getByLabel("Adresse du Safe").fill("0x1F7481b60669d09404cf2b2493Cc6D7FE3155b8F");
+  await page.getByLabel("Safe address").fill("0x1F7481b60669d09404cf2b2493Cc6D7FE3155b8F");
   await capture(page, `write-filled-${viewport.name}`);
 
   // The error state, triggered for real rather than assumed from the code.
-  await page.getByLabel("Héritier 1").fill("0xnot-an-address");
+  await page.getByLabel("Heir 1").fill("0xnot-an-address");
   await capture(page, `write-error-${viewport.name}`);
 
   // Focus, so the one focus treatment can be judged on the material.
-  await page.getByLabel("Adresse du Safe").focus();
+  await page.getByLabel("Safe address").focus();
   await capture(page, `write-focus-${viewport.name}`);
+
+  // A key at rest, under a pointer, and held down. Three states that have to be different
+  // enough to tell apart from an image, which is exactly what testing said they were not.
+  const consentKey = page.getByRole("button", { name: /Open the passage/ });
+  await consentKey.hover();
+  await capture(page, `key-hover-${viewport.name}`);
+  await page.mouse.down();
+  await capture(page, `key-press-${viewport.name}`);
+  await page.mouse.up();
 
   await page.goto(`${BASE_URL}/porte`, { waitUntil: "networkidle" });
   await capture(page, `door-${viewport.name}`);
@@ -88,7 +96,6 @@ for (const viewport of VIEWPORTS) {
 const reducedContext = await browser.newContext({
   viewport: { width: 1440, height: 900 },
   deviceScaleFactor: DEVICE_SCALE_FACTOR,
-  locale: "fr-FR",
   reducedMotion: "reduce",
 });
 const reducedPage = await reducedContext.newPage();

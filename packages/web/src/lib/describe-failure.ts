@@ -23,6 +23,8 @@ export function describeWriteFailure(failure: WriteFailure, copy: Copy): string 
     case "rejected": {
       const byStep: Record<WriteStep, string> = {
         seal: copy.errors.sealRejected,
+        "create-safe": copy.errors.vaultCreateRejected,
+        "fund-safe": copy.errors.vaultFundRejected,
         "enable-module": copy.errors.safeRejectedEnable,
         "authorize-writer": copy.errors.safeRejectedAuthorize,
         release: copy.errors.releaseRejected,
@@ -31,6 +33,10 @@ export function describeWriteFailure(failure: WriteFailure, copy: Copy): string 
       };
       return byStep[failure.step];
     }
+    case "wrong-safe-owner":
+      return copy.errors.vaultWrongOwner(failure.safeAddress);
+    case "invalid-amount":
+      return copy.errors.vaultAmountInvalid;
     case "transaction-failed":
       // A wallet or node string, quoted as it arrived. Inventing a translation for it would
       // mean guessing at what a wallet meant, which is worse than showing its own words.

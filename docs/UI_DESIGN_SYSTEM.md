@@ -17,6 +17,11 @@ is a deliberate edit to this file, not a one-off style in a component.
 - **Density:** narrative and airy on the scene and the door; focused single column with
   one action on the write flow.
 - **Hero moment:** the curtain, and the seal pressed onto the panel at signing.
+- **No homework:** nothing this product can compute is asked of its author. The vault address
+  is one of those: `createProxyWithNonce` deploys with CREATE2, so a wallet's Safe address is
+  arithmetic, and the field fills itself the moment a wallet connects, before the Safe exists
+  and with no backend to ask. Creating it and funding it are offered in the same place, and the
+  field stays editable for an owner who already keeps a Safe elsewhere.
 - **Theme scope:** one committed field, light. Woven tatami under warm daylight. This is
   not "light mode" with a dark counterpart missing: the product is a doorway you stand in
   during the day. Recorded here as a deliberate single-theme decision so no future session
@@ -40,9 +45,10 @@ cream-and-white every editorial template ships: the texture, not the tint, carri
 | Field | `--color-field` | `#F3E8D5` | The mat, under the woven texture. |
 | Field raised | `--color-field-raised` | `#FFFDF7` | Panels and the plaque. Cream paper. |
 | Field sunk | `--color-field-sunk` | `#E8DFD0` | Wells and inputs. |
+| Field warm | `--color-field-warm` | `#F0E9DC` | One value step between sunk and paper: a key held down. |
 | Ink | `--color-ink` | `#3A2D2A` | Primary text. |
 | Ink muted | `--color-ink-muted` | `#58423C` | Secondary text, labels. |
-| Ink faint | `--color-ink-faint` | `#9A8A84` | Placeholders, disabled, hints. Never body copy. |
+| Ink faint | `--color-ink-faint` | `#6F5C57` | Placeholders, disabled, hints. Never body copy. |
 | Accent | `--color-bronze` | `#8A6D1F` | The one interactive colour, and the strand material. |
 | Accent deep | `--color-bronze-deep` | `#5E4A14` | The far end of the strand gradient. |
 | Accent sunk | `--color-bronze-sunk` | `#EFE4C6` | Tonal fill under a charging control. |
@@ -72,9 +78,18 @@ Contrast is measured on the rendered page rather than computed from the sheet, b
 | body copy on a panel | 7.66:1 | 4.5:1 |
 | field label on a panel | 7.66:1 | 4.5:1 |
 | display heading on the mat | 10.90:1 | 4.5:1 |
+| hint under a field | 5.18:1 | 4.5:1 |
 
 `--color-ink-faint` never carries body copy. It is for hints, disabled states, and
 placeholder text.
+
+**Faint ink was measured and moved.** It used to be `#9A8A84`, which renders at 2.51:1 on a
+well and 2.73:1 on the mat: under even the 3:1 large-text floor. Live testing reported the
+quiet half of this interface as barely visible, and it was right. `#6F5C57` holds 4.75:1 on a
+well, 5.18:1 on the mat and 6.17:1 on paper in the same warm family, so faint still reads as
+faint and now also reads. The gate missed it because it only sampled body, label and heading;
+`verify-ui` now measures the hint under a field too, which is where meaning actually lives
+(which consent is missing, whether the vault is empty).
 
 ---
 
@@ -101,7 +116,7 @@ Every step sets size, leading and tracking together.
 
 | Step | Size | Leading | Tracking | Family |
 | --- | --- | --- | --- | --- |
-| `display-hero` | `clamp(2.75rem, 2rem + 3.6vw, 4.75rem)` | 1.06 | -0.02em | Gambarino |
+| `display-hero` | `clamp(2.25rem, 1.1rem + 4.2vw, 4.5rem)` | 1.06 | -0.02em | Gambarino |
 | `display-lg` | `clamp(1.875rem, 1.5rem + 1.9vw, 2.75rem)` | 1.12 | -0.015em | Gambarino |
 | `title` | `1.375rem` | 1.25 | -0.01em | Gambarino |
 | `body` | `1rem` | 1.6 | 0 | system-ui |
@@ -114,7 +129,17 @@ wearing the same tracked-caps costume is its own tell, so other small text uses 
 at `--ink-muted` and earns its rank from position and colour.
 
 Headlines hold to one or two lines, never three. Emphasis inside a headline is a value
-shift, never a coloured word, and never a coloured word stranded at the end of a wrap.
+shift, never a coloured word, and never a coloured word stranded at the end of a wrap. The
+hero ramp is set so that promise survives contact with a real column: the previous one was
+steep enough that each of the home page's two authored lines wrapped again on a laptop and the
+fold opened on a four-line staircase.
+
+**Small text carries a relief.** `type-small` and `type-label` set
+`text-shadow: 0 1px 0 var(--relief-catch)`: one hairline of the paper's own highlight under the
+glyph, on the same light everything else here is lit by (from above, so the catch sits below
+the stroke, exactly as `--panel-lip` does on a panel edge). It is what pressed ink does to
+paper, and it buys the edge definition 14px type needs over a woven mat. No blur, no sideways
+offset, no dark halo: a legibility shadow, never a decorative one.
 
 **Wordmark:** "Testament" set in Gambarino, sentence case, normal tracking, beside the
 seal mark at 18px. Not letterspaced caps: an all-caps serif tracked out is the stock
@@ -152,6 +177,25 @@ rather than a hairline border drawn around a box. The shadow is tinted with the 
 own darkest value, never pure black, and is directional, never a symmetric halo. Panels
 never nest on panels: a well inside a panel uses `--color-field-sunk` with an inset ring
 and no cast.
+
+**Sunk means you write into it, proud means you press it.** This is the one distinction the
+system was missing, and its absence is what live testing found: a field and a button were the
+same carved recess, so nothing announced itself as pressable and pressing produced no before
+and after. Fields stay wells (`.panel-well`). Every control is a key (`.key`): the same paper,
+standing proud of the panel on a tight directional cast, that goes flush when pressed. The cast
+disappears, the lip inverts into a recess, the fill warms to `--color-field-warm` and the label
+travels one pixel down with it. Rest, hover and press are three readings you can tell apart
+from a still image, which is the bar. A refused control is sunk from the start, so it never
+looked pressable in the first place.
+
+The seal keeps its own recess, because the stone goes into it rather than standing on it:
+hovering lifts the stone off the floor, pressing puts it back down. Same physics, one control's
+own version of it.
+
+**Cursors are declared.** Tailwind v4's preflight sets `appearance: button`, and browsers then
+hand every button the arrow cursor. Almost every control here is a button, so a base rule gives
+them the hand and gives a disabled one `not-allowed`. Without it the whole interface reads as
+unclickable on hover, which is exactly how it was reported.
 
 **Texture** comes from the tatami itself, a fixed woven substrate behind everything, plus
 one very soft radial that brightens the mat toward the doorway and lets it fall into shade
@@ -242,6 +286,20 @@ number. One reading each, and they cannot disagree because both come from the sa
 edge, drawn as SVG, pressed onto the panel at the moment of signing. Placement rule: at
 most one seal per screen, only on an irreversible action, always at the point of
 commitment.
+
+**One geometry, on every key: the chamfered corner.** The key is cut top-left and
+bottom-right, the 委角 of a lacquer panel, so this product's pressable things share a shape no
+component kit ships. It is one polygon in `globals.css`, applied to the key's surface and to
+anything inlaid into it (`.key-inlay`, for the heartbeat charge and the copy wash) so the cut
+never disagrees with itself. The cast is a `drop-shadow` filter rather than a `box-shadow`,
+because a shadow has to follow a cut silhouette; the handscroll and the carved frames do the
+same for the same reason.
+
+**The Safe mark, where a Safe is named.** `components/ui/SafeMark.tsx` carries Safe's own
+glyph, taken verbatim from their brand asset and cropped to the mark, rendered in
+`currentColor` and bare. It appears beside the vault field's label, and only while that field
+holds the address this product derived. Nothing is redrawn and nothing sits in a tile behind
+it.
 
 Everything else in the interface is quiet so these two land.
 

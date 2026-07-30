@@ -24,7 +24,7 @@ const PLAQUE_MAX_WIDTH = 540;
  * the labels stay readable on a phone. The floor is safe: at the narrowest the plaque is laid
  * out at, the longer of the two labels still measures well inside its 36.13% window.
  */
-const SLOT_TYPE_SIZE = "max(10px, 2.4cqw)";
+const SLOT_TYPE_SIZE = "max(11px, 2.4cqw)";
 
 type LegacyBoxNavProps = {
   writeHref: string;
@@ -43,7 +43,9 @@ export function LegacyBoxNav({
   title,
 }: LegacyBoxNavProps) {
   return (
-    <nav aria-label={title} className="flex w-full justify-start">
+    // Shrink to the plaque rather than claiming the row: a full-width nav pushed everything
+    // beside it onto its own line, which is how "How it works" ended up stranded underneath.
+    <nav aria-label={title} className="w-full shrink-0" style={{ maxWidth: PLAQUE_MAX_WIDTH }}>
       <CarvedFrame frame="legacyBox" maxWidth={PLAQUE_MAX_WIDTH} priority>
         {[
           <PlaqueDoor key="write" href={writeHref} label={writeLabel} />,
@@ -58,12 +60,20 @@ function PlaqueDoor({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      // The hit area is allowed past the window's short edge: the window draws the control,
-      // the target is what a thumb needs. Nothing visible crosses the gold lip.
-      className="grid h-full min-h-11 w-full place-items-center text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-bronze-deep"
+      // The link is exactly its window, and the thumb target is a pseudo-element grown from
+      // its centre. Setting a min-height on the link itself was wrong: on a phone the window
+      // is shorter than 44px, so the link grew downward and pushed its own label onto the
+      // slot's lower rim. Growing the target symmetrically keeps the label centred in the
+      // slot at every width while the tappable area stays the size a thumb needs.
+      //
+      // The plaque is painted lacquer, so the door cannot be given the key's paper press. It
+      // gets the same three readings in the one register a carved slot has: the engraved
+      // label warms toward bronze under a pointer, and settles a hair deeper into its slot
+      // when pressed. Type only, so nothing ever crosses the gold lip.
+      className="group/door relative grid h-full w-full cursor-pointer place-items-center text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) after:absolute after:inset-x-0 after:top-1/2 after:h-11 after:-translate-y-1/2 after:content-[''] hover:text-bronze-deep"
     >
       <span
-        className="text-center"
+        className="text-center transition-transform duration-(--dur-micro) ease-(--ease-standard) group-active/door:scale-[0.96]"
         style={{
           fontFamily: "var(--font-display)",
           fontSize: SLOT_TYPE_SIZE,

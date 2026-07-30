@@ -167,6 +167,13 @@ const contrastSamples = await page.evaluate(() => {
     bodyOnPanel: readPair(".scroll-sheet .type-body"),
     labelOnPanel: readPair(".scroll-sheet .type-label"),
     heading: readPair("h1"),
+    /*
+     * The hint under a field, which is the step this gate used to skip. It was set in the
+     * faint ink at 2.51:1 against a well, and testing reported the quiet half of this
+     * interface as unreadable before any measurement caught it. Faint text carries meaning
+     * here (which consent is missing, which vault is empty), so it takes the body floor.
+     */
+    hintUnderField: readPair(".scroll-sheet .panel-well + p, .scroll-sheet .type-small.min-h-5"),
   };
 });
 

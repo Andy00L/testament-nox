@@ -166,7 +166,7 @@ export function WalletControl() {
                       onClick={() =>
                         connect({ connector }, { onSuccess: () => setIsOpen(false) })
                       }
-                      className="panel-well flex min-h-11 w-full items-center gap-2.5 px-3 py-2 text-left transition-colors duration-(--dur-small) ease-(--ease-standard) not-first:mt-1.5 hover:text-bronze-deep disabled:text-ink-faint"
+                      className="key flex min-h-11 w-full items-center gap-2.5 px-3 py-2 text-left not-first:mt-1.5"
                     >
                       {/* The bare mark, no tile behind it. EIP-6963 supplies the icon. */}
                       {connector.icon !== undefined ? (

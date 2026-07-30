@@ -13,9 +13,18 @@
   --color-field: #f3e8d5;
   --color-field-raised: #fffdf7;
   --color-field-sunk: #e8dfd0;
+  /* One value step between sunk and paper: where a surface goes when a pointer is over it. */
+  --color-field-warm: #f0e9dc;
   --color-ink: #3a2d2a;
   --color-ink-muted: #58423c;
-  --color-ink-faint: #9a8a84;
+  /*
+   * Measured, not chosen by eye. The previous value (#9a8a84) rendered hints, placeholders and
+   * the remaining-silence caption at 2.51:1 on a well and 2.73:1 on the mat, under even the
+   * 3:1 large-text floor, which is why testing reported the quiet parts of this interface as
+   * barely visible. This one holds 4.75:1 on a well, 5.18:1 on the mat and 6.17:1 on paper,
+   * in the same warm family, so faint still reads as faint and still reads.
+   */
+  --color-ink-faint: #6f5c57;
 
   /* The one interactive colour. Deep enough to carry body text on cream. */
   --color-bronze: #8a6d1f;
@@ -81,6 +90,8 @@
    */
   --panel-surface: linear-gradient(180deg, #fffdf7 0%, #fdf7ea 100%);
   --panel-lip: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  /* The same catch, at type scale: what the light does just under a pressed stroke. */
+  --relief-catch: rgba(255, 253, 247, 0.85);
   --panel-ring: inset 0 0 0 1px rgba(88, 66, 60, 0.1);
   --panel-cast: 0 1px 2px rgba(58, 45, 42, 0.06), 0 12px 28px rgba(58, 45, 42, 0.1);
 
@@ -147,9 +158,16 @@ body {
  * Type steps. Size, leading and tracking are always set together; size alone is
  * never enough.
  */
+/*
+ * The hero is authored as exactly two lines and has to render as two. The previous ramp was
+ * steep enough that each authored line wrapped again on a laptop, so the fold showed a
+ * four-line staircase: the tell this system exists to avoid. This one is sized so the longer
+ * of the two lines clears its column from a tablet up, and gives back four pixels at the top
+ * end to buy it.
+ */
 .type-display-hero {
   font-family: var(--font-display);
-  font-size: clamp(2.75rem, 2rem + 3.6vw, 4.75rem);
+  font-size: clamp(2.25rem, 1.1rem + 4.2vw, 4.5rem);
   line-height: 1.06;
   letter-spacing: -0.02em;
   font-weight: 400;
@@ -181,10 +199,20 @@ body {
   text-wrap: pretty;
 }
 
+/*
+ * Small text carries a relief, because small text is what testing could not read.
+ *
+ * It is one hairline of the paper's own highlight under the glyph, on the same light this
+ * product lights everything else with (from above, so the catch sits below the stroke, exactly
+ * like `--panel-lip` on a panel edge). That is what ink pressed into paper does, and it buys
+ * the extra edge definition that 14px type needs over a woven mat. No blur, no offset sideways,
+ * no dark halo: a legibility shadow, not a decorative one.
+ */
 .type-small {
   font-size: 0.875rem;
   line-height: 1.5;
   letter-spacing: 0.005em;
+  text-shadow: 0 1px 0 var(--relief-catch);
 }
 
 /*
@@ -197,6 +225,7 @@ body {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--color-ink-muted);
+  text-shadow: 0 1px 0 var(--relief-catch);
 }
 
 .type-numeric {
@@ -241,6 +270,118 @@ body {
   background: var(--color-field-sunk);
   border-radius: var(--radius-control);
   box-shadow: inset 0 1px 2px rgba(58, 45, 42, 0.09), inset 0 0 0 1px rgba(88, 66, 60, 0.08);
+}
+
+/*
+ * The key: the one pressable surface in this product.
+ *
+ * The problem it fixes is that everything used to be a well. A field you type into and a
+ * button you press were the same carved recess, so nothing on the page announced itself as
+ * pressable, and pressing it produced no before and after. Testing found exactly that: the
+ * consents read as inert grey boxes and the seal looked like it did nothing.
+ *
+ * So the material now says which is which. A well is sunk, because you write into it. A key
+ * is a piece of the same paper sitting proud of the panel, because you press it, and pressing
+ * pushes it flush: the cast disappears, the lip inverts into a recess, and the label travels a
+ * single pixel down with it. Rest, hover and press are three states you can tell apart with
+ * the sound off.
+ *
+ * The silhouette is the chamfered corner of a lacquer panel, cut top-left and bottom-right,
+ * so the product's pressable things carry one geometry that no component kit ships. The
+ * surface lives on a pseudo-element because the chamfer has to clip the paper and its cast
+ * without clipping the label, and a cast that follows a cut silhouette is a drop-shadow
+ * filter rather than a box-shadow (the same reason the handscroll and the carved frames use
+ * one).
+ */
+.key {
+  --key-chamfer: 8px;
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--radius-control);
+  color: var(--color-ink);
+  transition:
+    color var(--dur-small) var(--ease-standard),
+    transform var(--dur-micro) var(--ease-standard);
+}
+
+/* The one silhouette, so the surface and anything inlaid into it are cut identically. */
+.key::before,
+.key-inlay {
+  clip-path: polygon(
+    var(--key-chamfer) 0,
+    100% 0,
+    100% calc(100% - var(--key-chamfer)),
+    calc(100% - var(--key-chamfer)) 100%,
+    0 100%,
+    0 var(--key-chamfer)
+  );
+}
+
+.key::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--panel-surface);
+  box-shadow: var(--panel-lip), inset 0 0 0 1px rgba(88, 66, 60, 0.14);
+  /* One light from above, tight and low: a key resting on the panel, not floating over it. */
+  filter: drop-shadow(0 1px 0 rgba(58, 45, 42, 0.1)) drop-shadow(0 2px 3px rgba(58, 45, 42, 0.09));
+  transition:
+    background-color var(--dur-small) var(--ease-standard),
+    box-shadow var(--dur-small) var(--ease-standard),
+    filter var(--dur-small) var(--ease-standard);
+}
+
+.key:hover:not(:disabled) {
+  color: var(--color-bronze-deep);
+}
+
+.key:hover:not(:disabled)::before {
+  box-shadow: var(--panel-lip), inset 0 0 0 1px rgba(88, 66, 60, 0.26);
+  filter: drop-shadow(0 1px 0 rgba(58, 45, 42, 0.12)) drop-shadow(0 3px 5px rgba(58, 45, 42, 0.11));
+}
+
+/* Pressed: flush with the panel. The cast is gone because nothing is standing proud of it. */
+.key:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.key:active:not(:disabled)::before {
+  background: var(--color-field-warm);
+  box-shadow: inset 0 2px 4px rgba(58, 45, 42, 0.2), inset 0 0 0 1px rgba(88, 66, 60, 0.2);
+  filter: none;
+}
+
+/* Refused: sunk from the start, so it never looked pressable in the first place. */
+.key:disabled {
+  color: var(--color-ink-faint);
+}
+
+.key:disabled::before {
+  background: var(--color-field-sunk);
+  box-shadow: inset 0 1px 2px rgba(58, 45, 42, 0.09), inset 0 0 0 1px rgba(88, 66, 60, 0.08);
+  filter: none;
+}
+
+/*
+ * Which pointer the cursor shows.
+ *
+ * Tailwind v4's preflight sets `appearance: button`, and browsers then hand every button the
+ * arrow cursor rather than the hand. Almost every control in this product is a button, so
+ * without this rule the whole interface reads as unclickable on hover. Links already get the
+ * hand from the user agent stylesheet; a refused control says so before it is clicked.
+ */
+@layer base {
+  button:not(:disabled),
+  summary,
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
 }
 
 /* One focus treatment, visible on the field and on the material, everywhere. */

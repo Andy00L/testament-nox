@@ -10,20 +10,26 @@ import { useId, type InputHTMLAttributes, type ReactNode } from "react";
 
 type TextFieldProps = {
   label: string;
+  /**
+   * A mark shown beside the label, for a field whose value belongs to a named product. Bare:
+   * the mark sits on the paper, never in a tile.
+   */
+  labelMark?: ReactNode;
   error?: string | null;
   hint?: ReactNode;
   suffix?: ReactNode;
 } & Omit<InputHTMLAttributes<HTMLInputElement>, "className" | "id">;
 
-export function TextField({ label, error, hint, suffix, ...inputProps }: TextFieldProps) {
+export function TextField({ label, labelMark, error, hint, suffix, ...inputProps }: TextFieldProps) {
   const fieldId = useId();
   const errorId = `${fieldId}-error`;
   const hintId = `${fieldId}-hint`;
 
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={fieldId} className="type-label">
+      <label htmlFor={fieldId} className="type-label flex items-center gap-1.5">
         {label}
+        {labelMark}
       </label>
 
       <div className="panel-well flex items-center gap-2 px-3 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-bronze">

@@ -315,6 +315,7 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
               <HeirEnvelope
                 key={bequest.beneficiary}
                 index={bequestIndex}
+                pileSize={will.length}
                 isTop={bequestIndex === will.length - 1}
                 addressLine={
                   <a

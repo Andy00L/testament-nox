@@ -29,7 +29,13 @@ export function SceneHero() {
         <WordDevice />
       </div>
 
-      <div className="mt-auto flex max-w-[34rem] flex-col gap-5 pb-10 pt-[16vh] sm:gap-6 sm:pb-14">
+      {/*
+        One column, one left axis, and it is wide enough for the headline to render as the two
+        lines it was written as. At 34rem each authored line wrapped again and the fold opened
+        on a four-line staircase. The prose underneath keeps its own 46ch measure, so widening
+        the column changes the headline and nothing else.
+      */}
+      <div className="mt-auto flex max-w-[58rem] flex-col gap-5 pb-10 pt-[16vh] sm:gap-6 sm:pb-14">
         <h1 className="type-display-hero">
           <span className="anim-rise anim-d-2 block">{copy.scene.headlineFirst}</span>
           <span className="anim-rise anim-d-3 block">{copy.scene.headlineSecond}</span>
@@ -45,8 +51,13 @@ export function SceneHero() {
           The two doors are the plaque; reading about it is not. Three links of graded quiet
           made the primary act look like a footnote, and the plaque is the one object on this
           page you are meant to press.
+
+          "How it works" sits beside the plaque rather than under it. Hanging it below left a
+          stranded line under a heavy object with dead space to its right, which is the
+          unplaced look this system rejects; on the plaque's own baseline it reads as the
+          quiet alternative to the two doors, which is what it is.
         */}
-        <div className="anim-rise anim-d-5 flex flex-col items-start gap-4">
+        <div className="anim-rise anim-d-5 flex flex-wrap items-center gap-x-8 gap-y-4">
           <LegacyBoxNav
             title={copy.scene.doorsTitle}
             writeHref="/ecrire"

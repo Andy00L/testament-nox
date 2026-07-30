@@ -81,7 +81,7 @@ export function CopyField({ value, label, hint, confirmedLabel, failedLabel }: C
       <button
         type="button"
         onClick={() => void runCopy()}
-        className="panel-well group relative flex min-h-11 w-full items-center gap-3 overflow-hidden px-4 py-3 text-left transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-bronze-deep active:scale-[0.98] motion-safe:transition-transform"
+        className="key type-small group relative flex min-h-11 w-full items-center gap-3 px-4 py-3 text-left"
       >
         {/*
           The wash. A tonal pass of the same bronze the heartbeat charges with, fading out on
@@ -91,7 +91,7 @@ export function CopyField({ value, label, hint, confirmedLabel, failedLabel }: C
         <span
           key={`wash-${state}-${String(isCopied)}`}
           aria-hidden="true"
-          className={`pointer-events-none absolute inset-0 bg-bronze-sunk ${
+          className={`key-inlay pointer-events-none absolute inset-0 bg-bronze-sunk ${
             isCopied ? "anim-wash-out" : "opacity-0"
           }`}
         />

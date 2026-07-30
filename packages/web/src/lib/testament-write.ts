@@ -30,6 +30,8 @@ import { createReadOnlyHandleClient } from "@/lib/nox-client";
 /** The on-chain gesture a failure belongs to, so the interface can name what went wrong. */
 export type WriteStep =
   | "seal"
+  | "create-safe"
+  | "fund-safe"
   | "enable-module"
   | "authorize-writer"
   | "release"
@@ -48,6 +50,10 @@ export type WriteFailure =
   | { reason: "invalid-will"; packFailure: PackBequestsFailure }
   | { reason: "encryption-failed"; slotIndex: number | null; detail: string }
   | { reason: "rejected"; step: WriteStep }
+  /** A freshly created vault did not come out as a 1-of-1 owned by the wallet that asked. */
+  | { reason: "wrong-safe-owner"; safeAddress: Address }
+  /** The estate the owner typed is not a number of ETH this wallet could send. */
+  | { reason: "invalid-amount" }
   | { reason: "transaction-failed"; detail: string };
 
 export type WriteResult<TValue> = { ok: true; value: TValue } | { ok: false; failure: WriteFailure };

@@ -11,13 +11,21 @@ import {
 } from "@testament/shared";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { isAddress, type Address } from "viem";
+import { formatEther, isAddress, type Address } from "viem";
 import { useAccount, usePublicClient, useReadContract, useWalletClient } from "wagmi";
 
 import { SealPress } from "@/components/testament/SealPress";
 import { StepTrack, type StepState } from "@/components/testament/StepTrack";
+import { SafeMark } from "@/components/ui/SafeMark";
 import { TextField } from "@/components/ui/TextField";
 import { useHeirAddressKinds } from "@/lib/heir-check";
+import {
+  DEFAULT_ESTATE_ETH,
+  createTestamentVault,
+  fundTestamentVault,
+  useTestamentVault,
+  type TestamentVault,
+} from "@/lib/safe-vault";
 import { useCurtain } from "@/components/scene/CurtainStage";
 import { useSound } from "@/components/scene/SoundProvider";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
@@ -85,9 +93,27 @@ export function WritePanel() {
   const { copy } = useTranslation();
 
   const [drafts, setDrafts] = useState<BequestDraft[]>(() => [createDraft(), createDraft()]);
-  const [safeAddress, setSafeAddress] = useState("");
   const [intervalSeconds, setIntervalSeconds] = useState(String(DEFAULT_INTERVAL_SECONDS));
   const [graceSeconds, setGraceSeconds] = useState(String(DEFAULT_GRACE_SECONDS));
+
+  /**
+   * The vault the connected wallet owns, computed rather than typed.
+   *
+   * `typedSafeAddress` is null until the owner overrides the derived address, so the field
+   * follows the wallet by derivation instead of being pushed into state by an effect that
+   * would then fight anything typed into it. Null means "whatever my wallet's vault is";
+   * a string means "this one, because I said so".
+   */
+  const { vault, refreshVault } = useTestamentVault(address);
+  const [typedSafeAddress, setTypedSafeAddress] = useState<string | null>(null);
+  const [isCreatingVault, setIsCreatingVault] = useState(false);
+  const [isFundingVault, setIsFundingVault] = useState(false);
+  const [estateEth, setEstateEth] = useState(DEFAULT_ESTATE_ETH);
+
+  const derivedSafeAddress =
+    vault.status === "absent" || vault.status === "present" ? vault.address : null;
+  const safeAddress = typedSafeAddress ?? derivedSafeAddress ?? "";
+  const isUsingDerivedVault = typedSafeAddress === null && derivedSafeAddress !== null;
 
   const [stage, setStage] = useState<SealStage>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -298,6 +324,57 @@ export function WritePanel() {
     setConsentTransaction(result.value);
   };
 
+  const handleCreateVault = async () => {
+    if (walletClient === undefined || publicClient === undefined || address === undefined) {
+      setErrorMessage(copy.write.connectFirst);
+      return;
+    }
+
+    setIsCreatingVault(true);
+    setErrorMessage(null);
+
+    const result = await createTestamentVault({ walletClient, publicClient, ownerAddress: address });
+
+    setIsCreatingVault(false);
+    if (!result.ok) {
+      setErrorMessage(describeWriteFailure(result.failure, copy));
+      return;
+    }
+    // The address was already on screen (that is the point of deriving it), so the only thing
+    // that changed is that it now has code. Re-reading the chain is what makes the panel move
+    // on to funding.
+    refreshVault();
+    setConsentTransaction(result.value.transactionHash);
+  };
+
+  const handleFundVault = async () => {
+    if (walletClient === undefined || publicClient === undefined) {
+      setErrorMessage(copy.write.connectFirst);
+      return;
+    }
+    if (!isAddress(safeAddress)) {
+      return;
+    }
+
+    setIsFundingVault(true);
+    setErrorMessage(null);
+
+    const result = await fundTestamentVault({
+      walletClient,
+      publicClient,
+      safeAddress: safeAddress as Address,
+      amountEth: estateEth,
+    });
+
+    setIsFundingVault(false);
+    if (!result.ok) {
+      setErrorMessage(describeWriteFailure(result.failure, copy));
+      return;
+    }
+    refreshVault();
+    setConsentTransaction(result.value);
+  };
+
   /**
    * One consent at a time, in the order the Safe grants them. Declared after its handlers
    * so it reads them rather than the temporal dead zone.
@@ -332,7 +409,7 @@ export function WritePanel() {
         silence on the right, the seal at the bottom right where a document is signed.
         The divider is the mat showing through a cut in the paper, not a drawn rule.
       */}
-      <div className="grid gap-10 lg:grid-cols-[1fr_2px_1fr] lg:gap-x-9">
+      <div className="grid gap-8 lg:grid-cols-[1fr_2px_1fr] lg:gap-x-9">
         <section className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <h2 className="type-display-lg">{copy.write.heirsTitle}</h2>
@@ -401,7 +478,7 @@ export function WritePanel() {
             type="button"
             onClick={addBequest}
             disabled={drafts.length >= SLOT_COUNT}
-            className="panel-well type-small min-h-11 w-full px-4 text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-bronze-deep disabled:text-ink-faint"
+            className="key type-small min-h-11 w-full px-4"
           >
             {copy.write.addHeir}
           </button>
@@ -434,31 +511,47 @@ export function WritePanel() {
 
         <section className="flex flex-col gap-4">
           <h2 className="type-display-lg">{copy.write.vaultTitle}</h2>
+
+          {/*
+            The vault names itself. `createProxyWithNonce` deploys with CREATE2, so a wallet's
+            Safe address is arithmetic rather than a lookup, and the field can be filled the
+            moment a wallet connects, before the Safe exists and with no backend to ask. The
+            mark beside the label says whose object this is; the field stays editable because
+            an owner who already has a Safe elsewhere should not be made to abandon it.
+          */}
           <TextField
             label={copy.write.safeLabel}
+            labelMark={isUsingDerivedVault ? <SafeMark size={14} /> : undefined}
             value={safeAddress}
-            onChange={(event) => setSafeAddress(event.target.value)}
+            onChange={(event) => setTypedSafeAddress(event.target.value)}
             placeholder="0x…"
             spellCheck={false}
             autoComplete="off"
             error={safeAddress !== "" && !isAddress(safeAddress) ? copy.write.invalidAddress : null}
-            hint={
-              isModuleEnabled === null
-                ? copy.write.safeHintDefault
-                : !isModuleEnabled
-                  ? copy.write.safeHintModuleMissing
-                  : isWriterNamed === true
-                    ? copy.write.safeHintReady
-                    : copy.write.safeHintWriterMissing
-            }
+            hint={resolveVaultHint({
+              vault,
+              safeAddress,
+              isUsingDerivedVault,
+              isModuleEnabled,
+              isWriterNamed,
+              copy,
+            })}
           />
 
-          {/*
-            The Safe's consent, asked for where the Safe is named and nowhere else. One
-            action at a time: the module first, then the hand. Once both are granted the
-            button is gone and the hint above carries the state, so a Safe that was prepared
-            earlier costs the ritual no vertical space at all.
-          */}
+          <VaultActions
+            vault={vault}
+            isUsingDerivedVault={isUsingDerivedVault}
+            isCreating={isCreatingVault}
+            isFunding={isFundingVault}
+            estateEth={estateEth}
+            onEstateEthChange={setEstateEth}
+            onCreate={() => void handleCreateVault()}
+            onFund={() => void handleFundVault()}
+            onUseAnother={() => setTypedSafeAddress("")}
+            onUseDerived={() => setTypedSafeAddress(null)}
+            copy={copy}
+          />
+
           {/*
             The Safe's two consents, asked for where the Safe is named and nowhere else. Both
             are on screen from the first paint, so the ritual states its own shape: two things
@@ -568,6 +661,147 @@ export function WritePanel() {
           ) : null}
         </section>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * The line under the vault field.
+ *
+ * One sentence, and it always names the nearest thing standing between this wallet and a will
+ * that can pay: no wallet, no vault yet, an empty vault, then the two consents. The order is
+ * the order the chain enforces, so the hint never asks for step three while step one is open.
+ */
+function resolveVaultHint({
+  vault,
+  safeAddress,
+  isUsingDerivedVault,
+  isModuleEnabled,
+  isWriterNamed,
+  copy,
+}: {
+  vault: TestamentVault;
+  safeAddress: string;
+  isUsingDerivedVault: boolean;
+  isModuleEnabled: boolean | null;
+  isWriterNamed: boolean | null;
+  copy: Copy;
+}): string {
+  if (isUsingDerivedVault) {
+    if (vault.status === "absent") {
+      return copy.write.vaultAbsent;
+    }
+    if (vault.status === "present" && vault.estateWei === 0n) {
+      return copy.write.vaultEmpty;
+    }
+  }
+  // The wallet only has to be named while the field is empty. Once a Safe is in it, the field
+  // has an answer, and telling its author to connect a wallet contradicts what they can see.
+  if (safeAddress === "") {
+    if (vault.status === "no-owner") {
+      return copy.write.vaultConnect;
+    }
+    if (vault.status === "reading") {
+      return copy.write.vaultReading;
+    }
+  }
+
+  if (isModuleEnabled === null) {
+    return isUsingDerivedVault ? copy.write.vaultDerived : copy.write.safeHintDefault;
+  }
+  if (!isModuleEnabled) {
+    return copy.write.safeHintModuleMissing;
+  }
+  return isWriterNamed === true ? copy.write.safeHintReady : copy.write.safeHintWriterMissing;
+}
+
+/**
+ * What the vault still needs, offered where the vault is named.
+ *
+ * Deliberately not a step in the consent track above it. Most owners arrive with a Safe and
+ * see nothing here at all; putting "create" and "fund" in the same ordered pair would make a
+ * two-act ritual look like a four-act one for everybody. So this block renders only what is
+ * actually missing, and disappears the moment nothing is.
+ */
+function VaultActions({
+  vault,
+  isUsingDerivedVault,
+  isCreating,
+  isFunding,
+  estateEth,
+  onEstateEthChange,
+  onCreate,
+  onFund,
+  onUseAnother,
+  onUseDerived,
+  copy,
+}: {
+  vault: TestamentVault;
+  isUsingDerivedVault: boolean;
+  isCreating: boolean;
+  isFunding: boolean;
+  estateEth: string;
+  onEstateEthChange: (value: string) => void;
+  onCreate: () => void;
+  onFund: () => void;
+  onUseAnother: () => void;
+  onUseDerived: () => void;
+  copy: Copy;
+}) {
+  if (vault.status === "no-owner" || vault.status === "reading") {
+    return null;
+  }
+
+  const needsCreating = isUsingDerivedVault && vault.status === "absent";
+  const needsFunding = isUsingDerivedVault && vault.status === "present" && vault.estateWei === 0n;
+
+  return (
+    <div className="flex flex-col gap-3">
+      {needsCreating ? (
+        <button type="button" onClick={onCreate} disabled={isCreating} className="key type-small min-h-11 w-full px-4">
+          {isCreating ? copy.write.vaultCreating : copy.write.vaultCreate}
+        </button>
+      ) : null}
+
+      {needsFunding ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+          <div className="sm:w-40">
+            <TextField
+              label={copy.write.vaultFundLabel}
+              value={estateEth}
+              onChange={(event) => onEstateEthChange(event.target.value.replace(/[^\d.]/g, ""))}
+              inputMode="decimal"
+              suffix="ETH"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={onFund}
+            disabled={isFunding}
+            className="key type-small min-h-11 px-4 sm:mt-[1.6rem] sm:shrink-0"
+          >
+            {isFunding ? copy.write.vaultFunding : copy.write.vaultFund}
+          </button>
+        </div>
+      ) : null}
+
+      {isUsingDerivedVault && vault.status === "present" && vault.estateWei > 0n ? (
+        <p className="type-small type-numeric text-ink-muted">
+          {copy.write.vaultEstate(formatEther(vault.estateWei))}
+        </p>
+      ) : null}
+
+      {/*
+        The escape hatch, kept quiet. It is one line of text because switching vaults is a rare
+        act, and a second control at the same weight as the ones above would say otherwise.
+      */}
+      <button
+        type="button"
+        onClick={isUsingDerivedVault ? onUseAnother : onUseDerived}
+        className="type-small w-fit text-ink-muted underline-offset-4 transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+      >
+        {isUsingDerivedVault ? copy.write.vaultUseAnother : copy.write.vaultUseMine}
+      </button>
     </div>
   );
 }

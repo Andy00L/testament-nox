@@ -55,10 +55,15 @@ export function SealPress({
         aria-busy={isBusy}
         className="group flex items-center gap-4 text-left disabled:cursor-not-allowed"
       >
-        {/* The carved recess the stone is pressed into. */}
+        {/*
+          The carved recess the stone is pressed into. It stays a well, because the stone goes
+          into it rather than standing on it, and it is the one control in this product that
+          keeps its own recess: hovering lifts the stone off the floor of it, pressing puts it
+          back down. That is the before and after, in the seal's own physics.
+        */}
         <span
           aria-hidden="true"
-          className="panel-well relative grid size-16 shrink-0 place-items-center overflow-hidden transition-transform duration-(--dur-micro) ease-(--ease-standard) group-active:not-disabled:scale-[0.98]"
+          className="panel-well relative grid size-16 shrink-0 place-items-center overflow-hidden transition-shadow duration-(--dur-small) ease-(--ease-standard) group-hover:not-disabled:shadow-[inset_0_1px_2px_rgba(58,45,42,0.14),inset_0_0_0_1px_rgba(88,66,60,0.2)]"
         >
           {/*
             The stage fill. Rises through the full track with stable square edges, clamped to
@@ -92,7 +97,7 @@ export function SealPress({
                 animate={{ opacity: 1, scale: isBusy ? 0.94 : 1 }}
                 exit={{ opacity: 0, transition: { duration: 0.16 } }}
                 transition={{ duration: 0.24, ease: [0.4, 0, 0.2, 1] }}
-                className="absolute inset-0 grid place-items-center"
+                className="absolute inset-0 grid place-items-center transition-transform duration-(--dur-small) ease-(--ease-standard) group-hover:not-disabled:-translate-y-0.5 group-active:not-disabled:translate-y-px"
               >
                 <Seal size={46} pressed={isBusy ? 0.62 : 0.16} />
               </motion.span>

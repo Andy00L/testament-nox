@@ -135,16 +135,18 @@ export function HeartbeatControl({ testamentId, onSent }: HeartbeatControlProps)
         aria-describedby="heartbeat-hint"
         // The one thing on this page that has to be done, at the size that says so. It was a
         // 44px well set in the same small type as the hint underneath it, and it read as a
-        // caption. Presence here is size and space, not a second colour.
-        className="panel-well relative min-h-14 w-full max-w-sm touch-none overflow-hidden px-7 py-4 text-left transition-colors duration-(--dur-small) ease-(--ease-standard) disabled:text-ink-faint"
+        // caption. Presence here is size and space, not a second colour. It is a key, so it
+        // stands proud until it is held and then stays flush for as long as the hold lasts.
+        className="key relative min-h-14 w-full max-w-sm touch-none px-7 py-4 text-left"
       >
         {/*
-          A tonal fill rising through the well. It fills the full track, has stable square
-          edges at both ends, and is a value step off the field rather than a saturated bar.
+          A tonal fill rising through the key. It fills the full track, has stable square
+          edges at both ends, is a value step off the field rather than a saturated bar, and is
+          cut to the same chamfer as the surface it sits in.
         */}
         <span
           aria-hidden="true"
-          className="absolute inset-x-0 bottom-0 bg-bronze-sunk"
+          className="key-inlay absolute inset-x-0 bottom-0 bg-bronze-sunk"
           style={{
             height: `${chargeProgress * 100}%`,
             transition: isHolding ? "none" : "height var(--dur-standard) var(--ease-exit)",
