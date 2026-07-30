@@ -7,11 +7,11 @@ import {
   computeTestamentPhase,
 } from "@testament/shared";
 import Link from "next/link";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect } from "react";
 
 import { FramedCountdown } from "@/components/frames/FramedCountdown";
+import { DoorLinkField } from "@/components/testament/DoorLinkField";
 import { HeartbeatControl } from "@/components/testament/HeartbeatControl";
-import { CopyField } from "@/components/ui/CopyField";
 import { useCurtain } from "@/components/scene/CurtainStage";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import { buildAddressUrl, shortenAddress } from "@/lib/chain";
@@ -121,47 +121,6 @@ export function TestamentStatus() {
         missed; it is now a control you can hit anywhere and that says it worked.
       */}
       {testamentId !== null ? <DoorLinkField testamentId={testamentId} /> : null}
-    </div>
-  );
-}
-
-/**
- * The door link, absolute so it survives being pasted into a message.
- *
- * The origin can only be read in the browser, so the field renders the path on the server and
- * upgrades once mounted. Both forms address the same door; the upgrade only decides whether
- * an heir can click it without knowing where the site lives.
- */
-function DoorLinkField({ testamentId }: { testamentId: bigint }) {
-  const { copy } = useTranslation();
-  const path = `/porte?id=${String(testamentId)}`;
-
-  /**
-   * External system: the browser's own location. Read through useSyncExternalStore rather
-   * than an effect, because the origin never changes once the document exists: there is
-   * nothing to subscribe to, and the server simply has no value to give.
-   */
-  const origin = useSyncExternalStore(
-    () => () => {},
-    () => window.location.origin,
-    () => "",
-  );
-
-  return (
-    <div className="flex flex-col gap-2">
-      <CopyField
-        value={`${origin}${path}`}
-        label={copy.status.shareDoor}
-        hint={copy.status.doorLinkCopy}
-        confirmedLabel={copy.status.doorLinkCopied}
-        failedLabel={copy.status.doorLinkCopyFailed}
-      />
-      <Link
-        href={path}
-        className="type-small w-fit text-ink-faint transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
-      >
-        {copy.status.goToDoor}
-      </Link>
     </div>
   );
 }

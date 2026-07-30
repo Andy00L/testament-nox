@@ -143,7 +143,6 @@ const french = {
       "Le testament est scellé. Vos héritiers n'ont besoin que de ce lien : la porte lit la chaîne et s'ouvre d'elle-même quand le vent est tombé.",
     viewTransaction: "Voir la transaction sur Etherscan",
     connectFirst: "Connectez un portefeuille sur Sepolia.",
-    doorLinkLabel: "La porte de ce testament. Partagez ce lien à vos héritiers :",
   },
 
   /**
@@ -438,7 +437,6 @@ const english: typeof french = {
       "The testament is sealed. Your heirs need nothing but this link: the door reads the chain and opens by itself once the wind has fallen.",
     viewTransaction: "View the transaction on Etherscan",
     connectFirst: "Connect a wallet on Sepolia.",
-    doorLinkLabel: "This testament's door. Share this link with your heirs:",
   },
 
   errors: {

@@ -49,9 +49,18 @@ type CopyFieldProps = {
   hint: string;
   confirmedLabel: string;
   failedLabel: string;
+  /** Whether this is the page's one beckoning act, passed through to the key. */
+  beckons?: boolean;
 };
 
-export function CopyField({ value, label, hint, confirmedLabel, failedLabel }: CopyFieldProps) {
+export function CopyField({
+  value,
+  label,
+  hint,
+  confirmedLabel,
+  failedLabel,
+  beckons,
+}: CopyFieldProps) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   const resetTimerRef = useRef<number | null>(null);
 
@@ -82,6 +91,7 @@ export function CopyField({ value, label, hint, confirmedLabel, failedLabel }: C
 
       <Key
         onClick={() => void runCopy()}
+        beckons={beckons === true}
         className="type-small group relative flex min-h-11 w-full items-center gap-3 px-4 py-3 text-left"
       >
         {/*

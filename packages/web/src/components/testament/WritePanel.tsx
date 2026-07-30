@@ -9,11 +9,11 @@ import {
   packBequests,
   testamentRegistryAbi,
 } from "@testament/shared";
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatEther, isAddress, type Address } from "viem";
 import { useAccount, usePublicClient, useReadContract, useWalletClient } from "wagmi";
 
+import { DoorLinkField } from "@/components/testament/DoorLinkField";
 import { SealPress } from "@/components/testament/SealPress";
 import { StepTrack, type StepState } from "@/components/testament/StepTrack";
 import { Key } from "@/components/ui/Key";
@@ -828,20 +828,16 @@ export function WritePanel() {
       </div>
 
       {stage === "sealed" ? (
-        <section className="flex flex-col gap-4 border-0 pt-2">
+        <section className="anim-rise flex flex-col gap-4 border-0 pt-2">
           <h2 className="type-display-lg">{copy.write.doorTitle}</h2>
           <p className="type-body text-ink-muted">{copy.write.doorLede}</p>
-          {sealedId !== null ? (
-            <p className="type-small text-ink-muted">
-              {copy.write.doorLinkLabel}{" "}
-              <Link
-                href={`/porte?id=${sealedId}`}
-                className="type-numeric text-ink transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-bronze-deep"
-              >
-                /porte?id={String(sealedId)}
-              </Link>
-            </p>
-          ) : null}
+          {/*
+            The link is the one thing the author takes away from sealing, and as a faint
+            one-line path it was being missed at exactly that moment. Same physical control
+            as the home page's, and it beckons: with the seal stamped, this is the page's
+            one remaining act.
+          */}
+          {sealedId !== null ? <DoorLinkField testamentId={sealedId} beckons /> : null}
         </section>
       ) : null}
     </div>
