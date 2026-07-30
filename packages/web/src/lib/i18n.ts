@@ -26,6 +26,8 @@ const french = {
   wallet: {
     connect: "Connecter",
     disconnect: "Se déconnecter",
+    connectedTitle: "Portefeuille connecté",
+    viewOnEtherscan: "Voir sur Etherscan",
     choose: "Choisir un portefeuille",
     browser: "Portefeuille du navigateur",
     connecting: "Connexion…",
@@ -317,6 +319,8 @@ const english: typeof french = {
   wallet: {
     connect: "Connect",
     disconnect: "Disconnect",
+    connectedTitle: "Connected wallet",
+    viewOnEtherscan: "View on Etherscan",
     choose: "Choose a wallet",
     browser: "Browser wallet",
     connecting: "Connecting…",

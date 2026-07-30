@@ -6,8 +6,10 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ChevronDown } from "@appica/icons-react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 
+import type { ReactNode } from "react";
+
 import { Key } from "@/components/ui/Key";
-import { shortenAddress } from "@/lib/chain";
+import { buildAddressUrl, shortenAddress } from "@/lib/chain";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 
 /**
@@ -21,10 +23,16 @@ declare global {
 }
 
 /**
- * One button. Pressing it opens a small paper panel listing the wallets this browser
- * actually has: EIP-6963 discovery surfaces each installed extension by name and icon,
- * WalletConnect appears when a project id is configured, and a browser with nothing
- * installed is told so instead of being shown a dead row.
+ * One button, two panels. Disconnected, pressing it opens a small paper panel listing the
+ * wallets this browser actually has: EIP-6963 discovery surfaces each installed extension
+ * by name and icon, WalletConnect appears when a project id is configured, and a browser
+ * with nothing installed is told so instead of being shown a dead row. Connected, pressing
+ * the address opens the same panel showing which account this is, its Etherscan page, and
+ * a disconnect key.
+ *
+ * The connected state used to BE the disconnect button: one click on the address and the
+ * wallet was gone, with nothing on screen saying so. An account is not something to drop
+ * by grazing it; leaving is now a named act inside the panel, one press further away.
  *
  * Drawn in the product's own material rather than a connector kit's modal, which would be
  * the loudest, most recognisable thing on a page whose whole argument is that it looks
@@ -77,14 +85,52 @@ export function WalletControl() {
 
   if (isConnected && address !== undefined) {
     return (
-      <button
-        type="button"
-        onClick={() => disconnect()}
-        className="type-small type-numeric px-1 text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
-        title={copy.wallet.disconnect}
-      >
-        {shortenAddress(address)}
-      </button>
+      <div ref={containerRef} className="relative">
+        <button
+          type="button"
+          onClick={() => setIsOpen((wasOpen) => !wasOpen)}
+          aria-haspopup="true"
+          aria-expanded={isOpen}
+          className="type-small type-numeric group flex items-center gap-1.5 px-1 text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+        >
+          {shortenAddress(address)}
+          <ChevronDown
+            size={14}
+            strokeWidth={1.5}
+            className="transition-transform duration-(--duration-fast) ease-(--ease-smooth-out)"
+            style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+          />
+        </button>
+
+        <AnimatePresence>
+          {isOpen ? (
+            <DropdownPanel ariaLabel={copy.wallet.connectedTitle}>
+              <p className="type-small px-2 pb-1.5 pt-1 text-ink-faint">
+                {copy.wallet.connectedTitle}
+              </p>
+              {/* The whole address, so what is connected can be verified, not assumed. */}
+              <p className="type-small type-numeric break-all px-2 pb-2 text-ink">{address}</p>
+              <a
+                href={buildAddressUrl(address)}
+                target="_blank"
+                rel="noreferrer"
+                className="type-small block px-2 pb-3 text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+              >
+                {copy.wallet.viewOnEtherscan}
+              </a>
+              <Key
+                onClick={() => {
+                  disconnect();
+                  setIsOpen(false);
+                }}
+                className="flex min-h-11 w-full items-center px-3 py-2 text-left"
+              >
+                <span className="type-small">{copy.wallet.disconnect}</span>
+              </Key>
+            </DropdownPanel>
+          ) : null}
+        </AnimatePresence>
+      </div>
     );
   }
 
@@ -132,16 +178,7 @@ export function WalletControl() {
 
       <AnimatePresence>
       {isOpen ? (
-        <motion.div
-          role="dialog"
-          aria-label={copy.wallet.choose}
-          className="panel absolute right-0 top-[calc(100%+0.875rem)] w-64 p-2"
-          style={{ transformOrigin: "top right" }}
-          initial={{ opacity: 0, scale: 0.97 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.99, transition: { duration: 0.15, ease: [0.22, 1, 0.36, 1] } }}
-          transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-        >
+        <DropdownPanel ariaLabel={copy.wallet.choose}>
           <p className="type-small px-2 pb-1.5 pt-1 text-ink-faint">{copy.wallet.choose}</p>
 
           {visibleConnectors.length === 0 ? (
@@ -192,9 +229,30 @@ export function WalletControl() {
               {copy.wallet.failed}
             </p>
           ) : null}
-        </motion.div>
+        </DropdownPanel>
       ) : null}
       </AnimatePresence>
     </div>
+  );
+}
+
+/**
+ * The one paper panel both wallet states hang under the nav button: same material, same
+ * origin, same enter and exit. Two hand-written copies is how one of them drifts.
+ */
+function DropdownPanel({ ariaLabel, children }: { ariaLabel: string; children: ReactNode }) {
+  return (
+    <motion.div
+      role="dialog"
+      aria-label={ariaLabel}
+      className="panel absolute right-0 top-[calc(100%+0.875rem)] w-64 p-2"
+      style={{ transformOrigin: "top right" }}
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.99, transition: { duration: 0.15, ease: [0.22, 1, 0.36, 1] } }}
+      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+    >
+      {children}
+    </motion.div>
   );
 }
