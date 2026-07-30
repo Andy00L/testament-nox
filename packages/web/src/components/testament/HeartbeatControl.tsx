@@ -4,6 +4,7 @@ import { testamentRegistryAbi } from "@testament/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 
+import { Key } from "@/components/ui/Key";
 import { useCurtain } from "@/components/scene/CurtainStage";
 import { readDeployment } from "@/lib/chain";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
@@ -114,8 +115,7 @@ export function HeartbeatControl({ testamentId, onSent }: HeartbeatControlProps)
 
   return (
     <div className="flex flex-col gap-2">
-      <button
-        type="button"
+      <Key
         disabled={isPending || isConfirming || !deployment.isDeployed}
         onPointerDown={startHold}
         onPointerUp={cancelHold}
@@ -137,23 +137,26 @@ export function HeartbeatControl({ testamentId, onSent }: HeartbeatControlProps)
         // 44px well set in the same small type as the hint underneath it, and it read as a
         // caption. Presence here is size and space, not a second colour. It is a key, so it
         // stands proud until it is held and then stays flush for as long as the hold lasts.
-        className="key relative min-h-14 w-full max-w-sm touch-none px-7 py-4 text-left"
+        className="relative min-h-14 w-full max-w-sm touch-none px-7 py-4 text-left"
       >
         {/*
           A tonal fill rising through the key. It fills the full track, has stable square
-          edges at both ends, is a value step off the field rather than a saturated bar, and is
-          cut to the same chamfer as the surface it sits in.
+          edges at both ends, and is a value step off the field rather than a saturated bar.
+          The chamfer lives on the full-bleed carrier, not on the fill itself: an ancestor's
+          clip stands still while the fill rises, so the travelling top edge stays square and
+          only the key's own corners are ever cut.
         */}
-        <span
-          aria-hidden="true"
-          className="key-inlay absolute inset-x-0 bottom-0 bg-bronze-sunk"
-          style={{
-            height: `${chargeProgress * 100}%`,
-            transition: isHolding ? "none" : "height var(--dur-standard) var(--ease-exit)",
-          }}
-        />
+        <span aria-hidden="true" className="key-inlay pointer-events-none absolute inset-0">
+          <span
+            className="absolute inset-x-0 bottom-0 bg-bronze-sunk"
+            style={{
+              height: `${chargeProgress * 100}%`,
+              transition: isHolding ? "none" : "height var(--dur-standard) var(--ease-exit)",
+            }}
+          />
+        </span>
         <span className="type-title relative">{label}</span>
-      </button>
+      </Key>
       <p id="heartbeat-hint" className="type-small text-ink-faint">
         {copy.heartbeat.hint}
       </p>

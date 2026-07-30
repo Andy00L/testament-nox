@@ -2,6 +2,8 @@
 
 import { Check } from "@appica/icons-react";
 
+import { Key } from "@/components/ui/Key";
+
 /**
  * A pair of ordered acts, both visible at once.
  *
@@ -84,15 +86,14 @@ function TrackStepCell({ step, ordinal }: { step: TrackStep; ordinal: number }) 
   const isRunning = step.state === "running";
 
   return (
-    <button
-      type="button"
+    <Key
       onClick={step.onRun}
       disabled={isRunning}
       aria-busy={isRunning}
-      className="key type-small flex min-h-11 flex-1 items-center gap-2.5 px-4 py-3 text-left"
+      className="type-small flex min-h-11 flex-1 items-center gap-2.5 px-4 py-3 text-left"
     >
       {ordinalMark}
       {isRunning ? step.runningLabel : step.label}
-    </button>
+    </Key>
   );
 }

@@ -92,6 +92,13 @@
   --panel-lip: inset 0 1px 0 rgba(255, 255, 255, 0.9);
   /* The same catch, at type scale: what the light does just under a pressed stroke. */
   --relief-catch: rgba(255, 253, 247, 0.85);
+  /*
+   * The halo that carries small type over the woven mat. It is the paper highlight colour at a
+   * tight blur, so on the mat it reads as the weave calming around the letterforms, and on a
+   * cream panel it disappears into the surface it matches. Never a grey or dark halo: this is
+   * a legibility layer, and the moment it can be named it is too strong.
+   */
+  --relief-halo: rgba(255, 253, 247, 0.9);
   --panel-ring: inset 0 0 0 1px rgba(88, 66, 60, 0.1);
   --panel-cast: 0 1px 2px rgba(58, 45, 42, 0.06), 0 12px 28px rgba(58, 45, 42, 0.1);
 
@@ -191,28 +198,33 @@ body {
   font-weight: 400;
 }
 
+/* Body prose gets the halo alone: at 16px the letterpress catch would read as blur. */
 .type-body {
   font-size: 1rem;
   line-height: 1.6;
   letter-spacing: 0;
   max-width: 62ch;
   text-wrap: pretty;
+  text-shadow: 0 0 7px var(--relief-halo);
 }
 
 /*
  * Small text carries a relief, because small text is what testing could not read.
  *
- * It is one hairline of the paper's own highlight under the glyph, on the same light this
- * product lights everything else with (from above, so the catch sits below the stroke, exactly
- * like `--panel-lip` on a panel edge). That is what ink pressed into paper does, and it buys
- * the extra edge definition that 14px type needs over a woven mat. No blur, no offset sideways,
- * no dark halo: a legibility shadow, not a decorative one.
+ * Two layers, both in the paper's own highlight. The 1px catch under the glyph is the
+ * letterpress (the same light `--panel-lip` catches on a panel edge). The tight halo is what
+ * actually buys contrast on the mat: it calms the weave immediately around the letterforms,
+ * the way ink sizing does on real paper. A bare catch alone read as a ghost line under the
+ * stroke; a wide or grey halo would read as glow. Both fail states are the tells this pair is
+ * tuned between.
  */
 .type-small {
   font-size: 0.875rem;
   line-height: 1.5;
   letter-spacing: 0.005em;
-  text-shadow: 0 1px 0 var(--relief-catch);
+  text-shadow:
+    0 1px 0 var(--relief-catch),
+    0 0 7px var(--relief-halo);
 }
 
 /*
@@ -225,7 +237,9 @@ body {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--color-ink-muted);
-  text-shadow: 0 1px 0 var(--relief-catch);
+  text-shadow:
+    0 1px 0 var(--relief-catch),
+    0 0 7px var(--relief-halo);
 }
 
 .type-numeric {
@@ -306,6 +320,7 @@ body {
 
 /* The one silhouette, so the surface and anything inlaid into it are cut identically. */
 .key::before,
+.key-sheen,
 .key-inlay {
   clip-path: polygon(
     var(--key-chamfer) 0,
@@ -332,6 +347,43 @@ body {
     filter var(--dur-small) var(--ease-standard);
 }
 
+/*
+ * The sheen: light raking across lacquer, once, when a pointer arrives.
+ *
+ * A soft specular band crosses the key on hover-in and fades rather than travelling back on
+ * hover-out, because light does not rewind. Transform and opacity only, and quiet enough that
+ * it reads as the material answering the pointer rather than as an effect with a name. This is
+ * the one place the product spends a specular sweep, and it is spent on the objects you press.
+ *
+ * The band lives on a real child (`.key-sheen`, rendered by the Key component) rather than a
+ * pseudo-element, because the clip must stand still while the band travels: a clip-path rides
+ * along with the element it is set on, so a clipped pseudo transforming across the key would
+ * carry its chamfer out of the button with it. The span holds the stationary chamfer; its own
+ * pseudo does the moving.
+ */
+.key-sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.key-sheen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 38%,
+    rgba(255, 253, 247, 0.42) 50%,
+    transparent 62%
+  );
+  opacity: 0;
+  transform: translateX(-101%);
+  transition:
+    transform calc(var(--duration-very-slow) + var(--duration-quick)) var(--ease-smooth-out),
+    opacity var(--duration-quick) var(--ease-standard);
+}
+
 .key:hover:not(:disabled) {
   color: var(--color-bronze-deep);
 }
@@ -339,6 +391,11 @@ body {
 .key:hover:not(:disabled)::before {
   box-shadow: var(--panel-lip), inset 0 0 0 1px rgba(88, 66, 60, 0.26);
   filter: drop-shadow(0 1px 0 rgba(58, 45, 42, 0.12)) drop-shadow(0 3px 5px rgba(58, 45, 42, 0.11));
+}
+
+.key:hover:not(:disabled) .key-sheen::before {
+  opacity: 1;
+  transform: translateX(101%);
 }
 
 /* Pressed: flush with the panel. The cast is gone because nothing is standing proud of it. */
@@ -472,6 +529,30 @@ body {
 .anim-unroll {
   animation: scroll-unroll 700ms var(--ease-smooth-out) both;
   animation-delay: 120ms;
+}
+
+/*
+ * A carved frame opens the way a fan does: drawn on from its leading edge, not faded in.
+ *
+ * Same family as the write sheet's unroll (a clip-path draw-on, so the object arrives the way
+ * the physical object would), deliberately not the same move: the unroll travels down a
+ * hanging scroll over 700ms and stays this product's one budgeted exception above
+ * `--duration-very-slow`; the wipe crosses a hand-held object left to right inside the normal
+ * ladder. Pure CSS with fill-mode both, so a page where animation never runs simply shows the
+ * frame standing open.
+ */
+@keyframes wipe-open {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.anim-wipe {
+  animation: wipe-open var(--duration-very-slow) var(--ease-smooth-out) both;
+  animation-delay: var(--anim-delay, 120ms);
 }
 
 /*

@@ -126,7 +126,9 @@ Every step sets size, leading and tracking together.
 **The `label` step has exactly one job: naming a field in the write panel.** It is not
 the eyebrow, not the button text, not the footer, not the nav. Every small string
 wearing the same tracked-caps costume is its own tell, so other small text uses `small`
-at `--ink-muted` and earns its rank from position and colour.
+at `--ink-muted` and earns its rank from position and colour. Deliberate extension, same
+job at group scope: the consent pair's visible heading ("The Safe's two consents") uses it,
+because naming a group of form controls is naming a field.
 
 Headlines hold to one or two lines, never three. Emphasis inside a headline is a value
 shift, never a coloured word, and never a coloured word stranded at the end of a wrap. The
@@ -134,12 +136,14 @@ hero ramp is set so that promise survives contact with a real column: the previo
 steep enough that each of the home page's two authored lines wrapped again on a laptop and the
 fold opened on a four-line staircase.
 
-**Small text carries a relief.** `type-small` and `type-label` set
-`text-shadow: 0 1px 0 var(--relief-catch)`: one hairline of the paper's own highlight under the
-glyph, on the same light everything else here is lit by (from above, so the catch sits below
-the stroke, exactly as `--panel-lip` does on a panel edge). It is what pressed ink does to
-paper, and it buys the edge definition 14px type needs over a woven mat. No blur, no sideways
-offset, no dark halo: a legibility shadow, never a decorative one.
+**Small text carries a relief: a catch and a halo.** `type-small` and `type-label` set
+`text-shadow: 0 1px 0 var(--relief-catch), 0 0 7px var(--relief-halo)`; body prose carries the
+halo alone. The 1px catch is the letterpress (the same light `--panel-lip` catches on a panel
+edge). The halo is the paper highlight colour at a tight blur, and it is what actually buys
+contrast on the mat: the weave calms immediately around the letterforms, the way ink sizing
+does on real paper, while on a cream panel it disappears into the surface it matches. A bare
+catch alone read as a ghost line under the stroke; a wide or grey halo would read as glow.
+Both fail states are the tells this pair is tuned between.
 
 **Wordmark:** "Testament" set in Gambarino, sentence case, normal tracking, beside the
 seal mark at 18px. Not letterspaced caps: an all-caps serif tracked out is the stock
@@ -191,6 +195,21 @@ looked pressable in the first place.
 The seal keeps its own recess, because the stone goes into it rather than standing on it:
 hovering lifts the stone off the floor, pressing puts it back down. Same physics, one control's
 own version of it.
+
+**The sheen.** A soft specular band crosses a key once on hover-in and fades rather than
+travelling back on hover-out, because light does not rewind. This is where the product spends
+its specular sweep: on the objects you press, transform and opacity only, quiet enough to read
+as lacquer answering the pointer rather than as an effect with a name. It lives on a real child
+(`.key-sheen`, rendered by `components/ui/Key.tsx`) because the chamfer has to stand still
+while the band travels; every key therefore goes through the Key component rather than
+hand-writing the class.
+
+**The unfold family.** Objects arrive the way the physical object would, never on a bare fade:
+the write sheet unrolls (700ms clip-path, still the one budgeted exception above
+`--duration-very-slow`), the carved countdown frames wipe open left to right (`anim-wipe`,
+500ms), and the heir envelopes deal onto their pile one beat apart on the house delay ladder.
+All pure CSS with fill-mode both, so a page where animation never runs simply shows everything
+standing in place.
 
 **Cursors are declared.** Tailwind v4's preflight sets `appearance: button`, and browsers then
 hand every button the arrow cursor. Almost every control here is a button, so a base rule gives

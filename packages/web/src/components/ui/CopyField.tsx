@@ -3,6 +3,8 @@
 import { Check, Copy } from "@appica/icons-react";
 import { useEffect, useRef, useState } from "react";
 
+import { Key } from "@/components/ui/Key";
+
 /**
  * A value you take with you: click the whole box, it is on your clipboard.
  *
@@ -78,10 +80,9 @@ export function CopyField({ value, label, hint, confirmedLabel, failedLabel }: C
     <div className="flex w-full max-w-[62ch] flex-col gap-2">
       <span className="type-label">{label}</span>
 
-      <button
-        type="button"
+      <Key
         onClick={() => void runCopy()}
-        className="key type-small group relative flex min-h-11 w-full items-center gap-3 px-4 py-3 text-left"
+        className="type-small group relative flex min-h-11 w-full items-center gap-3 px-4 py-3 text-left"
       >
         {/*
           The wash. A tonal pass of the same bronze the heartbeat charges with, fading out on
@@ -108,7 +109,7 @@ export function CopyField({ value, label, hint, confirmedLabel, failedLabel }: C
           <Copy data-icon="a" size={16} strokeWidth={1.5} />
           <Check data-icon="b" size={16} strokeWidth={1.5} />
         </span>
-      </button>
+      </Key>
 
       {/*
         One line under the box, and it is the same line in all three states so nothing below

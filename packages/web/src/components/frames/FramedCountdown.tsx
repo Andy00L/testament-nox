@@ -40,7 +40,10 @@ export function FramedCountdown({
   const reading = isExpired ? expiredLabel : remaining;
 
   return (
-    <CarvedFrame frame={frame} maxWidth={maxWidth} className={className}>
+    // The frame wipes open on arrival: the same draw-on family as the write sheet's unroll,
+    // in a fan's own direction. `anim-wipe` is fill-mode both, so without animation the frame
+    // simply stands open.
+    <CarvedFrame frame={frame} maxWidth={maxWidth} className={`anim-wipe ${className ?? ""}`}>
       {[
         <p
           key="reading"

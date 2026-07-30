@@ -79,7 +79,10 @@ for (const viewport of VIEWPORTS) {
 
   // A key at rest, under a pointer, and held down. Three states that have to be different
   // enough to tell apart from an image, which is exactly what testing said they were not.
-  const consentKey = page.getByRole("button", { name: /Open the passage/ });
+  // "Add an heir" and not a consent key: the consents render as inert wells until the chain
+  // has answered for the typed Safe, so a headless run with a flaky RPC has no button there,
+  // by design. This key exists unconditionally.
+  const consentKey = page.getByRole("button", { name: /Add an heir|Ajouter un héritier/ });
   await consentKey.hover();
   await capture(page, `key-hover-${viewport.name}`);
   await page.mouse.down();

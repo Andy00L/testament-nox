@@ -48,6 +48,12 @@ type HeirEnvelopeProps = {
   settlement: ReactNode;
 };
 
+/**
+ * The house entrance-delay ladder tops out at this step (`anim-d-6` in globals.css); a pile
+ * deeper than the ladder deals its remaining envelopes together on the last beat.
+ */
+const DEAL_DELAY_STEPS = 6;
+
 export function HeirEnvelope({
   index,
   pileSize,
@@ -56,6 +62,8 @@ export function HeirEnvelope({
   amountLine,
   settlement,
 }: HeirEnvelopeProps) {
+  // The pile deals itself: each envelope rises one beat after the one it lands on.
+  const dealDelayClass = `anim-d-${Math.min(index + 1, DEAL_DELAY_STEPS)}`;
   const envelope = (
     <CarvedFrame frame="heirEnvelope" maxWidth={ENVELOPE_MAX_WIDTH}>
       {[
@@ -82,7 +90,7 @@ export function HeirEnvelope({
 
   return (
     <li
-      className="relative w-full"
+      className={`anim-rise ${dealDelayClass} relative w-full`}
       style={{
         maxWidth: ENVELOPE_MAX_WIDTH,
         /*

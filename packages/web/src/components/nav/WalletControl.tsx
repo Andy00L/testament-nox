@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ChevronDown } from "@appica/icons-react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 
+import { Key } from "@/components/ui/Key";
 import { shortenAddress } from "@/lib/chain";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 
@@ -160,13 +161,12 @@ export function WalletControl() {
                       delay: 0.04 * connectorIndex,
                     }}
                   >
-                    <button
-                      type="button"
+                    <Key
                       disabled={isPending}
                       onClick={() =>
                         connect({ connector }, { onSuccess: () => setIsOpen(false) })
                       }
-                      className="key flex min-h-11 w-full items-center gap-2.5 px-3 py-2 text-left not-first:mt-1.5"
+                      className="flex min-h-11 w-full items-center gap-2.5 px-3 py-2 text-left not-first:mt-1.5"
                     >
                       {/* The bare mark, no tile behind it. EIP-6963 supplies the icon. */}
                       {connector.icon !== undefined ? (
@@ -180,7 +180,7 @@ export function WalletControl() {
                             ? copy.wallet.browser
                             : connector.name}
                       </span>
-                    </button>
+                    </Key>
                   </motion.li>
                 );
               })}
