@@ -22,7 +22,9 @@ const OUTPUT_DIRECTORY = path.join(import.meta.dirname, "..", "public", "about")
 
 /** The demo testaments photographed: the living one and the executed one. */
 const CLOSED_TESTAMENT_ID = 3;
-const OPEN_TESTAMENT_ID = 1;
+// Will 5: the first testament sealed, released and fully paid through the app itself.
+// Will 1, the previous subject, has since been revoked and photographs as a walled-up door.
+const OPEN_TESTAMENT_ID = 5;
 
 /** The test owner's address, so the heartbeat state has a testament to show. */
 const OWNER_ADDRESS = "0x1F7481b60669d09404cf2b2493Cc6D7FE3155b8F";
@@ -186,19 +188,27 @@ async function main() {
     await context.close();
   }
 
-  // ---- 5 and 6. The door, closed then open. No wallet: the door needs none to read. ----
-  if (isRequested("doors")) {
+  // ---- 5 and 6. The door, closed then open, as separate sections: each depends on a
+  // live will being in its state, and on most days only one of the two exists to shoot. ----
+  if (isRequested("door-closed")) {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
       deviceScaleFactor: 2,
     });
     const page = await context.newPage();
-
     await page.goto(`${BASE_URL}/porte?id=${CLOSED_TESTAMENT_ID}`, { waitUntil: "networkidle" });
     await page.getByText("The door is closed.").waitFor({ timeout: 20000 });
     await settle(page);
     await capture(page, "step-door-closed.webp");
+    await context.close();
+  }
 
+  if (isRequested("door-open")) {
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 800 },
+      deviceScaleFactor: 2,
+    });
+    const page = await context.newPage();
     await page.goto(`${BASE_URL}/porte?id=${OPEN_TESTAMENT_ID}`, { waitUntil: "networkidle" });
     await page.getByText("The vault has paid").waitFor({ timeout: 30000 });
     await settle(page, 900);

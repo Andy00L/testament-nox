@@ -153,7 +153,9 @@ Both fail states are the tells this pair is tuned between.
 
 **Wordmark:** "Testament" set in Gambarino, sentence case, normal tracking, beside the
 seal mark at 18px. Not letterspaced caps: an all-caps serif tracked out is the stock
-luxury logo move and reads as a template.
+luxury logo move and reads as a template. On a phone the plaque carries the seal alone and
+the language toggle its two-letter code: spelled out, the board outgrew a 390px screen and
+clipped its own cells mid-word.
 
 ---
 

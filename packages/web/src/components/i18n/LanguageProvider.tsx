@@ -82,7 +82,8 @@ export function LanguageToggle() {
       type="button"
       onClick={toggleLanguage}
       title={copy.switchTo}
-      className="type-small relative overflow-hidden text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+      aria-label={copy.switchTo}
+      className="type-small relative overflow-hidden whitespace-nowrap text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
     >
       {/* The text-swap recipe: the leaving name slips up 4px as the next slips in. */}
       <AnimatePresence mode="popLayout" initial={false}>
@@ -94,7 +95,11 @@ export function LanguageToggle() {
           exit={{ opacity: 0, y: -4, filter: "blur(2px)" }}
           transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
         >
-          {copy.otherLanguageName}
+          {/* The full name where the plaque has room; the code where it does not. On a
+              390px screen the spelled-out name is what pushed the plaque past its edge
+              and clipped mid-glyph, which read as a typo rather than a control. */}
+          <span className="max-sm:hidden">{copy.otherLanguageName}</span>
+          <span className="sm:hidden">{copy.otherLanguageCode}</span>
         </motion.span>
       </AnimatePresence>
     </button>

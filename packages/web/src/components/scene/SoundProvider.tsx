@@ -95,13 +95,20 @@ export function SoundToggle() {
   const { isEnabled, toggle } = useSound();
   const { copy } = useTranslation();
 
+  const label = isEnabled ? copy.sound.disable : copy.sound.enable;
+
   return (
     <button
       type="button"
       onClick={toggle}
       aria-pressed={isEnabled}
-      className="type-small flex items-center gap-2 px-4 py-2.5 text-ink-muted transition-all duration-(--dur-small) ease-(--ease-standard) hover:-translate-y-0.5 hover:text-ink"
+      aria-label={label}
+      className="type-small flex items-center gap-2 px-3 py-2.5 text-ink-muted transition-all duration-(--dur-small) ease-(--ease-standard) hover:-translate-y-0.5 hover:text-ink sm:px-4"
       style={{
+        // A wash of the field inside the frame: the toggle floats over whatever a page
+        // ends with (the door's illustration included), and frame lines alone left the
+        // label fighting the art beneath it.
+        backgroundColor: "rgba(243, 232, 213, 0.9)",
         backgroundImage: 'url("/ui/ink-frame.svg")',
         backgroundSize: "100% 100%",
         backgroundRepeat: "no-repeat",
@@ -112,7 +119,9 @@ export function SoundToggle() {
         <Volume size={15} strokeWidth={1.5} data-icon="a" />
         <VolumeOff size={15} strokeWidth={1.5} data-icon="b" />
       </span>
-      {isEnabled ? copy.sound.disable : copy.sound.enable}
+      {/* The icon is the whole control on a phone, where the spelled label overlapped the
+          form it floats over; `aria-label` above keeps its name for everyone. */}
+      <span className="max-sm:hidden">{label}</span>
     </button>
   );
 }

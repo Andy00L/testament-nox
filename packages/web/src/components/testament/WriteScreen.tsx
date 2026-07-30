@@ -22,7 +22,11 @@ export function WriteScreen() {
       behind it. The room the seal needs at the bottom of the fold is bought by giving the lede
       a wider measure so it sets in two lines instead of three, not by moving the title up.
     */
-    <div className="mx-auto w-full max-w-[1120px] px-6 pb-8 pt-[max(7.75rem,18vh)] sm:px-10">
+    /*
+      The larger phone padding at the bottom lets the sheet's last controls scroll clear
+      of the fixed sound toggle, which otherwise parked itself over the second consent.
+    */
+    <div className="mx-auto w-full max-w-[1120px] px-6 pb-24 pt-[max(7.75rem,18vh)] sm:px-10 sm:pb-8">
       <div className="mx-auto mb-3 flex max-w-[56rem] flex-col items-center gap-2 text-center">
         <h1 className="anim-rise anim-d-1 type-display-lg">{copy.write.title}</h1>
         <p className="anim-rise anim-d-2 type-small max-w-[86ch] text-ink-muted">{copy.write.lede}</p>

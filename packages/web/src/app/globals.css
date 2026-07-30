@@ -378,7 +378,7 @@ body {
   background: linear-gradient(
     105deg,
     transparent 38%,
-    rgba(255, 253, 247, 0.42) 50%,
+    rgba(255, 253, 247, 0.22) 50%,
     transparent 62%
   );
   opacity: 0;
@@ -471,7 +471,7 @@ body {
   background: linear-gradient(
     105deg,
     transparent 38%,
-    rgba(255, 253, 247, 0.42) 50%,
+    rgba(255, 253, 247, 0.22) 50%,
     transparent 62%
   );
   opacity: 0;

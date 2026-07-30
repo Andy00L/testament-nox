@@ -29,7 +29,10 @@ export function WordDevice() {
       >
         传承
       </p>
-      <div className="pointer-events-auto text-right">
+      {/* The caption needs a margin the phone does not have: at 390px it landed inside the
+          headline's column and the two texts read as one broken sentence. The hanzi stay,
+          a watermark behind everything; the caption returns where there is a wall for it. */}
+      <div className="pointer-events-auto text-right max-sm:hidden">
         <p className="type-small text-ink" lang="zh-Latn">
           {copy.word.pinyin}
         </p>

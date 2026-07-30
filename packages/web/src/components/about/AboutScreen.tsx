@@ -46,7 +46,7 @@ export function AboutScreen() {
 
   return (
     <div
-      className={`${tiktokSans.className} mx-auto w-full max-w-[1120px] px-6 pb-16 pt-[max(7.75rem,19vh)] sm:px-10`}
+      className={`${tiktokSans.className} mx-auto w-full max-w-[1120px] px-6 pb-24 pt-[max(7.75rem,19vh)] sm:px-10 sm:pb-16`}
     >
       <div className="mx-auto mb-4 flex max-w-[44rem] flex-col items-center gap-3 text-center">
         <h1 className="anim-rise anim-d-1 type-display-lg">{copy.about.title}</h1>

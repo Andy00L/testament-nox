@@ -17,6 +17,7 @@ export const LANGUAGES: readonly Language[] = ["fr", "en"];
 const french = {
   languageName: "Français",
   otherLanguageName: "English",
+  otherLanguageCode: "EN",
   switchTo: "Passer en anglais",
 
   nav: {
@@ -312,6 +313,7 @@ const french = {
 const english: typeof french = {
   languageName: "English",
   otherLanguageName: "Français",
+  otherLanguageCode: "FR",
   switchTo: "Switch to French",
 
   nav: {

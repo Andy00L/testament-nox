@@ -320,14 +320,17 @@ check("all six step photographs are mounted", stepImageCount === 6, `${stepImage
 console.log("\nlanguage");
 await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
 await page.waitForTimeout(900);
+// The toggle's accessible name is its aria-label (what it does), not the shown word:
+// the visible text collapses to a two-letter code on phones, and a name that changes
+// with the viewport is exactly what an accessible name must not do.
 const englishHeadline = await page.locator("h1").first().innerText();
-await page.getByRole("button", { name: "Français" }).click();
+await page.getByRole("button", { name: "Switch to French" }).click();
 await page.waitForTimeout(400);
 const frenchHeadline = await page.locator("h1").first().innerText();
 const htmlLang = await page.evaluate(() => document.documentElement.lang);
 check("headline switches language", englishHeadline !== frenchHeadline, frenchHeadline.replace(/\n/g, " ").slice(0, 40));
 check("html lang follows the switch", htmlLang === "fr", `lang="${htmlLang}"`);
-await page.getByRole("button", { name: "English" }).click();
+await page.getByRole("button", { name: "Passer en anglais" }).click();
 await page.waitForTimeout(300);
 check("switches back to English", (await page.locator("h1").first().innerText()) === englishHeadline, "round trip");
 
