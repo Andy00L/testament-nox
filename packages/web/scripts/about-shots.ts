@@ -5,11 +5,16 @@ import { chromium, type BrowserContext, type Page } from "playwright";
 import sharp from "sharp";
 
 /**
- * The five step images the about page shows, taken against the production build on
+ * The six step images the about page shows, taken against the production build on
  * BASE_URL. Wallet rows come from stub EIP-6963 announcements so the chooser is
  * photographed doing what it really does: listing what the browser detected.
  *
  * Run with: bun run about-shots   (expects `next start -p 3100` to be up)
+ *
+ * Sections can be named as arguments (`connect vault write heartbeat doors`) to re-shoot
+ * only some. The door and heartbeat photographs depend on live testaments being in the
+ * right state on Sepolia, so on days the demo wills have expired those sections are left
+ * out rather than photographed lying.
  */
 
 const BASE_URL = process.env.VERIFY_BASE_URL ?? "http://127.0.0.1:3100";
@@ -97,12 +102,18 @@ async function capture(page: Page, outputName: string) {
   console.log(`[aboutShots] ${outputName}`);
 }
 
+/** Which sections this run photographs: the ones named as arguments, or all of them. */
+const requestedSections = new Set(process.argv.slice(2));
+function isRequested(sectionName: string): boolean {
+  return requestedSections.size === 0 || requestedSections.has(sectionName);
+}
+
 async function main() {
   await mkdir(OUTPUT_DIRECTORY, { recursive: true });
   const browser = await chromium.launch();
 
   // ---- 1. The chooser: wallets installed, none connected yet. ----
-  {
+  if (isRequested("connect")) {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
       deviceScaleFactor: 2,
@@ -117,8 +128,29 @@ async function main() {
     await context.close();
   }
 
-  // ---- 2. The filled will. ----
-  {
+  // ---- 2. The vault block: the derived address, with whatever act it still needs. ----
+  if (isRequested("vault")) {
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 800 },
+      deviceScaleFactor: 2,
+    });
+    await installWalletStubs(context, OWNER_ADDRESS);
+    const page = await context.newPage();
+    await page.goto(`${BASE_URL}/ecrire`, { waitUntil: "networkidle" });
+    // The derivation needs the factory's creation code and then the code at the result.
+    // Any of the derived-vault hints under the field means both answers are in; the raw
+    // input value cannot be waited on, because React never writes it back to the attribute.
+    await page
+      .getByText(/This vault does not exist yet|The vault is empty|The vault holds|Your vault, derived/)
+      .first()
+      .waitFor({ timeout: 30000 });
+    await settle(page);
+    await capture(page, "step-vault.webp");
+    await context.close();
+  }
+
+  // ---- 3. The filled will. The Safe field stays as derived: that is the point. ----
+  if (isRequested("write")) {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
       deviceScaleFactor: 2,
@@ -127,19 +159,18 @@ async function main() {
     const page = await context.newPage();
     await page.goto(`${BASE_URL}/ecrire`, { waitUntil: "networkidle" });
     await settle(page);
-    const inputs = page.locator("input");
-    await inputs.nth(0).fill("0x71De5E2141C89F7A6c5260d10D18CbC47fB1a7f2");
-    await inputs.nth(1).fill("60");
-    await inputs.nth(2).fill("0xe5aFeC35193B23B3AFD1B2C74613598714D5F484");
-    await inputs.nth(3).fill("40");
-    await inputs.nth(4).fill("0x4c67A14075e451651B81D2E6f2038a7d1d007192");
+    await page.getByLabel("Heir 1").fill("0x71De5E2141C89F7A6c5260d10D18CbC47fB1a7f2");
+    await page.getByLabel("Heir 2").fill("0xe5aFeC35193B23B3AFD1B2C74613598714D5F484");
+    const shareFields = page.getByLabel("Share");
+    await shareFields.nth(0).fill("60");
+    await shareFields.nth(1).fill("40");
     await page.waitForTimeout(1200);
     await capture(page, "step-write.webp");
     await context.close();
   }
 
-  // ---- 3. The heartbeat, connected as the owner of the living testament. ----
-  {
+  // ---- 4. The heartbeat, connected as the owner of the living testament. ----
+  if (isRequested("heartbeat")) {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
       deviceScaleFactor: 2,
@@ -155,8 +186,8 @@ async function main() {
     await context.close();
   }
 
-  // ---- 4 and 5. The door, closed then open. No wallet: the door needs none to read. ----
-  {
+  // ---- 5 and 6. The door, closed then open. No wallet: the door needs none to read. ----
+  if (isRequested("doors")) {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
       deviceScaleFactor: 2,

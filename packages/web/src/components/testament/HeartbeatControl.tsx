@@ -9,6 +9,7 @@ import { useCurtain } from "@/components/scene/CurtainStage";
 import { readDeployment } from "@/lib/chain";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
 import type { Copy } from "@/lib/i18n";
+import { describeThrown, isUserRejection } from "@/lib/testament-write";
 
 /**
  * The heartbeat, sent by holding rather than clicking.
@@ -36,7 +37,13 @@ export function HeartbeatControl({ testamentId, onSent }: HeartbeatControlProps)
   const [isHolding, setIsHolding] = useState(false);
   const holdStartedAtRef = useRef<number | null>(null);
 
-  const { writeContract, data: transactionHash, isPending, reset } = useWriteContract();
+  const {
+    writeContract,
+    data: transactionHash,
+    isPending,
+    reset,
+    error: heartbeatError,
+  } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash: transactionHash,
   });
@@ -117,6 +124,8 @@ export function HeartbeatControl({ testamentId, onSent }: HeartbeatControlProps)
     <div className="flex flex-col gap-2">
       <Key
         disabled={isPending || isConfirming || !deployment.isDeployed}
+        // The one thing this page exists for, so it is the page's one beckoning act.
+        beckons={!isPending && !isConfirming && deployment.isDeployed}
         onPointerDown={startHold}
         onPointerUp={cancelHold}
         onPointerLeave={cancelHold}
@@ -160,6 +169,18 @@ export function HeartbeatControl({ testamentId, onSent }: HeartbeatControlProps)
       <p id="heartbeat-hint" className="type-small text-ink-faint">
         {copy.heartbeat.hint}
       </p>
+      {/*
+        A heartbeat that failed used to fail in silence: the label snapped back to idle and
+        the owner had no way to know their sign of life never left. Declining in the wallet
+        and a broken send are different facts, and both are said out loud.
+      */}
+      {heartbeatError != null ? (
+        <p role="alert" className="anim-shake type-small text-cinnabar">
+          {isUserRejection(heartbeatError)
+            ? copy.errors.declinedInWallet
+            : describeThrown(heartbeatError)}
+        </p>
+      ) : null}
     </div>
   );
 }

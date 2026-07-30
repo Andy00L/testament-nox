@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import localFont from "next/font/local";
 
 import { PassageLink } from "@/components/ui/PassageLink";
 import { useTranslation } from "@/components/i18n/LanguageProvider";
@@ -9,14 +10,27 @@ import { useTranslation } from "@/components/i18n/LanguageProvider";
 /**
  * The explanation, on the same parchment as the will itself.
  *
- * One scroll, read top to bottom: what this house keeps, then the five gestures with a
+ * One scroll, read top to bottom: what this house keeps, then the six gestures with a
  * photograph of each. The images are the real screens with the rehearsal wallets in them,
  * so what the page promises and what the visitor then sees are the same thing.
  */
 
+/**
+ * TikTok Sans, asked for by name for this page's reading voice, self-hosted (SIL OFL, the
+ * latin subset carries every French diacritic this copy uses). It lands on the wrapper as a
+ * className, so prose inherits it while every `.type-display-*` and `.type-title` heading
+ * keeps the engraved display face: one quiet reading voice under one ceremonial one.
+ */
+const tiktokSans = localFont({
+  src: "../../fonts/tiktok-sans-latin.woff2",
+  weight: "300 900",
+  display: "swap",
+});
+
 /** The step photographs, in the order the steps are told. Captured by about-shots.ts. */
 const STEP_IMAGES = [
   "/about/step-connect.webp",
+  "/about/step-vault.webp",
   "/about/step-write.webp",
   "/about/step-heartbeat.webp",
   "/about/step-door-closed.webp",
@@ -31,7 +45,9 @@ export function AboutScreen() {
   const { copy } = useTranslation();
 
   return (
-    <div className="mx-auto w-full max-w-[1120px] px-6 pb-16 pt-[max(7.75rem,19vh)] sm:px-10">
+    <div
+      className={`${tiktokSans.className} mx-auto w-full max-w-[1120px] px-6 pb-16 pt-[max(7.75rem,19vh)] sm:px-10`}
+    >
       <div className="mx-auto mb-4 flex max-w-[44rem] flex-col items-center gap-3 text-center">
         <h1 className="anim-rise anim-d-1 type-display-lg">{copy.about.title}</h1>
         <p className="anim-rise anim-d-2 type-small max-w-[64ch] text-ink-muted">

@@ -215,6 +215,9 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
       refetch();
     } else {
       setErrorMessage(describeWriteFailure(result.failure, copy));
+      if (result.failure.reason === "reverted") {
+        setActionTransaction(result.failure.transactionHash);
+      }
     }
   };
 
@@ -239,6 +242,9 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
       void paidSlotsQuery.refetch();
     } else {
       setErrorMessage(describeWriteFailure(result.failure, copy));
+      if (result.failure.reason === "reverted") {
+        setActionTransaction(result.failure.transactionHash);
+      }
     }
   };
 
@@ -265,6 +271,9 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
       void plannedPaymentsQuery.refetch();
     } else {
       setErrorMessage(describeWriteFailure(result.failure, copy));
+      if (result.failure.reason === "reverted") {
+        setActionTransaction(result.failure.transactionHash);
+      }
     }
   };
 
@@ -309,6 +318,7 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
             runningLabel: copy.door.opening,
             doneLabel: copy.door.stepOpenDone,
             onRun: () => void runRelease(),
+            beckons: !isWorking,
           }}
           second={{
             state: "unreached",
@@ -429,6 +439,7 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
           runningLabel: copy.door.executing,
           doneLabel: copy.door.stepPayDone,
           onRun: () => void runExecute(),
+          beckons: payState === "ready",
         }}
       />
 

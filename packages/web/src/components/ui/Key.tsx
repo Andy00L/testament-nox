@@ -17,11 +17,21 @@ import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 type KeyProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   children: ReactNode;
   ref?: Ref<HTMLButtonElement>;
+  /**
+   * Marks this key as the one act the page is waiting on: a periodic glint and a bronze
+   * ring, defined by `.key-beckon`. At most one key per screen may beckon; a page with two
+   * is a page pointing in two directions.
+   */
+  beckons?: boolean;
 };
 
-export function Key({ children, className, type, ...buttonProps }: KeyProps) {
+export function Key({ children, className, type, beckons, ...buttonProps }: KeyProps) {
   return (
-    <button {...buttonProps} type={type ?? "button"} className={`key ${className ?? ""}`}>
+    <button
+      {...buttonProps}
+      type={type ?? "button"}
+      className={`key ${beckons === true ? "key-beckon" : ""} ${className ?? ""}`}
+    >
       <span aria-hidden="true" className="key-sheen" />
       {children}
     </button>

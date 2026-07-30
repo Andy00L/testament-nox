@@ -14,7 +14,15 @@ import {
   type Bequest,
   type PackBequestsFailure,
 } from "@testament/shared";
-import { zeroAddress, type Address, type Hex, type PublicClient, type WalletClient } from "viem";
+import {
+  BaseError,
+  UserRejectedRequestError,
+  zeroAddress,
+  type Address,
+  type Hex,
+  type PublicClient,
+  type WalletClient,
+} from "viem";
 
 import { createReadOnlyHandleClient } from "@/lib/nox-client";
 
@@ -45,11 +53,24 @@ export type WriteStep =
  * whatever the page is set to, which is exactly the bug this shape prevents. `detail` is the
  * untranslatable part, a wallet or gateway string quoted verbatim.
  */
+/**
+ * The registry precondition a seal would trip over, found by asking before sending.
+ * sourceRef: TestamentRegistry.sol, write(): the require chain this mirrors.
+ */
+export type SealBlocker = "module" | "writer" | "owner-active" | "safe-active" | "authorization-used";
+
 export type WriteFailure =
   | { reason: "not-connected" }
   | { reason: "invalid-will"; packFailure: PackBequestsFailure }
   | { reason: "encryption-failed"; slotIndex: number | null; detail: string }
+  /** The signer declined in their wallet. Nothing was sent, and saying otherwise is the bug. */
   | { reason: "rejected"; step: WriteStep }
+  /**
+   * Mined and refused: the chain executed the transaction and reverted it. The opposite of a
+   * rejection (gas was spent, a receipt exists), which is why it carries the hash: the reader
+   * is pointed at the transaction, not told they pressed "cancel" when they did not.
+   */
+  | { reason: "reverted"; step: WriteStep; transactionHash: Hex }
   /**
    * The transaction was mined but the chain still does not report the consent. Distinct from
    * a rejection on purpose: the money and the mandate may well be there, and the reader needs
@@ -58,11 +79,37 @@ export type WriteFailure =
   | { reason: "consent-not-visible"; step: WriteStep }
   /** A Safe's state could not be read at all, as opposed to reading as "nothing granted". */
   | { reason: "safe-unreadable"; detail: string }
+  /** Nothing is deployed at the address about to receive a consent, an estate, or a will. */
+  | { reason: "safe-not-a-contract"; safeAddress: Address }
+  /** A registry precondition the seal found before spending a signature on it. */
+  | { reason: "seal-blocked"; blocker: SealBlocker }
   /** A freshly created vault did not come out as a 1-of-1 owned by the wallet that asked. */
   | { reason: "wrong-safe-owner"; safeAddress: Address }
   /** The estate the owner typed is not a number of ETH this wallet could send. */
   | { reason: "invalid-amount" }
   | { reason: "transaction-failed"; detail: string };
+
+/**
+ * Whether a thrown wallet error is the human pressing "cancel".
+ *
+ * Every failure used to collapse into one bucket, so a reverted transaction told its author
+ * "you rejected it". viem wraps the wallet's refusal in `UserRejectedRequestError` somewhere
+ * down the cause chain; raw EIP-1193 providers report code 4001. Both mean the same thing:
+ * nothing left the wallet.
+ */
+export function isUserRejection(thrown: unknown): boolean {
+  if (thrown instanceof BaseError) {
+    return thrown.walk((cause) => cause instanceof UserRejectedRequestError) !== null;
+  }
+  return typeof thrown === "object" && thrown !== null && "code" in thrown && thrown.code === 4001;
+}
+
+/** A thrown write error, sorted into "they declined" or "it broke", never conflated. */
+export function classifyTransactionThrow(thrown: unknown, step: WriteStep): WriteFailure {
+  return isUserRejection(thrown)
+    ? { reason: "rejected", step }
+    : { reason: "transaction-failed", detail: describeThrown(thrown) };
+}
 
 export type WriteResult<TValue> = { ok: true; value: TValue } | { ok: false; failure: WriteFailure };
 
@@ -77,6 +124,7 @@ export async function sealTestament({
   walletClient,
   publicClient,
   registryAddress,
+  moduleAddress,
   safeAddress,
   bequests,
   intervalSeconds,
@@ -86,6 +134,7 @@ export async function sealTestament({
   walletClient: WalletClient;
   publicClient: PublicClient;
   registryAddress: Address;
+  moduleAddress: Address;
   safeAddress: Address;
   bequests: readonly Bequest[];
   intervalSeconds: number;
@@ -103,6 +152,21 @@ export async function sealTestament({
       ok: false,
       failure: { reason: "invalid-will", packFailure: packed.failure },
     };
+  }
+
+  // Ask the registry's own questions before encrypting eight slots and asking for a
+  // signature. The interface checks too, but its answer can be minutes old, and the one
+  // seal this product ever saw revert did so against a Safe that did not exist: a doomed
+  // transaction has to become a sentence here, not a receipt with status "reverted".
+  const preflight = await preflightSeal({
+    publicClient,
+    registryAddress,
+    moduleAddress,
+    safeAddress,
+    writerAddress: account.address,
+  });
+  if (!preflight.ok) {
+    return preflight;
   }
 
   onProgress?.("encrypting");
@@ -127,7 +191,7 @@ export async function sealTestament({
     encryptedHandles = encrypted.encryptions.handles;
     encryptedProofs = encrypted.encryptions.proofs;
   } catch (error) {
-    return { ok: false, failure: { reason: "encryption-failed", slotIndex: null, detail: describeError(error) } };
+    return { ok: false, failure: { reason: "encryption-failed", slotIndex: null, detail: describeThrown(error) } };
   }
 
   onProgress?.("signing");
@@ -147,12 +211,97 @@ export async function sealTestament({
     if (receipt.status !== "success") {
       return {
         ok: false,
-        failure: { reason: "rejected", step: "seal" },
+        failure: { reason: "reverted", step: "seal", transactionHash },
       };
     }
     return { ok: true, value: transactionHash };
   } catch (error) {
-    return { ok: false, failure: { reason: "transaction-failed", detail: describeError(error) } };
+    return { ok: false, failure: classifyTransactionThrow(error, "seal") };
+  }
+}
+
+/**
+ * Every precondition `TestamentRegistry.write` will enforce, read before anything is signed.
+ *
+ * The failed seal this preflight exists for reverted with `SafeIsNotAContract`: the vault
+ * address was on screen, funded, and empty of code, and the interface had no way to say so
+ * until the chain had already taken the gas. Each check mirrors one require in the contract,
+ * in the contract's own order, so the sentence shown names the first thing the registry
+ * would have refused.
+ * sourceRef: TestamentRegistry.sol, write(), the require chain before slots are imported.
+ */
+export async function preflightSeal({
+  publicClient,
+  registryAddress,
+  moduleAddress,
+  safeAddress,
+  writerAddress,
+}: {
+  publicClient: PublicClient;
+  registryAddress: Address;
+  moduleAddress: Address;
+  safeAddress: Address;
+  writerAddress: Address;
+}): Promise<WriteResult<true>> {
+  try {
+    const safeCode = await publicClient.getCode({ address: safeAddress });
+    if (safeCode === undefined || safeCode === "0x") {
+      return { ok: false, failure: { reason: "safe-not-a-contract", safeAddress } };
+    }
+
+    const [moduleEnabled, authorization, ownerActiveId, safeActiveId, consumedNonce] =
+      await Promise.all([
+        publicClient.readContract({
+          address: safeAddress,
+          abi: safeManagementAbi,
+          functionName: "isModuleEnabled",
+          args: [moduleAddress],
+        }),
+        publicClient.readContract({
+          address: moduleAddress,
+          abi: testamentModuleAbi,
+          functionName: "authorizationOf",
+          args: [safeAddress],
+        }),
+        publicClient.readContract({
+          address: registryAddress,
+          abi: testamentRegistryAbi,
+          functionName: "activeTestamentOf",
+          args: [writerAddress],
+        }),
+        publicClient.readContract({
+          address: registryAddress,
+          abi: testamentRegistryAbi,
+          functionName: "activeTestamentOfSafe",
+          args: [safeAddress],
+        }),
+        publicClient.readContract({
+          address: registryAddress,
+          abi: testamentRegistryAbi,
+          functionName: "consumedAuthNonce",
+          args: [safeAddress],
+        }),
+      ]);
+
+    if (!moduleEnabled) {
+      return { ok: false, failure: { reason: "seal-blocked", blocker: "module" } };
+    }
+    const [mandatedWriter, authNonce] = authorization;
+    if (mandatedWriter.toLowerCase() !== writerAddress.toLowerCase()) {
+      return { ok: false, failure: { reason: "seal-blocked", blocker: "writer" } };
+    }
+    if (ownerActiveId !== 0n) {
+      return { ok: false, failure: { reason: "seal-blocked", blocker: "owner-active" } };
+    }
+    if (safeActiveId !== 0n) {
+      return { ok: false, failure: { reason: "seal-blocked", blocker: "safe-active" } };
+    }
+    if (authNonce <= consumedNonce) {
+      return { ok: false, failure: { reason: "seal-blocked", blocker: "authorization-used" } };
+    }
+    return { ok: true, value: true };
+  } catch (error) {
+    return { ok: false, failure: { reason: "safe-unreadable", detail: describeThrown(error) } };
   }
 }
 
@@ -245,11 +394,11 @@ export async function enableModuleOnSafe({
     if (receipt.status !== "success") {
       return {
         ok: false,
-        failure: { reason: "rejected", step: "enable-module" },
+        failure: { reason: "reverted", step: "enable-module", transactionHash },
       };
     }
   } catch (error) {
-    return { ok: false, failure: { reason: "transaction-failed", detail: describeError(error) } };
+    return { ok: false, failure: classifyTransactionThrow(error, "enable-module") };
   }
 
   const confirmed = await awaitConsent({
@@ -310,11 +459,11 @@ export async function authorizeWriterOnSafe({
     if (receipt.status !== "success") {
       return {
         ok: false,
-        failure: { reason: "rejected", step: "authorize-writer" },
+        failure: { reason: "reverted", step: "authorize-writer", transactionHash },
       };
     }
   } catch (error) {
-    return { ok: false, failure: { reason: "transaction-failed", detail: describeError(error) } };
+    return { ok: false, failure: classifyTransactionThrow(error, "authorize-writer") };
   }
 
   const confirmed = await awaitConsent({
@@ -387,13 +536,41 @@ export async function readSafeConsents({
       consents: { moduleEnabled, writer: writer === zeroAddress ? null : writer },
     };
   } catch (error) {
-    return { ok: false, detail: describeError(error) };
+    return { ok: false, detail: describeThrown(error) };
   }
 }
 
-function describeError(thrown: unknown): string {
+/**
+ * The same read, retried before it is believed.
+ *
+ * A browser bursts these calls at a load-balanced RPC, and one throttled answer used to be
+ * enough to paint a real Safe as unreadable and sink both consent keys. Three attempts with
+ * backoff outlast a throttle; a Safe that truly is not there keeps failing all three, so the
+ * honest answer is unchanged, just slower to give up.
+ */
+export async function readSafeConsentsPatiently(request: {
+  publicClient: PublicClient;
+  safeAddress: Address;
+  moduleAddress: Address;
+}): Promise<SafeConsentsResult> {
+  const attempt = await retryAsync(
+    async () => {
+      const read = await readSafeConsents(request);
+      if (!read.ok) {
+        throw new Error(read.detail);
+      }
+      return read.consents;
+    },
+    { attempts: 3, initialDelayMs: 500, maxDelayMs: 2_000, backoffFactor: 2 },
+  );
+  return attempt.ok
+    ? { ok: true, consents: attempt.value }
+    : { ok: false, detail: describeThrown(attempt.lastError) };
+}
+
+/** The first sentence of a thrown error: viem stacks the useful line first, the ABI dump after. */
+export function describeThrown(thrown: unknown): string {
   if (thrown instanceof Error) {
-    // viem stacks the useful sentence first and the ABI dump after; keep the sentence.
     return thrown.message.split("\n")[0] ?? thrown.message;
   }
   return String(thrown);
@@ -434,12 +611,12 @@ export async function releaseTestament({
     if (receipt.status !== "success") {
       return {
         ok: false,
-        failure: { reason: "rejected", step: "release" },
+        failure: { reason: "reverted", step: "release", transactionHash },
       };
     }
     return { ok: true, value: transactionHash };
   } catch (error) {
-    return { ok: false, failure: { reason: "transaction-failed", detail: describeError(error) } };
+    return { ok: false, failure: classifyTransactionThrow(error, "release") };
   }
 }
 
@@ -491,7 +668,7 @@ export async function executeTestament({
     }
     proofs = collected.proofs;
   } catch (error) {
-    return { ok: false, failure: { reason: "encryption-failed", slotIndex: null, detail: describeError(error) } };
+    return { ok: false, failure: { reason: "encryption-failed", slotIndex: null, detail: describeThrown(error) } };
   }
 
   try {
@@ -507,12 +684,12 @@ export async function executeTestament({
     if (receipt.status !== "success") {
       return {
         ok: false,
-        failure: { reason: "rejected", step: "execute" },
+        failure: { reason: "reverted", step: "execute", transactionHash },
       };
     }
     return { ok: true, value: transactionHash };
   } catch (error) {
-    return { ok: false, failure: { reason: "transaction-failed", detail: describeError(error) } };
+    return { ok: false, failure: classifyTransactionThrow(error, "execute") };
   }
 }
 
@@ -560,11 +737,11 @@ export async function retryHeirPayment({
     });
     const receipt = await publicClient.waitForTransactionReceipt({ hash: transactionHash });
     if (receipt.status !== "success") {
-      return { ok: false, failure: { reason: "rejected", step: "retry" } };
+      return { ok: false, failure: { reason: "reverted", step: "retry", transactionHash } };
     }
     return { ok: true, value: transactionHash };
   } catch (error) {
-    return { ok: false, failure: { reason: "transaction-failed", detail: describeError(error) } };
+    return { ok: false, failure: classifyTransactionThrow(error, "retry") };
   }
 }
 
@@ -592,6 +769,6 @@ export async function readReleasedWill({
     );
     return { ok: true, value: decrypted.filter((bequest) => !isPaddedBequest(bequest)) };
   } catch (error) {
-    return { ok: false, failure: { reason: "encryption-failed", slotIndex: null, detail: describeError(error) } };
+    return { ok: false, failure: { reason: "encryption-failed", slotIndex: null, detail: describeThrown(error) } };
   }
 }

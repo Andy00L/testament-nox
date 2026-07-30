@@ -36,7 +36,7 @@ import { describePackFailureIn, describeWriteFailure } from "@/lib/describe-fail
 import {
   authorizeWriterOnSafe,
   enableModuleOnSafe,
-  readSafeConsents,
+  readSafeConsentsPatiently,
   sealTestament,
 } from "@/lib/testament-write";
 
@@ -114,6 +114,12 @@ export function WritePanel() {
     vault.status === "absent" || vault.status === "present" ? vault.address : null;
   const safeAddress = typedSafeAddress ?? derivedSafeAddress ?? "";
   const isUsingDerivedVault = typedSafeAddress === null && derivedSafeAddress !== null;
+  /**
+   * A derived vault the chain says has no code cannot have granted anything, and asking it
+   * would only produce a revert dressed up as an outage. The consent effect keys on this
+   * boolean, so the read fires exactly once the vault comes into existence.
+   */
+  const isVaultKnownAbsent = isUsingDerivedVault && vault.status === "absent";
 
   const [stage, setStage] = useState<SealStage>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -131,6 +137,12 @@ export function WritePanel() {
     | { safeAddress: string; unreadable: true }
     | { safeAddress: string; moduleEnabled: boolean; writer: Address | null };
   const [safeCheck, setSafeCheck] = useState<SafeCheck | null>(null);
+  /**
+   * Bumped by the "check again" affordance. A failed read is an answer the reader can ask to
+   * have re-asked, and a counter in the effect's dependencies is what re-asks it without the
+   * effect having to know who wanted that.
+   */
+  const [safeCheckAttempt, setSafeCheckAttempt] = useState(0);
   const [isEnablingModule, setIsEnablingModule] = useState(false);
   const [isNamingWriter, setIsNamingWriter] = useState(false);
   const [consentTransaction, setConsentTransaction] = useState<string | null>(null);
@@ -186,8 +198,14 @@ export function WritePanel() {
     safeCheck !== null && safeCheck.safeAddress === safeAddress && !("unreadable" in safeCheck)
       ? safeCheck
       : null;
+  // A vault known to be absent silences any cached "unreadable": before the shared boolean
+  // existed, the consent probe fired at the codeless derived address, failed, and its outage
+  // message buried the one hint that mattered, "this vault does not exist yet".
   const isSafeUnreadable =
-    safeCheck !== null && safeCheck.safeAddress === safeAddress && "unreadable" in safeCheck;
+    safeCheck !== null &&
+    safeCheck.safeAddress === safeAddress &&
+    "unreadable" in safeCheck &&
+    !isVaultKnownAbsent;
   const isModuleEnabled = safeAnswer === null ? null : safeAnswer.moduleEnabled;
   /**
    * Being named is per wallet, not per Safe: a Safe that named someone else has a mandate,
@@ -214,9 +232,12 @@ export function WritePanel() {
     if (!deployment.isDeployed || publicClient === undefined || !isAddress(safeAddress)) {
       return;
     }
+    if (isVaultKnownAbsent) {
+      return;
+    }
     let isCurrent = true;
     const checkedAddress = safeAddress as Address;
-    void readSafeConsents({
+    void readSafeConsentsPatiently({
       publicClient,
       safeAddress: checkedAddress,
       moduleAddress: deployment.addresses.module,
@@ -233,7 +254,18 @@ export function WritePanel() {
     return () => {
       isCurrent = false;
     };
-  }, [deployment, publicClient, safeAddress]);
+  }, [deployment, publicClient, safeAddress, safeCheckAttempt, isVaultKnownAbsent]);
+
+  /**
+   * The way out of a failed read: ask again, everywhere at once. The vault's own reads and
+   * the consent reads fail together when a node is down, so one gesture retries both rather
+   * than making the reader find two buttons for one outage.
+   */
+  const retryChainReads = () => {
+    refreshVault();
+    setSafeCheck(null);
+    setSafeCheckAttempt((attempt) => attempt + 1);
+  };
 
   const validation = validateDraft({ drafts, safeAddress, intervalSeconds, graceSeconds, copy });
 
@@ -245,17 +277,32 @@ export function WritePanel() {
   const heirKinds = useHeirAddressKinds(drafts.map((draft) => draft.beneficiary));
 
   /**
-   * The Safe's two consents, in the order it grants them. Enabling the module hands the
-   * registry spending authority over the estate; naming the writer says whose will it may
-   * spend on. The registry refuses a testament that has neither, so the seal refuses first
-   * rather than sending a transaction that can only revert.
+   * The nearest thing standing between this form and a seal the registry would accept, in
+   * the order the chain enforces: a vault that exists, a Safe that can be read, then the two
+   * consents. `null` alone arms the seal.
+   *
+   * Unknown blocks too. The seal that reverted on-chain went out while both consents read as
+   * "not answered yet", because only a confirmed "no" used to refuse: an unknown consent is a
+   * transaction the registry may refuse, and this product does not sign hopes.
    */
-  const mandateBlock =
-    isModuleEnabled === false
-      ? copy.write.sealNeedsModule
-      : isWriterNamed === false
-        ? copy.write.sealNeedsWriter
-        : null;
+  const sealBlock: string | null = (() => {
+    if (isUsingDerivedVault && vault.status === "absent") {
+      return copy.write.sealNeedsVault;
+    }
+    if (isUsingDerivedVault && vault.status === "unreadable") {
+      return copy.write.vaultUnreadable;
+    }
+    if (isSafeUnreadable) {
+      return copy.write.safeHintUnreadable;
+    }
+    if (isModuleEnabled === null || isWriterNamed === null) {
+      return isAddress(safeAddress) ? copy.write.sealChecking : null;
+    }
+    if (!isModuleEnabled) {
+      return copy.write.sealNeedsModule;
+    }
+    return isWriterNamed ? null : copy.write.sealNeedsWriter;
+  })();
 
   const handleSeal = async () => {
     if (!deployment.isDeployed || walletClient === undefined || publicClient === undefined) {
@@ -266,8 +313,8 @@ export function WritePanel() {
       setErrorMessage(validation.message);
       return;
     }
-    if (mandateBlock !== null) {
-      setErrorMessage(mandateBlock);
+    if (sealBlock !== null) {
+      setErrorMessage(sealBlock);
       return;
     }
 
@@ -278,6 +325,7 @@ export function WritePanel() {
       walletClient,
       publicClient,
       registryAddress: deployment.addresses.registry,
+      moduleAddress: deployment.addresses.module,
       safeAddress: validation.safeAddress,
       bequests: validation.bequests,
       intervalSeconds: validation.intervalSeconds,
@@ -288,6 +336,11 @@ export function WritePanel() {
     if (!result.ok) {
       setStage("idle");
       setErrorMessage(describeWriteFailure(result.failure, copy));
+      if (result.failure.reason === "reverted") {
+        // The receipt exists even though nothing was written: hand over the Etherscan link,
+        // because "the chain refused" is a claim the reader must be able to check.
+        setSealTransaction(result.failure.transactionHash);
+      }
       return;
     }
 
@@ -318,6 +371,9 @@ export function WritePanel() {
     setIsEnablingModule(false);
     if (!result.ok) {
       setErrorMessage(describeWriteFailure(result.failure, copy));
+      if (result.failure.reason === "reverted") {
+        setConsentTransaction(result.failure.transactionHash);
+      }
       return;
     }
     // The helper waited until the chain reported the consent, so its answer is written down
@@ -348,6 +404,9 @@ export function WritePanel() {
     setIsNamingWriter(false);
     if (!result.ok) {
       setErrorMessage(describeWriteFailure(result.failure, copy));
+      if (result.failure.reason === "reverted") {
+        setConsentTransaction(result.failure.transactionHash);
+      }
       return;
     }
     setSafeCheck({ safeAddress: checkedSafeAddress, ...result.value.consents });
@@ -368,6 +427,9 @@ export function WritePanel() {
     setIsCreatingVault(false);
     if (!result.ok) {
       setErrorMessage(describeWriteFailure(result.failure, copy));
+      if (result.failure.reason === "reverted") {
+        setConsentTransaction(result.failure.transactionHash);
+      }
       return;
     }
     // The address was already on screen (that is the point of deriving it), so the only thing
@@ -399,6 +461,9 @@ export function WritePanel() {
     setIsFundingVault(false);
     if (!result.ok) {
       setErrorMessage(describeWriteFailure(result.failure, copy));
+      if (result.failure.reason === "reverted") {
+        setConsentTransaction(result.failure.transactionHash);
+      }
       return;
     }
     refreshVault();
@@ -430,6 +495,31 @@ export function WritePanel() {
         : "ready";
 
   const isBusy = stage === "encrypting" || stage === "signing" || stage === "confirming";
+
+  /**
+   * The one act the chain is waiting on, so exactly one control on this screen beckons.
+   * The order is the order the chain enforces: a vault to create, an estate to send, then
+   * the two consents. The seal is deliberately absent from this list; when its turn comes
+   * it wakes on its own, and two things calling at once is nobody being called.
+   */
+  const nextAct: "create" | "fund" | "passage" | "hand" | null = (() => {
+    if (isUsingDerivedVault && vault.status === "absent") {
+      return "create";
+    }
+    if (isUsingDerivedVault && vault.status === "present" && vault.estateWei === 0n) {
+      return "fund";
+    }
+    if (passageState === "ready") {
+      return "passage";
+    }
+    if (handState === "ready") {
+      return "hand";
+    }
+    return null;
+  })();
+
+  /** Both unreadable states are one outage to the reader, so they share one way out. */
+  const needsRecheck = isSafeUnreadable || (isUsingDerivedVault && vault.status === "unreadable");
 
   return (
     <div className="flex flex-col gap-8">
@@ -582,15 +672,26 @@ export function WritePanel() {
                   ? copy.write.vaultEstate(formatEther(vault.estateWei))
                   : ""}
               </p>
-              <button
-                type="button"
-                onClick={() =>
-                  isUsingDerivedVault ? setTypedSafeAddress("") : setTypedSafeAddress(null)
-                }
-                className="type-small text-ink-faint transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
-              >
-                {isUsingDerivedVault ? copy.write.vaultUseAnother : copy.write.vaultUseMine}
-              </button>
+              <span className="flex items-baseline gap-5">
+                {needsRecheck ? (
+                  <button
+                    type="button"
+                    onClick={retryChainReads}
+                    className="type-small text-ink-muted transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+                  >
+                    {copy.write.checkAgain}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() =>
+                    isUsingDerivedVault ? setTypedSafeAddress("") : setTypedSafeAddress(null)
+                  }
+                  className="type-small text-ink-faint transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+                >
+                  {isUsingDerivedVault ? copy.write.vaultUseAnother : copy.write.vaultUseMine}
+                </button>
+              </span>
             </div>
           </div>
 
@@ -603,6 +704,8 @@ export function WritePanel() {
             onEstateEthChange={setEstateEth}
             onCreate={() => void handleCreateVault()}
             onFund={() => void handleFundVault()}
+            beckonCreate={nextAct === "create"}
+            beckonFund={nextAct === "fund"}
             copy={copy}
           />
 
@@ -624,6 +727,7 @@ export function WritePanel() {
                 runningLabel: copy.write.stepPassageBusy,
                 doneLabel: copy.write.stepPassageDone,
                 onRun: () => void handleEnableModule(),
+                beckons: nextAct === "passage",
               }}
               second={{
                 state: handState,
@@ -631,6 +735,7 @@ export function WritePanel() {
                 runningLabel: copy.write.stepHandBusy,
                 doneLabel: copy.write.stepHandDone,
                 onRun: () => void handleNameWriter(),
+                beckons: nextAct === "hand",
               }}
             />
           </div>
@@ -681,7 +786,7 @@ export function WritePanel() {
               isBusy={isBusy}
               busyLabel={resolveBusyLabel(stage, copy)}
               busyProgress={SEAL_STAGE_PROGRESS[stage]}
-              disabledReason={validation.ok ? mandateBlock : validation.message}
+              disabledReason={validation.ok ? sealBlock : validation.message}
             />
 
             {errorMessage !== null ? (
@@ -749,18 +854,23 @@ function resolveVaultHint({
   isWriterNamed: boolean | null;
   copy: Copy;
 }): string {
+  // The vault's own existence comes first: a derived vault with no code yet has one honest
+  // sentence, and a consent read failing against that same empty address must never bury it.
+  if (isUsingDerivedVault) {
+    if (vault.status === "unreadable") {
+      return copy.write.vaultUnreadable;
+    }
+    if (vault.status === "absent") {
+      return copy.write.vaultAbsent;
+    }
+  }
   // A failed read is its own answer. Without this line, an address that is not a Safe (or a
   // node that would not respond) fell through to "your vault, derived from this wallet".
   if (isSafeUnreadable) {
     return copy.write.safeHintUnreadable;
   }
-  if (isUsingDerivedVault) {
-    if (vault.status === "absent") {
-      return copy.write.vaultAbsent;
-    }
-    if (vault.status === "present" && vault.estateWei === 0n) {
-      return copy.write.vaultEmpty;
-    }
+  if (isUsingDerivedVault && vault.status === "present" && vault.estateWei === 0n) {
+    return copy.write.vaultEmpty;
   }
   // The wallet only has to be named while the field is empty. Once a Safe is in it, the field
   // has an answer, and telling its author to connect a wallet contradicts what they can see.
@@ -799,6 +909,8 @@ function VaultActions({
   onEstateEthChange,
   onCreate,
   onFund,
+  beckonCreate,
+  beckonFund,
   copy,
 }: {
   vault: TestamentVault;
@@ -809,6 +921,8 @@ function VaultActions({
   onEstateEthChange: (value: string) => void;
   onCreate: () => void;
   onFund: () => void;
+  beckonCreate: boolean;
+  beckonFund: boolean;
   copy: Copy;
 }) {
   const needsCreating = isUsingDerivedVault && vault.status === "absent";
@@ -820,7 +934,12 @@ function VaultActions({
   return (
     <div className="flex flex-col gap-3">
       {needsCreating ? (
-        <Key onClick={onCreate} disabled={isCreating} className="type-small min-h-11 w-full px-4">
+        <Key
+          onClick={onCreate}
+          disabled={isCreating}
+          beckons={beckonCreate && !isCreating}
+          className="type-small min-h-11 w-full px-4"
+        >
           {isCreating ? copy.write.vaultCreating : copy.write.vaultCreate}
         </Key>
       ) : null}
@@ -839,6 +958,7 @@ function VaultActions({
           <Key
             onClick={onFund}
             disabled={isFunding}
+            beckons={beckonFund && !isFunding}
             className="type-small min-h-11 px-4 sm:mt-[1.6rem] sm:shrink-0"
           >
             {isFunding ? copy.write.vaultFunding : copy.write.vaultFund}

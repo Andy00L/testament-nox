@@ -1,7 +1,7 @@
 import { BPS_DENOMINATOR, type PackBequestsFailure } from "@testament/shared";
 
 import type { Copy } from "@/lib/i18n";
-import type { WriteFailure, WriteStep } from "@/lib/testament-write";
+import type { SealBlocker, WriteFailure, WriteStep } from "@/lib/testament-write";
 
 /**
  * Turning a failure value into a sentence, in whichever language the page is set to.
@@ -20,16 +20,21 @@ export function describeWriteFailure(failure: WriteFailure, copy: Copy): string 
       return failure.slotIndex === null
         ? copy.errors.encryptionFailed(failure.detail)
         : copy.errors.encryptionFailedSlot(failure.slotIndex + 1, failure.detail);
-    case "rejected": {
+    // Declining in the wallet is one gesture whatever was being signed, so it is one sentence:
+    // per-step variants would imply the app knows more than "nothing left the wallet".
+    case "rejected":
+      return copy.errors.declinedInWallet;
+    // A revert is per step, because what the chain refused decides what the reader checks next.
+    case "reverted": {
       const byStep: Record<WriteStep, string> = {
-        seal: copy.errors.sealRejected,
-        "create-safe": copy.errors.vaultCreateRejected,
-        "fund-safe": copy.errors.vaultFundRejected,
-        "enable-module": copy.errors.safeRejectedEnable,
-        "authorize-writer": copy.errors.safeRejectedAuthorize,
-        release: copy.errors.releaseRejected,
-        execute: copy.errors.executeRejected,
-        retry: copy.errors.retryRejected,
+        seal: copy.errors.sealReverted,
+        "create-safe": copy.errors.vaultCreateReverted,
+        "fund-safe": copy.errors.vaultFundReverted,
+        "enable-module": copy.errors.safeRevertedEnable,
+        "authorize-writer": copy.errors.safeRevertedAuthorize,
+        release: copy.errors.releaseReverted,
+        execute: copy.errors.executeReverted,
+        retry: copy.errors.retryReverted,
       };
       return byStep[failure.step];
     }
@@ -37,6 +42,18 @@ export function describeWriteFailure(failure: WriteFailure, copy: Copy): string 
       return copy.errors.consentNotVisible;
     case "safe-unreadable":
       return copy.errors.safeUnreadable(failure.detail);
+    case "safe-not-a-contract":
+      return copy.errors.safeNotAContract(failure.safeAddress);
+    case "seal-blocked": {
+      const byBlocker: Record<SealBlocker, string> = {
+        module: copy.write.sealNeedsModule,
+        writer: copy.write.sealNeedsWriter,
+        "owner-active": copy.errors.sealOwnerActive,
+        "safe-active": copy.errors.sealSafeActive,
+        "authorization-used": copy.errors.sealAuthorizationUsed,
+      };
+      return byBlocker[failure.blocker];
+    }
     case "wrong-safe-owner":
       return copy.errors.vaultWrongOwner(failure.safeAddress);
     case "invalid-amount":

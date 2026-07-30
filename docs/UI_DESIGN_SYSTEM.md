@@ -99,8 +99,14 @@ faint and now also reads. The gate missed it because it only sampled body, label
 | --- | --- | --- |
 | Display | Gambarino 400 | Fontshare, self-hosted woff2 via `next/font/local` |
 | Body and UI | `system-ui` | The genuinely neutral choice, not a trend pick |
+| About-page prose | TikTok Sans 300-900 (variable) | Asked for by name; self-hosted woff2 (SIL OFL), latin subset |
 | Hanzi | Noto Serif SC 500 | Two-glyph subset, 1276 bytes, only 传 and 承 |
 | Numbers | `system-ui` + `tabular-nums` | Addresses, shares, timers, balances |
+
+TikTok Sans is scoped to the about page's wrapper as a `next/font/local` className, so
+prose inherits it while every `.type-display-*` and `.type-title` heading keeps Gambarino:
+one quiet reading voice under one ceremonial one, on the one page that is all reading. It
+does not travel to the app screens; their body stays `system-ui`.
 
 Gambarino was chosen by rendering all three plan candidates at hero size on the real
 headline and looking at the images (`.scratch/type-specimen.png` during the build).
@@ -204,6 +210,21 @@ as lacquer answering the pointer rather than as an effect with a name. It lives 
 while the band travels; every key therefore goes through the Key component rather than
 hand-writing the class.
 
+**The beckon: the page's one next act, named by the material.** `.key-beckon` (a prop on the
+Key component) marks the single control the chain is waiting on: a bronze inset ring that holds
+in any still frame and under reduced motion, plus the sheen's own band crossing once every five
+seconds unprompted, on a second pseudo so it never fights the pointer's band and yields entirely
+on hover. At most one key per screen beckons; the write panel computes it in the chain's own
+order (create the vault, send the estate, open the passage, name the hand), the door gives it
+to the one openable or payable act, the home page to the sign of life. Testing asked "what do I
+do now?" at a filled form; this is the standing answer.
+
+**The seal arming.** The seal is not a key, so it gets its own version: when the last blocker
+clears, the recess pops once (`seal-awaken`, the overshoot family) and keeps a bronze ring
+(`seal-armed`), the stone comes up from its dormant 60% ink to full, and one bronze-deep line
+appears under it ("Everything is in place. The seal awaits your hand."). The classes ride the
+arming flip itself, no remount, so the pop replays only when the seal genuinely re-arms.
+
 **The unfold family.** Objects arrive the way the physical object would, never on a bare fade:
 the write sheet unrolls (700ms clip-path, still the one budgeted exception above
 `--duration-very-slow`), the carved countdown frames wipe open left to right (`anim-wipe`,
@@ -265,7 +286,10 @@ scroll unroll (700ms clip-path) is the single budgeted exception above `--durati
 Entrances are pure CSS keyframes with `animation-fill-mode: both`, so content is present
 without JavaScript and `prefers-reduced-motion` kills all of it globally.
 
-Press scale 0.98, never lower. One overshoot budget, spent only on the seal landing.
+Press scale 0.98, never lower. One overshoot budget, and it belongs to the seal's family
+alone: the landing stamp, and its two heralds (the allocation count popping at exactly
+100%, the recess's `seal-awaken` pop when the seal arms). The beckon's five-second glint is
+not an overshoot: it is the hover sheen, recurring, on the one key whose turn it is.
 Enters decelerate, exits accelerate and run about 20% shorter. No bare crossfade: every
 fade carries a small transform.
 

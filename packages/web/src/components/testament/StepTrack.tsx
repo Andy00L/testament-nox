@@ -37,6 +37,8 @@ export type TrackStep = {
   runningLabel: string;
   doneLabel: string;
   onRun: () => void;
+  /** Whether this step is the page's one beckoning act. Meaningful only while `ready`. */
+  beckons?: boolean;
 };
 
 type StepTrackProps = {
@@ -90,6 +92,7 @@ function TrackStepCell({ step, ordinal }: { step: TrackStep; ordinal: number }) 
       onClick={step.onRun}
       disabled={isRunning}
       aria-busy={isRunning}
+      beckons={step.beckons === true && !isRunning}
       className="type-small flex min-h-11 flex-1 items-center gap-2.5 px-4 py-3 text-left"
     >
       {ordinalMark}

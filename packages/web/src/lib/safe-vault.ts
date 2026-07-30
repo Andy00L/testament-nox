@@ -12,7 +12,7 @@ import {
 import { parseEther, type Address, type Hex, type PublicClient, type WalletClient } from "viem";
 import { useBalance, useBytecode, useReadContract } from "wagmi";
 
-import type { WriteResult } from "@/lib/testament-write";
+import { classifyTransactionThrow, type WriteResult } from "@/lib/testament-write";
 
 /**
  * The vault, derived rather than asked for.
@@ -52,6 +52,12 @@ export type TestamentVault =
   | { status: "no-owner" }
   /** The chain has not answered yet, or the factory is not on this network. */
   | { status: "reading" }
+  /**
+   * The code read failed outright. Its own state because it is its own fact: "absent" invites
+   * creating, and creating a vault that exists reverts at the factory, so an unanswered
+   * question must never wear either answer.
+   */
+  | { status: "unreadable"; address: Address }
   /** Derived, and nothing is deployed there yet. */
   | { status: "absent"; address: Address }
   /** Deployed. The estate is what it currently holds, and may be zero. */
@@ -109,7 +115,15 @@ export function useTestamentVault(ownerAddress: Address | undefined): {
       ownerAddress,
       derivedAddress,
       isReadingCode: bytecodeQuery.isPending,
-      deployedCode: bytecodeQuery.data,
+      hasCodeReadFailed: bytecodeQuery.isError,
+      // wagmi's query layer stores viem's "no code there" (`undefined`) as `null`, because
+      // TanStack Query refuses undefined data. The runtime value is null while the declared
+      // type is not, and comparing against undefined alone is how an empty address once
+      // read as a deployed vault: it was offered funding, took 0.02 ETH, and had no code to
+      // ever pay it back out. `?? null` makes the runtime honest and the pending case is
+      // carried by `isReadingCode`, never by the data being absent.
+      // sourceRef: @wagmi/core dist/esm/query/getBytecode.js, `return (bytecode ?? null)`.
+      deployedCode: bytecodeQuery.data ?? null,
       estateWei: balanceQuery.data?.value,
     }),
     refreshVault,
@@ -121,13 +135,15 @@ function readVaultState({
   ownerAddress,
   derivedAddress,
   isReadingCode,
+  hasCodeReadFailed,
   deployedCode,
   estateWei,
 }: {
   ownerAddress: Address | undefined;
   derivedAddress: Address | undefined;
   isReadingCode: boolean;
-  deployedCode: Hex | undefined;
+  hasCodeReadFailed: boolean;
+  deployedCode: Hex | null;
   estateWei: bigint | undefined;
 }): TestamentVault {
   if (ownerAddress === undefined) {
@@ -136,7 +152,10 @@ function readVaultState({
   if (derivedAddress === undefined || isReadingCode) {
     return { status: "reading" };
   }
-  if (deployedCode === undefined || deployedCode === "0x") {
+  if (hasCodeReadFailed) {
+    return { status: "unreadable", address: derivedAddress };
+  }
+  if (deployedCode === null || deployedCode === "0x") {
     return { status: "absent", address: derivedAddress };
   }
 
@@ -181,7 +200,7 @@ export async function createTestamentVault({
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash: transactionHash });
     if (receipt.status !== "success") {
-      return { ok: false, failure: { reason: "rejected", step: "create-safe" } };
+      return { ok: false, failure: { reason: "reverted", step: "create-safe", transactionHash } };
     }
 
     const creationLogs = await publicClient.getLogs({
@@ -222,7 +241,7 @@ export async function createTestamentVault({
 
     return { ok: true, value: { address: safeAddress, transactionHash } };
   } catch (error) {
-    return { ok: false, failure: { reason: "transaction-failed", detail: describeVaultError(error) } };
+    return { ok: false, failure: classifyTransactionThrow(error, "create-safe") };
   }
 }
 
@@ -259,6 +278,14 @@ export async function fundTestamentVault({
   }
 
   try {
+    // A plain transfer to an address with no code succeeds and proves nothing: 0.02 ETH once
+    // landed at a vault address whose Safe was never deployed, and only the seal's revert
+    // said so. The estate moves only into a contract that exists to hold it.
+    const deployedCode = await publicClient.getCode({ address: safeAddress });
+    if (deployedCode === undefined || deployedCode === "0x") {
+      return { ok: false, failure: { reason: "safe-not-a-contract", safeAddress } };
+    }
+
     const transactionHash = await walletClient.sendTransaction({
       account,
       chain: walletClient.chain,
@@ -267,18 +294,10 @@ export async function fundTestamentVault({
     });
     const receipt = await publicClient.waitForTransactionReceipt({ hash: transactionHash });
     if (receipt.status !== "success") {
-      return { ok: false, failure: { reason: "rejected", step: "fund-safe" } };
+      return { ok: false, failure: { reason: "reverted", step: "fund-safe", transactionHash } };
     }
     return { ok: true, value: transactionHash };
   } catch (error) {
-    return { ok: false, failure: { reason: "transaction-failed", detail: describeVaultError(error) } };
+    return { ok: false, failure: classifyTransactionThrow(error, "fund-safe") };
   }
-}
-
-function describeVaultError(thrown: unknown): string {
-  if (thrown instanceof Error) {
-    // viem stacks the useful sentence first and the ABI dump after; keep the sentence.
-    return thrown.message.split("\n")[0] ?? thrown.message;
-  }
-  return String(thrown);
 }

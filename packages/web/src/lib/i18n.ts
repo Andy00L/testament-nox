@@ -104,8 +104,10 @@ const french = {
     vaultFundLabel: "Somme à envoyer",
     vaultFund: "Envoyer la succession",
     vaultFunding: "Envoi…",
+    vaultUnreadable: "Impossible de lire l'état du coffre. Vérifiez à nouveau dans un instant.",
     vaultUseAnother: "Utiliser un autre Safe",
     vaultUseMine: "Revenir à mon coffre",
+    checkAgain: "Vérifier à nouveau",
     safeHintDefault: "Le Safe qui paiera. Il reste intact : rien n'y est modifié.",
     safeHintModuleMissing: "Le Safe n'a pas encore ouvert le passage. Première étape.",
     safeHintWriterMissing:
@@ -127,6 +129,8 @@ const french = {
     stepHand: "Nommer la plume",
     stepHandBusy: "Désignation…",
     stepHandDone: "Plume nommée",
+    sealNeedsVault: "Créez d'abord le coffre.",
+    sealChecking: "Lecture des consentements du Safe…",
     sealNeedsModule: "Activez d'abord le module sur le Safe.",
     sealNeedsWriter: "Le Safe doit d'abord désigner ce portefeuille.",
     doorTitle: "La porte est ouverte",
@@ -146,23 +150,37 @@ const french = {
     encryptionFailedSlot: (slot: number, detail: string) =>
       `Le chiffrement a échoué à l'emplacement ${slot} : ${detail}`,
     encryptionFailed: (detail: string) => `Le chiffrement a échoué : ${detail}`,
-    safeRejectedEnable:
-      "Le Safe a rejeté l'activation. Vérifiez que le portefeuille connecté est propriétaire du Safe et que le seuil est de 1.",
-    safeRejectedAuthorize:
-      "Le Safe a rejeté la désignation. Vérifiez que le module est activé, que le portefeuille connecté est propriétaire du Safe et que le seuil est de 1.",
-    sealRejected: "La transaction a été rejetée.",
+    declinedInWallet: "Vous avez refusé la transaction dans le portefeuille. Rien n'a été envoyé.",
+    sealReverted:
+      "La chaîne a refusé ce testament : rien n'a été inscrit. Ouvrez la transaction sur Etherscan pour en lire la raison.",
+    safeRevertedEnable:
+      "Le Safe a refusé l'activation. Vérifiez que le portefeuille connecté est propriétaire du Safe et que le seuil est de 1.",
+    safeRevertedAuthorize:
+      "Le Safe a refusé la désignation. Vérifiez que le module est activé, que le portefeuille connecté est propriétaire du Safe et que le seuil est de 1.",
+    vaultCreateReverted:
+      "La chaîne a refusé la création du coffre. Ouvrez la transaction sur Etherscan pour en lire la raison.",
+    vaultFundReverted:
+      "La chaîne a refusé l'envoi de la succession. Ouvrez la transaction sur Etherscan pour en lire la raison.",
+    releaseReverted:
+      "La chaîne a refusé l'ouverture. Ouvrez la transaction sur Etherscan pour en lire la raison.",
+    executeReverted:
+      "La chaîne a refusé le paiement. Ouvrez la transaction sur Etherscan pour en lire la raison.",
+    retryReverted:
+      "La chaîne a refusé la relance. Ouvrez la transaction sur Etherscan pour en lire la raison.",
     consentNotVisible:
       "La transaction est passée, mais la chaîne ne montre pas encore le consentement. Vérifiez-la sur Etherscan puis rechargez : ne signez pas une seconde fois.",
     safeUnreadable: (detail: string) =>
       `Impossible de lire l'état de ce Safe. Vérifiez l'adresse et le réseau. Détail : ${detail}`,
-    vaultCreateRejected: "La création du coffre a été rejetée.",
-    vaultFundRejected: "L'envoi de la succession a été rejeté.",
+    safeNotAContract: (safeAddress: string) =>
+      `Rien n'est déployé à ${safeAddress}. Créez d'abord le coffre : l'ETH envoyé maintenant dormirait à une adresse vide.`,
+    sealOwnerActive:
+      "Ce portefeuille adosse déjà un testament vivant. Révoquez-le avant d'en sceller un autre.",
+    sealSafeActive: "Ce Safe adosse déjà un testament vivant.",
+    sealAuthorizationUsed:
+      "Le mandat de ce Safe a déjà servi. Nommez la plume à nouveau avant de sceller.",
     vaultWrongOwner: (safeAddress: string) =>
       `Le coffre ${safeAddress} n'est pas sorti comme un 1 sur 1 détenu par ce portefeuille. Rien n'y a été envoyé.`,
     vaultAmountInvalid: "Indiquez une somme en ETH supérieure à zéro.",
-    releaseRejected: "L'ouverture a été rejetée.",
-    executeRejected: "Le paiement a été rejeté.",
-    retryRejected: "La relance du paiement a été rejetée.",
     safeAddressRequired: "Renseignez l'adresse du Safe.",
     intervalTooShort: (minimum: number) =>
       `L'intervalle doit valoir au moins ${minimum} secondes.`,
@@ -185,6 +203,7 @@ const french = {
     idle: "Presser le sceau",
     sealed: "Testament scellé",
     idleLede: "Chiffre le testament et l'inscrit dans le registre. Irréversible.",
+    readyHint: "Tout est en place. Le sceau attend votre geste.",
     sealedLede: "Les héritiers et les parts sont chiffrés on-chain.",
     encrypting: "Chiffrement des huit lignes…",
     signing: "Signature en attente…",
@@ -247,8 +266,13 @@ const french = {
         alt: "Le choix du portefeuille, ouvert sous la plaque",
       },
       {
+        title: "Laisser le coffre se construire",
+        body: "L'adresse de votre coffre est calculée depuis votre portefeuille et affichée avant même d'exister. Créez-le d'une transaction, puis envoyez-lui la succession qu'il transmettra. C'est un Safe ordinaire : vous pouvez le vider à tout moment.",
+        alt: "Le bloc du coffre, avec la clé de création",
+      },
+      {
         title: "Écrire le testament",
-        body: "Nommez jusqu'à huit héritiers et leurs parts, indiquez le Safe qui paiera, choisissez le silence toléré. Tout est chiffré dans votre navigateur avant de partir, puis scellé d'un geste.",
+        body: "Nommez jusqu'à huit héritiers et leurs parts, choisissez le silence toléré, accordez les deux consentements du Safe, puis scellez d'un geste. Tout est chiffré dans votre navigateur avant de partir.",
         alt: "Le parchemin du testament, rempli",
       },
       {
@@ -371,8 +395,10 @@ const english: typeof french = {
     vaultFundLabel: "Estate to send",
     vaultFund: "Send the estate",
     vaultFunding: "Sending…",
+    vaultUnreadable: "The vault's state could not be read. Check again in a moment.",
     vaultUseAnother: "Use another Safe",
     vaultUseMine: "Back to my vault",
+    checkAgain: "Check again",
     safeHintDefault: "The Safe that will pay. It stays untouched: nothing in it is modified.",
     safeHintModuleMissing: "The Safe has not opened the passage yet. First step.",
     safeHintWriterMissing:
@@ -393,6 +419,8 @@ const english: typeof french = {
     stepHand: "Name the hand",
     stepHandBusy: "Naming…",
     stepHandDone: "Hand named",
+    sealNeedsVault: "Create the vault first.",
+    sealChecking: "Reading the Safe's consents…",
     sealNeedsModule: "Enable the module on the Safe first.",
     sealNeedsWriter: "The Safe has to name this wallet first.",
     doorTitle: "The door is open",
@@ -408,23 +436,37 @@ const english: typeof french = {
     encryptionFailedSlot: (slot: number, detail: string) =>
       `Encryption failed at slot ${slot}: ${detail}`,
     encryptionFailed: (detail: string) => `Encryption failed: ${detail}`,
-    safeRejectedEnable:
+    declinedInWallet: "You declined the transaction in the wallet. Nothing was sent.",
+    sealReverted:
+      "The chain refused this testament: nothing was written. Open the transaction on Etherscan to read why.",
+    safeRevertedEnable:
       "The Safe refused to enable the module. Check that the connected wallet owns the Safe and that its threshold is 1.",
-    safeRejectedAuthorize:
+    safeRevertedAuthorize:
       "The Safe refused to name this wallet. Check that the module is enabled, that the connected wallet owns the Safe, and that its threshold is 1.",
-    sealRejected: "The transaction was rejected.",
+    vaultCreateReverted:
+      "The chain refused to create the vault. Open the transaction on Etherscan to read why.",
+    vaultFundReverted:
+      "The chain refused the estate transfer. Open the transaction on Etherscan to read why.",
+    releaseReverted:
+      "The chain refused the opening. Open the transaction on Etherscan to read why.",
+    executeReverted:
+      "The chain refused the payout. Open the transaction on Etherscan to read why.",
+    retryReverted:
+      "The chain refused the retried payment. Open the transaction on Etherscan to read why.",
     consentNotVisible:
       "The transaction went through, but the chain does not show the consent yet. Check it on Etherscan and reload: do not sign a second time.",
     safeUnreadable: (detail: string) =>
       `This Safe's state could not be read. Check the address and the network. Detail: ${detail}`,
-    vaultCreateRejected: "Creating the vault was rejected.",
-    vaultFundRejected: "Sending the estate was rejected.",
+    safeNotAContract: (safeAddress: string) =>
+      `Nothing is deployed at ${safeAddress}. Create the vault first: ETH sent now would sit at an empty address.`,
+    sealOwnerActive:
+      "This wallet already backs a live testament. Revoke it before sealing another.",
+    sealSafeActive: "This Safe already backs a live testament.",
+    sealAuthorizationUsed:
+      "This Safe's mandate has already been spent. Name the hand again before sealing.",
     vaultWrongOwner: (safeAddress: string) =>
       `Vault ${safeAddress} did not come out as a 1-of-1 owned by this wallet. Nothing was sent to it.`,
     vaultAmountInvalid: "Enter an amount of ETH greater than zero.",
-    releaseRejected: "The opening was rejected.",
-    executeRejected: "The payment was rejected.",
-    retryRejected: "The retried payment was rejected.",
     safeAddressRequired: "Enter the Safe address.",
     intervalTooShort: (minimum: number) => `The interval must be at least ${minimum} seconds.`,
     graceInvalid: "The grace period must be a whole number of seconds.",
@@ -446,6 +488,7 @@ const english: typeof french = {
     idle: "Press the seal",
     sealed: "Testament sealed",
     idleLede: "Encrypts the testament and writes it into the registry. Irreversible.",
+    readyHint: "Everything is in place. The seal awaits your hand.",
     sealedLede: "Heirs and shares are encrypted on-chain.",
     encrypting: "Encrypting the eight lines…",
     signing: "Waiting for your signature…",
@@ -508,8 +551,13 @@ const english: typeof french = {
         alt: "The wallet chooser, open under the plaque",
       },
       {
+        title: "Let the vault build itself",
+        body: "Your vault's address is computed from your wallet and shown before it even exists. Create it in one transaction, then send it the estate it will pass on. It is an ordinary Safe: you can empty it at any time.",
+        alt: "The vault block, with the create key",
+      },
+      {
         title: "Write the testament",
-        body: "Name up to eight heirs and their shares, point to the Safe that will pay, choose the silence you allow. Everything is encrypted in your browser before it leaves, then sealed in one gesture.",
+        body: "Name up to eight heirs and their shares, choose the silence you allow, grant the Safe's two consents, then seal in one gesture. Everything is encrypted in your browser before it leaves.",
         alt: "The testament scroll, filled in",
       },
       {

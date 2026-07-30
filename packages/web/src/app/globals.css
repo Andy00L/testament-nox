@@ -421,6 +421,64 @@ body {
 }
 
 /*
+ * The beckon: the one act the page is waiting on, named by the material.
+ *
+ * Two cues carry it. A bronze ring holds the whole time, in the one interactive colour, so
+ * the next key reads as the next key even in a still screenshot and under reduced motion.
+ * Every five seconds the hover sheen's own band crosses once on its own: lacquer catching
+ * the light unprompted, which is this product's way of saying "here". The band rides a
+ * second pseudo (`::after`) so it never fights the pointer's band on `::before`, and it
+ * yields entirely while the pointer is over the key: an answered call stops calling.
+ *
+ * At most one key per screen carries this class. Two beckoning keys is a page pointing in
+ * two directions, which is the same as pointing in none.
+ */
+@keyframes sheen-beckon {
+  0% {
+    opacity: 0;
+    transform: translateX(-101%);
+  }
+  6% {
+    opacity: 1;
+  }
+  14% {
+    opacity: 1;
+  }
+  18% {
+    opacity: 0;
+    transform: translateX(101%);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(101%);
+  }
+}
+
+.key-beckon:not(:disabled)::before {
+  box-shadow: var(--panel-lip), inset 0 0 0 1px rgba(138, 109, 31, 0.38);
+}
+
+.key-beckon:not(:disabled) .key-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 38%,
+    rgba(255, 253, 247, 0.42) 50%,
+    transparent 62%
+  );
+  opacity: 0;
+  transform: translateX(-101%);
+  animation: sheen-beckon 5s var(--ease-smooth-out) infinite;
+  animation-delay: 1.2s;
+}
+
+.key-beckon:not(:disabled):hover .key-sheen::after {
+  animation: none;
+}
+
+/*
  * Which pointer the cursor shows.
  *
  * Tailwind v4's preflight sets `appearance: button`, and browsers then hand every button the
@@ -635,6 +693,29 @@ body {
 
 .anim-count-pop {
   animation: count-pop var(--duration-fast) var(--ease-bounce) both;
+}
+
+/*
+ * The seal arming. When the last blocker clears, the recess pops once (the same small
+ * overshoot family as the count-pop, both heralds of the same signature moment) and then
+ * holds a bronze ring, the beckon's colour on the one control that is not a key. The class
+ * pair is added the instant the seal arms, so the CSS animation starts from its first frame
+ * with no remount; press it and the classes drop, ready to pop again if the form reopens.
+ */
+@keyframes seal-awaken {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+.anim-seal-awaken {
+  animation: seal-awaken var(--duration-slow) var(--ease-bounce) both;
+}
+
+.seal-armed {
+  box-shadow:
+    inset 0 1px 2px rgba(58, 45, 42, 0.09),
+    inset 0 0 0 1px rgba(138, 109, 31, 0.4);
 }
 
 @media (prefers-reduced-motion: reduce) {

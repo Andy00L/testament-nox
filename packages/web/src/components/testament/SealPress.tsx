@@ -44,7 +44,14 @@ export function SealPress({
   disabledReason,
 }: SealPressProps) {
   const { copy } = useTranslation();
-  const isDisabled = isBusy || isStamped || (disabledReason != null && disabledReason !== "");
+  const isBlocked = disabledReason != null && disabledReason !== "";
+  const isDisabled = isBusy || isStamped || isBlocked;
+  /**
+   * Armed: nothing stands between this form and the registry. The moment this flips true the
+   * recess pops once and keeps a bronze ring, because testing filled the whole form and then
+   * asked what to do next: a seal that merely stops being grey is a cue nobody receives.
+   */
+  const isArmed = !isBlocked && !isBusy && !isStamped;
 
   return (
     <div className="flex flex-col gap-3">
@@ -60,10 +67,16 @@ export function SealPress({
           into it rather than standing on it, and it is the one control in this product that
           keeps its own recess: hovering lifts the stone off the floor of it, pressing puts it
           back down. That is the before and after, in the seal's own physics.
+
+          The awaken classes ride the arming flip itself: adding a class starts its CSS
+          animation from the first frame, and dropping it on press clears the way for the next
+          arming to pop again. No remount, so the stone and the fill never blink.
         */}
         <span
           aria-hidden="true"
-          className="panel-well relative grid size-16 shrink-0 place-items-center overflow-hidden transition-shadow duration-(--dur-small) ease-(--ease-standard) group-hover:not-disabled:shadow-[inset_0_1px_2px_rgba(58,45,42,0.14),inset_0_0_0_1px_rgba(88,66,60,0.2)]"
+          className={`panel-well relative grid size-16 shrink-0 place-items-center overflow-hidden transition-shadow duration-(--dur-small) ease-(--ease-standard) group-hover:not-disabled:shadow-[inset_0_1px_2px_rgba(58,45,42,0.14),inset_0_0_0_1px_rgba(88,66,60,0.2)] ${
+            isArmed ? "seal-armed anim-seal-awaken" : ""
+          }`}
         >
           {/*
             The stage fill. Rises through the full track with stable square edges, clamped to
@@ -97,8 +110,11 @@ export function SealPress({
                 animate={{ opacity: 1, scale: isBusy ? 0.94 : 1 }}
                 exit={{ opacity: 0, transition: { duration: 0.16 } }}
                 transition={{ duration: 0.24, ease: [0.4, 0, 0.2, 1] }}
-                className="absolute inset-0 grid place-items-center transition-transform duration-(--dur-small) ease-(--ease-standard) group-hover:not-disabled:-translate-y-0.5 group-active:not-disabled:translate-y-px"
+                className={`absolute inset-0 grid place-items-center transition-transform duration-(--dur-small) ease-(--ease-standard) group-hover:not-disabled:-translate-y-0.5 group-active:not-disabled:translate-y-px ${
+                  isBlocked ? "opacity-60" : ""
+                }`}
               >
+                {/* Dormant while blocked: a stone at rest, not yet an act on offer. */}
                 <Seal size={46} pressed={isBusy ? 0.62 : 0.16} />
               </motion.span>
             )}
@@ -119,9 +135,11 @@ export function SealPress({
         </span>
       </button>
 
-      {disabledReason != null && disabledReason !== "" && !isStamped ? (
+      {isBlocked && !isStamped ? (
         <p className="type-small text-ink-faint">{disabledReason}</p>
       ) : null}
+      {/* The words for what the pop and the ring just said: the will is ready to be sealed. */}
+      {isArmed ? <p className="type-small text-bronze-deep">{copy.seal.readyHint}</p> : null}
     </div>
   );
 }

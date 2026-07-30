@@ -79,7 +79,20 @@ const page: Page = await context.newPage();
 const consoleErrors: string[] = [];
 page.on("pageerror", (error) => consoleErrors.push(error.message));
 page.on("console", (message) => {
-  if (message.type() === "error") {
+  if (message.type() !== "error") {
+    return;
+  }
+  // Every asset this product loads is same-origin (fonts and images are self-hosted). The
+  // only external requests are the Sepolia RPC reads, and a public node dropping one
+  // connection under headless load is that node's weather, not a UI regression: wagmi
+  // retries and the on-page checks above prove the screens still filled. A failing
+  // same-origin resource stays a hard failure.
+  const sourceUrl = message.location().url ?? "";
+  const isExternalResourceFailure =
+    message.text().startsWith("Failed to load resource") &&
+    sourceUrl !== "" &&
+    !sourceUrl.startsWith(BASE_URL);
+  if (!isExternalResourceFailure) {
     consoleErrors.push(message.text());
   }
 });
@@ -298,8 +311,9 @@ check(
   await page.getByText("Understanding Testament").first().isVisible(),
   "title on the parchment",
 );
+// One photograph per told step: the array in i18n and the images on disk must agree.
 const stepImageCount = await page.locator("img[src*='about']").count();
-check("all five step photographs are mounted", stepImageCount === 5, `${stepImageCount} images`);
+check("all six step photographs are mounted", stepImageCount === 6, `${stepImageCount} images`);
 
 // ---- Language ------------------------------------------------------------------------
 
