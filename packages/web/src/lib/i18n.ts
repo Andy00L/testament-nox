@@ -111,6 +111,8 @@ const french = {
     safeHintWriterMissing:
       "Le passage est ouvert. Le Safe doit encore désigner ce portefeuille comme sa plume.",
     safeHintReady: "Le passage est ouvert et ce portefeuille est la plume désignée.",
+    safeHintUnreadable:
+      "Impossible de lire l'état de ce Safe. Vérifiez l'adresse et le réseau.",
     intervalLabel: "Intervalle",
     intervalHint: (minimum: number) => `Entre deux signes de vie. Minimum ${minimum} s.`,
     graceLabel: "Délai de grâce",
@@ -149,6 +151,10 @@ const french = {
     safeRejectedAuthorize:
       "Le Safe a rejeté la désignation. Vérifiez que le module est activé, que le portefeuille connecté est propriétaire du Safe et que le seuil est de 1.",
     sealRejected: "La transaction a été rejetée.",
+    consentNotVisible:
+      "La transaction est passée, mais la chaîne ne montre pas encore le consentement. Vérifiez-la sur Etherscan puis rechargez : ne signez pas une seconde fois.",
+    safeUnreadable: (detail: string) =>
+      `Impossible de lire l'état de ce Safe. Vérifiez l'adresse et le réseau. Détail : ${detail}`,
     vaultCreateRejected: "La création du coffre a été rejetée.",
     vaultFundRejected: "L'envoi de la succession a été rejeté.",
     vaultWrongOwner: (safeAddress: string) =>
@@ -372,6 +378,7 @@ const english: typeof french = {
     safeHintWriterMissing:
       "The passage is open. The Safe still has to name this wallet as its hand.",
     safeHintReady: "The passage is open and this wallet is the named hand.",
+    safeHintUnreadable: "This Safe's state could not be read. Check the address and the network.",
     intervalLabel: "Interval",
     intervalHint: (minimum: number) => `Between two signs of life. Minimum ${minimum} s.`,
     graceLabel: "Grace period",
@@ -406,6 +413,10 @@ const english: typeof french = {
     safeRejectedAuthorize:
       "The Safe refused to name this wallet. Check that the module is enabled, that the connected wallet owns the Safe, and that its threshold is 1.",
     sealRejected: "The transaction was rejected.",
+    consentNotVisible:
+      "The transaction went through, but the chain does not show the consent yet. Check it on Etherscan and reload: do not sign a second time.",
+    safeUnreadable: (detail: string) =>
+      `This Safe's state could not be read. Check the address and the network. Detail: ${detail}`,
     vaultCreateRejected: "Creating the vault was rejected.",
     vaultFundRejected: "Sending the estate was rejected.",
     vaultWrongOwner: (safeAddress: string) =>

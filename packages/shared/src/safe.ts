@@ -4,6 +4,7 @@ import {
   encodeFunctionData,
   getContractAddress,
   keccak256,
+  numberToHex,
   pad,
   zeroAddress,
   type Address,
@@ -219,7 +220,9 @@ export function predictSafeProxyAddress({
   initializer: Hex;
   saltNonce: bigint;
 }): Address {
-  const salt = keccak256(concat([keccak256(initializer), pad(`0x${saltNonce.toString(16)}`, { size: 32 })]));
+  // numberToHex, not toString(16): the latter can produce odd-length hex, which only works
+  // because viem's pad happens to tolerate it. An address derivation gets no "happens to".
+  const salt = keccak256(concat([keccak256(initializer), numberToHex(saltNonce, { size: 32 })]));
   const deploymentData = concat([
     proxyCreationCode,
     encodeAbiParameters([{ type: "uint256" }], [BigInt(SAFE_SINGLETON)]),

@@ -33,6 +33,10 @@ export function describeWriteFailure(failure: WriteFailure, copy: Copy): string 
       };
       return byStep[failure.step];
     }
+    case "consent-not-visible":
+      return copy.errors.consentNotVisible;
+    case "safe-unreadable":
+      return copy.errors.safeUnreadable(failure.detail);
     case "wrong-safe-owner":
       return copy.errors.vaultWrongOwner(failure.safeAddress);
     case "invalid-amount":

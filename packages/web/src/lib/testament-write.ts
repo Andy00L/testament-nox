@@ -50,6 +50,14 @@ export type WriteFailure =
   | { reason: "invalid-will"; packFailure: PackBequestsFailure }
   | { reason: "encryption-failed"; slotIndex: number | null; detail: string }
   | { reason: "rejected"; step: WriteStep }
+  /**
+   * The transaction was mined but the chain still does not report the consent. Distinct from
+   * a rejection on purpose: the money and the mandate may well be there, and the reader needs
+   * to be told to look at the transaction rather than to press the button again.
+   */
+  | { reason: "consent-not-visible"; step: WriteStep }
+  /** A Safe's state could not be read at all, as opposed to reading as "nothing granted". */
+  | { reason: "safe-unreadable"; detail: string }
   /** A freshly created vault did not come out as a 1-of-1 owned by the wallet that asked. */
   | { reason: "wrong-safe-owner"; safeAddress: Address }
   /** The estate the owner typed is not a number of ETH this wallet could send. */
@@ -148,12 +156,65 @@ export async function sealTestament({
   }
 }
 
+/** What a granted consent returns: the receipt, and the state the chain confirmed after it. */
+export type GrantedConsent = { transactionHash: Hex; consents: SafeConsents };
+
+/**
+ * Polls until the chain reports a consent, rather than reading once and believing the answer.
+ *
+ * This is the fix for the worst bug this flow had. `waitForTransactionReceipt` returns as soon
+ * as the transaction is mined, but the follow-up `eth_call` goes out to a load-balanced RPC
+ * whose nodes do not all have that block yet. One read, landing on a node an instant behind,
+ * reported the pre-transaction state; the step snapped back to "press me", and an owner who had
+ * just approved a transaction in their wallet saw nothing happen at all.
+ *
+ * So the read is retried with backoff until the chain agrees or the budget runs out, and
+ * running out is its own failure: the mandate is probably granted and the reader is pointed at
+ * the transaction, never told to press the button again.
+ */
+async function awaitConsent({
+  publicClient,
+  safeAddress,
+  moduleAddress,
+  step,
+  hasBeenGranted,
+}: {
+  publicClient: PublicClient;
+  safeAddress: Address;
+  moduleAddress: Address;
+  step: WriteStep;
+  hasBeenGranted: (consents: SafeConsents) => boolean;
+}): Promise<WriteResult<SafeConsents>> {
+  const attempt = await retryAsync(
+    async () => {
+      const read = await readSafeConsents({ publicClient, safeAddress, moduleAddress });
+      if (!read.ok) {
+        throw new Error(read.detail);
+      }
+      if (!hasBeenGranted(read.consents)) {
+        throw new Error("[awaitConsent] the chain does not report it yet");
+      }
+      return read.consents;
+    },
+    // Roughly ten seconds of patience: several Sepolia blocks, and enough for a lagging node
+    // in an RPC pool to catch up, without leaving a control spinning if something is wrong.
+    { attempts: 6, initialDelayMs: 700, maxDelayMs: 3_000, backoffFactor: 1.6 },
+  );
+
+  return attempt.ok
+    ? { ok: true, value: attempt.value }
+    : { ok: false, failure: { reason: "consent-not-visible", step } };
+}
+
 /**
  * Enables TestamentModule on the owner's Safe.
  *
  * A 1-of-1 Safe whose owner sends the transaction needs no off-chain signing: Safe accepts
  * a pre-validated signature when `msg.sender` is the approving owner, so this is one
  * transaction rather than a Safe SDK round trip.
+ *
+ * Returns the state the chain confirmed afterwards, so the caller sets what it was told rather
+ * than firing its own read into the same race this just waited out.
  */
 export async function enableModuleOnSafe({
   walletClient,
@@ -165,15 +226,16 @@ export async function enableModuleOnSafe({
   publicClient: PublicClient;
   safeAddress: Address;
   moduleAddress: Address;
-}): Promise<WriteResult<Hex>> {
+}): Promise<WriteResult<GrantedConsent>> {
   const account = walletClient.account;
   if (account === undefined) {
     return { ok: false, failure: { reason: "not-connected" } };
   }
 
+  let transactionHash: Hex;
   try {
     const transaction = buildEnableModuleTransaction(safeAddress, moduleAddress, account.address);
-    const transactionHash = await walletClient.writeContract({
+    transactionHash = await walletClient.writeContract({
       ...transaction,
       account,
       chain: walletClient.chain,
@@ -186,10 +248,20 @@ export async function enableModuleOnSafe({
         failure: { reason: "rejected", step: "enable-module" },
       };
     }
-    return { ok: true, value: transactionHash };
   } catch (error) {
     return { ok: false, failure: { reason: "transaction-failed", detail: describeError(error) } };
   }
+
+  const confirmed = await awaitConsent({
+    publicClient,
+    safeAddress,
+    moduleAddress,
+    step: "enable-module",
+    hasBeenGranted: (consents) => consents.moduleEnabled,
+  });
+  return confirmed.ok
+    ? { ok: true, value: { transactionHash, consents: confirmed.value } }
+    : confirmed;
 }
 
 /**
@@ -213,20 +285,22 @@ export async function authorizeWriterOnSafe({
   publicClient: PublicClient;
   safeAddress: Address;
   moduleAddress: Address;
-}): Promise<WriteResult<Hex>> {
+}): Promise<WriteResult<GrantedConsent>> {
   const account = walletClient.account;
   if (account === undefined) {
     return { ok: false, failure: { reason: "not-connected" } };
   }
 
+  const writerAddress = account.address;
+  let transactionHash: Hex;
   try {
     const transaction = buildAuthorizeWriterTransaction(
       safeAddress,
       moduleAddress,
-      account.address,
-      account.address,
+      writerAddress,
+      writerAddress,
     );
-    const transactionHash = await walletClient.writeContract({
+    transactionHash = await walletClient.writeContract({
       ...transaction,
       account,
       chain: walletClient.chain,
@@ -239,43 +313,51 @@ export async function authorizeWriterOnSafe({
         failure: { reason: "rejected", step: "authorize-writer" },
       };
     }
-    return { ok: true, value: transactionHash };
   } catch (error) {
     return { ok: false, failure: { reason: "transaction-failed", detail: describeError(error) } };
   }
+
+  const confirmed = await awaitConsent({
+    publicClient,
+    safeAddress,
+    moduleAddress,
+    step: "authorize-writer",
+    hasBeenGranted: (consents) =>
+      consents.writer !== null && consents.writer.toLowerCase() === writerAddress.toLowerCase(),
+  });
+  return confirmed.ok
+    ? { ok: true, value: { transactionHash, consents: confirmed.value } }
+    : confirmed;
 }
 
 /**
- * The address the Safe has named as its writer, or null if it has named nobody.
+ * What the chain said about a Safe's consents, or that it could not be asked.
  *
- * Read as a value: an address that is not a Safe, or a module that has never heard of it,
- * both answer null rather than throwing, so a mistyped Safe surfaces in the interface as
- * "not named yet" instead of an unhandled rejection.
+ * The distinction is the whole point. These reads used to collapse every failure into "no",
+ * so a rate-limited or lagging RPC was indistinguishable from a Safe that had genuinely not
+ * granted anything. That is how a consent could be approved in the wallet, land on-chain, and
+ * still leave the interface showing the button that had just been pressed.
  */
-export async function readSafeWriter({
-  publicClient,
-  safeAddress,
-  moduleAddress,
-}: {
-  publicClient: PublicClient;
-  safeAddress: Address;
-  moduleAddress: Address;
-}): Promise<Address | null> {
-  try {
-    const [writer] = await publicClient.readContract({
-      address: moduleAddress,
-      abi: testamentModuleAbi,
-      functionName: "authorizationOf",
-      args: [safeAddress],
-    });
-    return writer === zeroAddress ? null : writer;
-  } catch {
-    return null;
-  }
-}
+export type SafeConsents = {
+  moduleEnabled: boolean;
+  /** The address the Safe named as its writer, or null if it has named nobody. */
+  writer: Address | null;
+};
 
-/** Whether a Safe has already enabled the module. Read as a value: a bad address is false. */
-export async function readModuleEnabled({
+export type SafeConsentsResult =
+  | { ok: true; consents: SafeConsents }
+  | { ok: false; detail: string };
+
+/**
+ * Both of a Safe's consents, in one pass.
+ *
+ * `isModuleEnabled` lives on the Safe and `authorizationOf` lives on the module, so a Safe
+ * that has not enabled the module answers the first and reverts nothing on the second: an
+ * address that is not a Safe at all is what makes the first call throw. That case is reported
+ * as a failed read rather than a granted-nothing answer, because the interface has to be able
+ * to say "that is not a Safe" without also claiming to know what it consented to.
+ */
+export async function readSafeConsents({
   publicClient,
   safeAddress,
   moduleAddress,
@@ -283,16 +365,29 @@ export async function readModuleEnabled({
   publicClient: PublicClient;
   safeAddress: Address;
   moduleAddress: Address;
-}): Promise<boolean> {
+}): Promise<SafeConsentsResult> {
   try {
-    return await publicClient.readContract({
-      address: safeAddress,
-      abi: safeManagementAbi,
-      functionName: "isModuleEnabled",
-      args: [moduleAddress],
-    });
-  } catch {
-    return false;
+    const [moduleEnabled, authorization] = await Promise.all([
+      publicClient.readContract({
+        address: safeAddress,
+        abi: safeManagementAbi,
+        functionName: "isModuleEnabled",
+        args: [moduleAddress],
+      }),
+      publicClient.readContract({
+        address: moduleAddress,
+        abi: testamentModuleAbi,
+        functionName: "authorizationOf",
+        args: [safeAddress],
+      }),
+    ]);
+    const [writer] = authorization;
+    return {
+      ok: true,
+      consents: { moduleEnabled, writer: writer === zeroAddress ? null : writer },
+    };
+  } catch (error) {
+    return { ok: false, detail: describeError(error) };
   }
 }
 

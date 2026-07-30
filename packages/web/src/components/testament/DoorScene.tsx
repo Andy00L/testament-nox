@@ -9,8 +9,15 @@ import {
 } from "@testament/shared";
 import type { Copy } from "@/lib/i18n";
 import { useEffect, useState } from "react";
-import { formatEther } from "viem";
-import { useAccount, useBalance, usePublicClient, useReadContract, useWalletClient } from "wagmi";
+import { formatEther, type Address } from "viem";
+import {
+  useAccount,
+  useBalance,
+  usePublicClient,
+  useReadContract,
+  useReadContracts,
+  useWalletClient,
+} from "wagmi";
 
 import { FramedCountdown } from "@/components/frames/FramedCountdown";
 import { HeirEnvelope } from "@/components/testament/HeirEnvelope";
@@ -83,6 +90,43 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
     query: { enabled: deployment.isDeployed && testamentId !== undefined },
   });
   const paidMask = typeof paidSlotsQuery.data === "number" ? paidSlotsQuery.data : 0;
+
+  const hasSettledOnce =
+    summary !== undefined &&
+    (summary.state === TESTAMENT_STATE.PartiallyExecuted ||
+      summary.state === TESTAMENT_STATE.Executed);
+
+  /**
+   * What each heir was actually owed, as the registry wrote it down at execution.
+   *
+   * Before execution the projected amounts come from the live Safe balance, which is the only
+   * figure that exists. After it, that balance has already been drained by the payments that
+   * landed, so deriving amounts from it showed every heir a share of the leftovers rather
+   * than what they received or are still owed. The settled plan is the truth from then on,
+   * and it is the same figure a retry will pay, whatever has since moved through the Safe.
+   */
+  const plannedPaymentsQuery = useReadContracts({
+    contracts: (will ?? []).map((bequest) => ({
+      address: deployment.isDeployed ? deployment.addresses.registry : undefined,
+      abi: testamentRegistryAbi,
+      functionName: "plannedPaymentOf" as const,
+      args: testamentId === undefined ? undefined : [testamentId, bequest.slot],
+    })),
+    query: {
+      enabled:
+        deployment.isDeployed && testamentId !== undefined && hasSettledOnce && will !== null,
+    },
+  });
+  const plannedAmountBySlot = new Map<number, bigint>();
+  if (will !== null && plannedPaymentsQuery.data !== undefined) {
+    for (const [willIndex, bequest] of will.entries()) {
+      const planned = plannedPaymentsQuery.data[willIndex];
+      if (planned?.status === "success") {
+        const [, plannedAmount] = planned.result as readonly [Address, bigint, boolean];
+        plannedAmountBySlot.set(bequest.slot, plannedAmount);
+      }
+    }
+  }
 
   // External system: the canvas. The curtain falling is the door opening; there is no
   // second illustration of a door anywhere in this product.
@@ -216,6 +260,9 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
     if (result.ok) {
       setActionTransaction(result.value);
       refetch();
+      // Execution wrote the settled plan and the paid bitmap; both displays read from them.
+      void paidSlotsQuery.refetch();
+      void plannedPaymentsQuery.refetch();
     } else {
       setErrorMessage(describeWriteFailure(result.failure, copy));
     }
@@ -333,9 +380,12 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
                 amountLine={
                   <span className="type-numeric text-ink-muted">
                     {bequest.shareBps / 100} %
-                    {estateWei > 0n
-                      ? ` · ${formatEther(computePayout(estateWei, bequest.shareBps))} ETH`
-                      : ""}
+                    {formatBequestAmount({
+                      hasSettledOnce,
+                      plannedAmount: plannedAmountBySlot.get(bequest.slot),
+                      estateWei,
+                      shareBps: bequest.shareBps,
+                    })}
                   </span>
                 }
                 settlement={
@@ -391,6 +441,32 @@ export function DoorScene({ requestedId }: { requestedId?: bigint }) {
   );
 }
 
+
+/**
+ * The figure beside a share, chosen by where the will stands.
+ *
+ * Settled at least once: the amount the registry wrote down, which is what was paid or is
+ * still owed. Not settled yet: a projection against the live estate, the only figure that
+ * exists before execution. Never a share of the post-payout leftovers.
+ */
+function formatBequestAmount({
+  hasSettledOnce,
+  plannedAmount,
+  estateWei,
+  shareBps,
+}: {
+  hasSettledOnce: boolean;
+  plannedAmount: bigint | undefined;
+  estateWei: bigint;
+  shareBps: number;
+}): string {
+  if (hasSettledOnce) {
+    return plannedAmount === undefined || plannedAmount === 0n
+      ? ""
+      : ` · ${formatEther(plannedAmount)} ETH`;
+  }
+  return estateWei > 0n ? ` · ${formatEther(computePayout(estateWei, shareBps))} ETH` : "";
+}
 
 function Feedback({
   errorMessage,

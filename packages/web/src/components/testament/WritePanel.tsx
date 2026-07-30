@@ -16,6 +16,7 @@ import { useAccount, usePublicClient, useReadContract, useWalletClient } from "w
 
 import { SealPress } from "@/components/testament/SealPress";
 import { StepTrack, type StepState } from "@/components/testament/StepTrack";
+import { Key } from "@/components/ui/Key";
 import { SafeMark } from "@/components/ui/SafeMark";
 import { TextField } from "@/components/ui/TextField";
 import { useHeirAddressKinds } from "@/lib/heir-check";
@@ -35,8 +36,7 @@ import { describePackFailureIn, describeWriteFailure } from "@/lib/describe-fail
 import {
   authorizeWriterOnSafe,
   enableModuleOnSafe,
-  readModuleEnabled,
-  readSafeWriter,
+  readSafeConsents,
   sealTestament,
 } from "@/lib/testament-write";
 
@@ -122,12 +122,15 @@ export function WritePanel() {
   /**
    * The answer is cached against the address it was asked about, so a freshly typed Safe
    * reads as unknown by derivation rather than by resetting state inside an effect.
+   *
+   * `unreadable` is a third answer, not an absent one: an address that is not a Safe, or a node
+   * that would not answer, is a different fact from a Safe that has granted nothing, and the
+   * two used to be the same value.
    */
-  const [safeCheck, setSafeCheck] = useState<{
-    safeAddress: string;
-    moduleEnabled: boolean;
-    writer: Address | null;
-  } | null>(null);
+  type SafeCheck =
+    | { safeAddress: string; unreadable: true }
+    | { safeAddress: string; moduleEnabled: boolean; writer: Address | null };
+  const [safeCheck, setSafeCheck] = useState<SafeCheck | null>(null);
   const [isEnablingModule, setIsEnablingModule] = useState(false);
   const [isNamingWriter, setIsNamingWriter] = useState(false);
   const [consentTransaction, setConsentTransaction] = useState<string | null>(null);
@@ -177,8 +180,14 @@ export function WritePanel() {
     );
   };
 
-  // Derived, not stored: an address the check has not answered for yet is simply unknown.
-  const safeAnswer = safeCheck !== null && safeCheck.safeAddress === safeAddress ? safeCheck : null;
+  // Derived, not stored: an address the check has not answered for yet, or one whose read
+  // failed, is simply unknown. Unknown never renders as "nothing granted".
+  const safeAnswer =
+    safeCheck !== null && safeCheck.safeAddress === safeAddress && !("unreadable" in safeCheck)
+      ? safeCheck
+      : null;
+  const isSafeUnreadable =
+    safeCheck !== null && safeCheck.safeAddress === safeAddress && "unreadable" in safeCheck;
   const isModuleEnabled = safeAnswer === null ? null : safeAnswer.moduleEnabled;
   /**
    * Being named is per wallet, not per Safe: a Safe that named someone else has a mandate,
@@ -189,27 +198,42 @@ export function WritePanel() {
       ? null
       : safeAnswer.writer !== null && safeAnswer.writer.toLowerCase() === address.toLowerCase();
 
-  // External system: the Safe contract and the module. The Safe grants two separate
-  // consents, and both are chain state that has to be fetched once the address is typed.
+  /**
+   * External system: the Safe contract and the module.
+   *
+   * This runs when the address changes and never after a consent. A consent now returns the
+   * state the chain confirmed for it, so writing that answer straight into `safeCheck` is both
+   * faster and truer than firing a fresh read into the same replication lag the write helper
+   * just spent ten seconds waiting out.
+   *
+   * A read that fails is recorded as a failure rather than as "nothing granted": those are
+   * different facts, and conflating them is what made an unreachable node look like a Safe
+   * that had consented to nothing.
+   */
   useEffect(() => {
     if (!deployment.isDeployed || publicClient === undefined || !isAddress(safeAddress)) {
       return;
     }
     let isCurrent = true;
     const checkedAddress = safeAddress as Address;
-    const moduleAddress = deployment.addresses.module;
-    void Promise.all([
-      readModuleEnabled({ publicClient, safeAddress: checkedAddress, moduleAddress }),
-      readSafeWriter({ publicClient, safeAddress: checkedAddress, moduleAddress }),
-    ]).then(([moduleEnabled, writer]) => {
-      if (isCurrent) {
-        setSafeCheck({ safeAddress: checkedAddress, moduleEnabled, writer });
+    void readSafeConsents({
+      publicClient,
+      safeAddress: checkedAddress,
+      moduleAddress: deployment.addresses.module,
+    }).then((read) => {
+      if (!isCurrent) {
+        return;
       }
+      setSafeCheck(
+        read.ok
+          ? { safeAddress: checkedAddress, ...read.consents }
+          : { safeAddress: checkedAddress, unreadable: true },
+      );
     });
     return () => {
       isCurrent = false;
     };
-  }, [deployment, publicClient, safeAddress, address, consentTransaction]);
+  }, [deployment, publicClient, safeAddress]);
 
   const validation = validateDraft({ drafts, safeAddress, intervalSeconds, graceSeconds, copy });
 
@@ -280,13 +304,14 @@ export function WritePanel() {
       return;
     }
 
+    const checkedSafeAddress = safeAddress as Address;
     setIsEnablingModule(true);
     setErrorMessage(null);
 
     const result = await enableModuleOnSafe({
       walletClient,
       publicClient,
-      safeAddress: safeAddress as Address,
+      safeAddress: checkedSafeAddress,
       moduleAddress: deployment.addresses.module,
     });
 
@@ -295,7 +320,10 @@ export function WritePanel() {
       setErrorMessage(describeWriteFailure(result.failure, copy));
       return;
     }
-    setConsentTransaction(result.value);
+    // The helper waited until the chain reported the consent, so its answer is written down
+    // as-is: firing a fresh read here would race the very replication lag it just outwaited.
+    setSafeCheck({ safeAddress: checkedSafeAddress, ...result.value.consents });
+    setConsentTransaction(result.value.transactionHash);
   };
 
   const handleNameWriter = async () => {
@@ -306,13 +334,14 @@ export function WritePanel() {
       return;
     }
 
+    const checkedSafeAddress = safeAddress as Address;
     setIsNamingWriter(true);
     setErrorMessage(null);
 
     const result = await authorizeWriterOnSafe({
       walletClient,
       publicClient,
-      safeAddress: safeAddress as Address,
+      safeAddress: checkedSafeAddress,
       moduleAddress: deployment.addresses.module,
     });
 
@@ -321,7 +350,8 @@ export function WritePanel() {
       setErrorMessage(describeWriteFailure(result.failure, copy));
       return;
     }
-    setConsentTransaction(result.value);
+    setSafeCheck({ safeAddress: checkedSafeAddress, ...result.value.consents });
+    setConsentTransaction(result.value.transactionHash);
   };
 
   const handleCreateVault = async () => {
@@ -473,15 +503,14 @@ export function WritePanel() {
             </AnimatePresence>
           </ul>
 
-          <button
+          <Key
             ref={addButtonRef}
-            type="button"
             onClick={addBequest}
             disabled={drafts.length >= SLOT_COUNT}
-            className="key type-small min-h-11 w-full px-4"
+            className="type-small min-h-11 w-full px-4"
           >
             {copy.write.addHeir}
-          </button>
+          </Key>
 
           {/*
             The allocation meter: the same tonal-fill-in-a-well language as the heartbeat
@@ -519,24 +548,51 @@ export function WritePanel() {
             mark beside the label says whose object this is; the field stays editable because
             an owner who already has a Safe elsewhere should not be made to abandon it.
           */}
-          <TextField
-            label={copy.write.safeLabel}
-            labelMark={isUsingDerivedVault ? <SafeMark size={14} /> : undefined}
-            value={safeAddress}
-            onChange={(event) => setTypedSafeAddress(event.target.value)}
-            placeholder="0x…"
-            spellCheck={false}
-            autoComplete="off"
-            error={safeAddress !== "" && !isAddress(safeAddress) ? copy.write.invalidAddress : null}
-            hint={resolveVaultHint({
-              vault,
-              safeAddress,
-              isUsingDerivedVault,
-              isModuleEnabled,
-              isWriterNamed,
-              copy,
-            })}
-          />
+          <div className="flex flex-col gap-1.5">
+            <TextField
+              label={copy.write.safeLabel}
+              labelMark={isUsingDerivedVault ? <SafeMark size={14} /> : undefined}
+              value={safeAddress}
+              onChange={(event) => setTypedSafeAddress(event.target.value)}
+              placeholder="0x…"
+              spellCheck={false}
+              autoComplete="off"
+              error={safeAddress !== "" && !isAddress(safeAddress) ? copy.write.invalidAddress : null}
+              hint={resolveVaultHint({
+                vault,
+                safeAddress,
+                isUsingDerivedVault,
+                isSafeUnreadable,
+                isModuleEnabled,
+                isWriterNamed,
+                copy,
+              })}
+            />
+
+            {/*
+              The field's own furniture, on one line: what the vault holds, and the way out to
+              a different Safe. Both are facts about the address above them and nothing else,
+              which is why they sit tight under it and apart from the consents. Testing read
+              the previous stack (estate line, switch link, consent keys, all at one rhythm)
+              as one unordered pile.
+            */}
+            <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+              <p className="type-small type-numeric text-ink-muted">
+                {isUsingDerivedVault && vault.status === "present" && vault.estateWei > 0n
+                  ? copy.write.vaultEstate(formatEther(vault.estateWei))
+                  : ""}
+              </p>
+              <button
+                type="button"
+                onClick={() =>
+                  isUsingDerivedVault ? setTypedSafeAddress("") : setTypedSafeAddress(null)
+                }
+                className="type-small text-ink-faint transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
+              >
+                {isUsingDerivedVault ? copy.write.vaultUseAnother : copy.write.vaultUseMine}
+              </button>
+            </div>
+          </div>
 
           <VaultActions
             vault={vault}
@@ -547,33 +603,37 @@ export function WritePanel() {
             onEstateEthChange={setEstateEth}
             onCreate={() => void handleCreateVault()}
             onFund={() => void handleFundVault()}
-            onUseAnother={() => setTypedSafeAddress("")}
-            onUseDerived={() => setTypedSafeAddress(null)}
             copy={copy}
           />
 
           {/*
             The Safe's two consents, asked for where the Safe is named and nowhere else. Both
-            are on screen from the first paint, so the ritual states its own shape: two things
-            the Safe grants, in this order, and which of them you are standing on.
+            are on screen from the first paint, and the group carries its name in ink: the two
+            keys used to sit unlabelled under the vault furniture, and testing could not tell
+            which of the surrounding lines they belonged to.
           */}
-          <StepTrack
-            title={copy.write.consentTitle}
-            first={{
-              state: passageState,
-              label: copy.write.stepPassage,
-              runningLabel: copy.write.stepPassageBusy,
-              doneLabel: copy.write.stepPassageDone,
-              onRun: () => void handleEnableModule(),
-            }}
-            second={{
-              state: handState,
-              label: copy.write.stepHand,
-              runningLabel: copy.write.stepHandBusy,
-              doneLabel: copy.write.stepHandDone,
-              onRun: () => void handleNameWriter(),
-            }}
-          />
+          <div className="flex flex-col gap-2">
+            <p aria-hidden="true" className="type-label">
+              {copy.write.consentTitle}
+            </p>
+            <StepTrack
+              title={copy.write.consentTitle}
+              first={{
+                state: passageState,
+                label: copy.write.stepPassage,
+                runningLabel: copy.write.stepPassageBusy,
+                doneLabel: copy.write.stepPassageDone,
+                onRun: () => void handleEnableModule(),
+              }}
+              second={{
+                state: handState,
+                label: copy.write.stepHand,
+                runningLabel: copy.write.stepHandBusy,
+                doneLabel: copy.write.stepHandDone,
+                onRun: () => void handleNameWriter(),
+              }}
+            />
+          </div>
 
           {consentTransaction !== null ? (
             <a
@@ -676,6 +736,7 @@ function resolveVaultHint({
   vault,
   safeAddress,
   isUsingDerivedVault,
+  isSafeUnreadable,
   isModuleEnabled,
   isWriterNamed,
   copy,
@@ -683,10 +744,16 @@ function resolveVaultHint({
   vault: TestamentVault;
   safeAddress: string;
   isUsingDerivedVault: boolean;
+  isSafeUnreadable: boolean;
   isModuleEnabled: boolean | null;
   isWriterNamed: boolean | null;
   copy: Copy;
 }): string {
+  // A failed read is its own answer. Without this line, an address that is not a Safe (or a
+  // node that would not respond) fell through to "your vault, derived from this wallet".
+  if (isSafeUnreadable) {
+    return copy.write.safeHintUnreadable;
+  }
   if (isUsingDerivedVault) {
     if (vault.status === "absent") {
       return copy.write.vaultAbsent;
@@ -732,8 +799,6 @@ function VaultActions({
   onEstateEthChange,
   onCreate,
   onFund,
-  onUseAnother,
-  onUseDerived,
   copy,
 }: {
   vault: TestamentVault;
@@ -744,23 +809,20 @@ function VaultActions({
   onEstateEthChange: (value: string) => void;
   onCreate: () => void;
   onFund: () => void;
-  onUseAnother: () => void;
-  onUseDerived: () => void;
   copy: Copy;
 }) {
-  if (vault.status === "no-owner" || vault.status === "reading") {
-    return null;
-  }
-
   const needsCreating = isUsingDerivedVault && vault.status === "absent";
   const needsFunding = isUsingDerivedVault && vault.status === "present" && vault.estateWei === 0n;
+  if (!needsCreating && !needsFunding) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col gap-3">
       {needsCreating ? (
-        <button type="button" onClick={onCreate} disabled={isCreating} className="key type-small min-h-11 w-full px-4">
+        <Key onClick={onCreate} disabled={isCreating} className="type-small min-h-11 w-full px-4">
           {isCreating ? copy.write.vaultCreating : copy.write.vaultCreate}
-        </button>
+        </Key>
       ) : null}
 
       {needsFunding ? (
@@ -774,34 +836,15 @@ function VaultActions({
               suffix="ETH"
             />
           </div>
-          <button
-            type="button"
+          <Key
             onClick={onFund}
             disabled={isFunding}
-            className="key type-small min-h-11 px-4 sm:mt-[1.6rem] sm:shrink-0"
+            className="type-small min-h-11 px-4 sm:mt-[1.6rem] sm:shrink-0"
           >
             {isFunding ? copy.write.vaultFunding : copy.write.vaultFund}
-          </button>
+          </Key>
         </div>
       ) : null}
-
-      {isUsingDerivedVault && vault.status === "present" && vault.estateWei > 0n ? (
-        <p className="type-small type-numeric text-ink-muted">
-          {copy.write.vaultEstate(formatEther(vault.estateWei))}
-        </p>
-      ) : null}
-
-      {/*
-        The escape hatch, kept quiet. It is one line of text because switching vaults is a rare
-        act, and a second control at the same weight as the ones above would say otherwise.
-      */}
-      <button
-        type="button"
-        onClick={isUsingDerivedVault ? onUseAnother : onUseDerived}
-        className="type-small w-fit text-ink-muted underline-offset-4 transition-colors duration-(--dur-small) ease-(--ease-standard) hover:text-ink"
-      >
-        {isUsingDerivedVault ? copy.write.vaultUseAnother : copy.write.vaultUseMine}
-      </button>
     </div>
   );
 }
